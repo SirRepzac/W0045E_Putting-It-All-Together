@@ -87,6 +87,19 @@ public:
 		if (type == PathNode::Nothing)
 			return;
 
+		if (type == PathNode::Wood)
+			baseNode->color = 0x5E3500; // brown
+		else if (type == PathNode::Coal)
+			baseNode->color = 0x000000; // black
+		else if (type == PathNode::Iron)
+			baseNode->color = 0xC0C0C0; // silver
+		else if (type == PathNode::Wall)
+			baseNode->color = 0xFF0000; // red
+		else if (type == PathNode::Start)
+			baseNode->color = 0xFFFFFF; // white
+		else if (type == PathNode::End)
+			baseNode->color = 0xFFFFFF; // white
+
 		baseNode->type = type;
 		specialLocations[Index(col, row)] = baseNode;
 	}
@@ -109,6 +122,7 @@ public:
 
 		// ensure grid node reflects that
 		PathNode* baseNode = &nodes.at(row).at(col);
+		baseNode->color = 0xFFFFFF; // white
 		baseNode->type = PathNode::Nothing;
 	}
 

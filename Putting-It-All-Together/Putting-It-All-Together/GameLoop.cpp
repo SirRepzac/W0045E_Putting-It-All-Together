@@ -395,7 +395,7 @@ void GameLoop::HandleInput(float delta)
 		currentPlacingType = PathNode::Type((int)currentPlacingType + 1);
 
 		keyPressCooldown = 0.2f;
-		Logger::Instance().Log(std::string("Upped placing type \n"));
+		Logger::Instance().Log(std::string("Upped placing type to " + std::to_string((int)currentPlacingType) + "\n"));
 	}
 
 	if (renderer->IsKeyDown('2'))
@@ -406,7 +406,7 @@ void GameLoop::HandleInput(float delta)
 		currentPlacingType = PathNode::Type((int)currentPlacingType - 1);
 
 		keyPressCooldown = 0.2f;
-		Logger::Instance().Log(std::string("Lowered placing type \n"));
+		Logger::Instance().Log(std::string("Lowered placing type to " + std::to_string((int)currentPlacingType) + "\n"));
 	}
 
 }

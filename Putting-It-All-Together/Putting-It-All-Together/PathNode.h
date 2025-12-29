@@ -13,6 +13,9 @@ enum Type
 	Nothing = -1,
 	Start = 0,
 	Wall,
+	Wood,
+	Coal,
+	Iron,
 	End
 };
 
