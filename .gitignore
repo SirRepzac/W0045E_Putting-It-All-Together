@@ -10,6 +10,8 @@
 *.userosscache
 *.sln.docstates
 
+logs/
+Data/
 /Putting-It-All-Together/Putting-It-All-Together/Data
 
 # User-specific files (MonoDevelop/Xamarin Studio)
