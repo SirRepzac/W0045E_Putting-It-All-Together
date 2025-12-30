@@ -3,6 +3,14 @@
 #include "Logger.h"
 #include <algorithm>
 
+// Costs and constants
+static const int COST_WOOD_PER_SOLDIER = 2;
+static const int COST_IRON_PER_SOLDIER = 1;
+static const int COST_COAL_PER_SOLDIER = 0; // unused for now
+
+static const int BARRACK_WOOD_COST = 50;
+static const int BARRACK_IRON_COST = 20;
+
 AIBrain::AIBrain(GameAI* owner) : ownerAI(owner)
 {
 	discovery = std::make_unique<WorldDiscoveryManager>(this);
@@ -54,23 +62,93 @@ void AIBrain::Think(float deltaTime)
 
 void AIBrain::UpdateValues(float deltaTime)
 {
-	// Desire-driven needs
+	// Desire-driven plan for training soldiers
 	for (Desire& d : desires)
 	{
-		// Update current progress for desire (for example, soldiers count)
-		if (d.fulfillTaskType == TaskType::TrainSoldiers)
+		if (d.fulfillTaskType != TaskType::TrainSoldiers)
+			continue;
+
+		// current progress includes queued training
+		d.currentCount = military->soldiers + military->trainingQueue;
+		int remaining = std::max(0, d.targetCount - d.currentCount);
+		if (remaining <= 0)
+			continue;
+
+		// If we don't have a barrack, queue building it first
+		if (!build->HasBuilding("Barrack"))
 		{
-			// use military manager known count
-			d.currentCount = military->soldiers;
-			int remaining = std::max(0, d.targetCount - d.currentCount);
-			if (remaining > 0)
+			// add a build task for barrack if not already queued
+			Task bTask;
+			bTask.type = TaskType::Build;
+			bTask.meta = "Barrack";
+			bTask.priority = static_cast<float>(remaining) * d.importance * constructionPriority;
+			allocator->AddTask(bTask);
+			// also ensure we have discovery info (very simple)
+			if (!discovery->HasUnexplored())
 			{
-				// create a training task scaled by importance
+				Task disc;
+				disc.type = TaskType::Discover;
+				disc.priority = 1.0f;
+				allocator->AddTask(disc);
+			}
+			// move to next desire — building is prerequisite
+			continue;
+		}
+
+		// Barrack exists. Attempt to allocate resources for one soldier at a time.
+		// Check available resources and, when available, reserve them and create a train task.
+		int haveWood = resources->Get(ResourceType::Wood);
+		int haveIron = resources->Get(ResourceType::Iron);
+
+		if (haveWood >= COST_WOOD_PER_SOLDIER && haveIron >= COST_IRON_PER_SOLDIER)
+		{
+			// Reserve resources immediately so we don't create duplicate train tasks
+			bool okWood = resources->Request(ResourceType::Wood, COST_WOOD_PER_SOLDIER);
+			bool okIron = resources->Request(ResourceType::Iron, COST_IRON_PER_SOLDIER);
+			if (okWood && okIron)
+			{
+				// create a single train task
 				Task t;
 				t.type = TaskType::TrainSoldiers;
 				t.priority = static_cast<float>(remaining) * d.importance * laborPriority;
-				t.resource = d.primaryResource;
 				allocator->AddTask(t);
+			}
+			else
+			{
+				// If reservation failed, put back any partial consumption
+				if (okWood && !okIron)
+					resources->Add(ResourceType::Wood, COST_WOOD_PER_SOLDIER);
+				if (!okWood && okIron)
+					resources->Add(ResourceType::Iron, COST_IRON_PER_SOLDIER);
+			}
+		}
+		else
+		{
+			// Not enough resources: create tasks to obtain them
+			if (haveWood < COST_WOOD_PER_SOLDIER)
+			{
+				// ensure discovery is running to find wood
+				if (!discovery->HasUnexplored())
+				{
+					Task disc;
+					disc.type = TaskType::Discover;
+					disc.priority = 1.0f;
+					allocator->AddTask(disc);
+				}
+				Task gather;
+				gather.type = TaskType::FellTrees;
+				gather.resource = ResourceType::Wood;
+				gather.priority = static_cast<float>(remaining) * d.importance * materialPriority;
+				allocator->AddTask(gather);
+			}
+			if (haveIron < COST_IRON_PER_SOLDIER)
+			{
+				// add transport / gather for iron
+				Task gather;
+				gather.type = TaskType::Transport;
+				gather.resource = ResourceType::Iron;
+				gather.priority = static_cast<float>(remaining) * d.importance * materialPriority;
+				allocator->AddTask(gather);
 			}
 		}
 	}
@@ -118,8 +196,17 @@ void AIBrain::FSM(float deltaTime)
 				break;
 			case TaskType::TrainSoldiers:
 				Logger::Instance().Log(ownerAI->GetName() + " assigned to train soldiers (task id: " + std::to_string(t.id) + ")\n");
-				// perform training immediately for this simple example
+				// queue training; resources already reserved when task was created
 				military->TrainSoldiers(1);
+				break;
+			case TaskType::Build:
+				Logger::Instance().Log(ownerAI->GetName() + " assigned to build (task id: " + std::to_string(t.id) + ") meta=" + t.meta + "\n");
+				// queue building in build manager (actual resource check in manager update)
+				build->QueueBuilding(t.meta, ownerAI->GetPosition());
+				break;
+			case TaskType::Discover:
+				Logger::Instance().Log(ownerAI->GetName() + " assigned to discover (task id: " + std::to_string(t.id) + ")\n");
+				ownerAI->SetState(GameAI::State::STATE_WANDER);
 				break;
 			default:
 				break;
@@ -173,10 +260,8 @@ void AIBrain::ResourceManager::Add(ResourceType r, int amount)
 bool AIBrain::ResourceManager::Request(ResourceType r, int amount)
 {
 	auto it = inventory.find(r);
-	if (it == inventory.end())
-		return false;
-	if (it->second < amount)
-		return false;
+	if (it == inventory.end()) return false;
+	if (it->second < amount) return false;
 	it->second -= amount;
 	return true;
 }
@@ -199,11 +284,36 @@ void AIBrain::TransportManager::ScheduleTransport(ResourceType r, int amount, co
 
 void AIBrain::BuildManager::Update(float dt)
 {
-	// pretend to progress on first queued building
-	if (!queue.empty())
+	// attempt to construct first queued building if resources available
+	if (queue.empty())
+		return;
+
+	std::string name = queue.front();
+	if (name == "Barrack")
 	{
-		// no-op for now
+		// check resource availability and consume
+		if (owner->resources->Request(ResourceType::Wood, BARRACK_WOOD_COST) && owner->resources->Request(ResourceType::Iron, BARRACK_IRON_COST))
+		{
+			builtBuildings.push_back(name);
+			queue.erase(queue.begin());
+			Logger::Instance().Log(std::string("Built: ") + name + "\n");
+		}
+		else
+		{
+			// if not enough resources, leave in queue and maybe the UpdateValues logic will spawn gather tasks
+		}
 	}
+	else
+	{
+		// generic immediate build (no resource checks)
+		builtBuildings.push_back(name);
+		queue.erase(queue.begin());
+	}
+}
+
+bool AIBrain::BuildManager::HasBuilding(const std::string& name) const
+{
+	return std::find(builtBuildings.begin(), builtBuildings.end(), name) != builtBuildings.end();
 }
 
 void AIBrain::BuildManager::QueueBuilding(const std::string& name, const Vec2& pos)
@@ -234,17 +344,34 @@ void AIBrain::ManufacturingManager::QueueManufacture(const std::string& item, in
 
 void AIBrain::MilitaryManager::Update(float dt)
 {
-	// placeholder
+	// simple: complete one training per update tick
+	if (trainingQueue > 0)
+	{
+		trainingQueue = std::max(0, trainingQueue - 1);
+		soldiers += 1;
+		Logger::Instance().Log(std::string("Trained soldier. Total now: ") + std::to_string(soldiers) + "\n");
+	}
 }
 
 void AIBrain::MilitaryManager::TrainSoldiers(int count)
 {
-	soldiers += count;
+	// add to training queue; actual production happens in Update
+	trainingQueue += count;
 }
 
 // TaskAllocator implementations
 int AIBrain::TaskAllocator::AddTask(const Task& t)
 {
+	// avoid duplicates: if an unassigned task of same type/resource/meta exists, boost priority and return its id
+	for (Task& existing : tasks)
+	{
+		if (!existing.assigned && existing.type == t.type && existing.resource == t.resource && existing.meta == t.meta)
+		{
+			existing.priority = std::max(existing.priority, t.priority);
+			return existing.id;
+		}
+	}
+
 	Task copy = t;
 	copy.id = nextId++;
 	tasks.push_back(copy);

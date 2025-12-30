@@ -20,7 +20,7 @@ public:
 		int id = -1;
 		TaskType type = TaskType::None;
 		ResourceType resource = ResourceType::None;
-		float priority = 0.0f;
+		float priority =0.0f;
 		bool assigned = false;
 		Vec2 targetPos = Vec2(0,0);
 		std::string meta;
@@ -31,9 +31,9 @@ public:
 		std::string name;
 		TaskType fulfillTaskType = TaskType::None;
 		ResourceType primaryResource = ResourceType::None;
-		int targetCount = 0;
-		int currentCount = 0;
-		float importance = 1.0f;
+		int targetCount =0;
+		int currentCount =0;
+		float importance =1.0f;
 	};
 
 	// Lightweight manager structs (defined inline)
@@ -67,7 +67,7 @@ public:
 		void ScheduleTransport(ResourceType r, int amount, const Vec2& from, const Vec2& to);
 
 		AIBrain* owner;
-		int pendingTransports = 0;
+		int pendingTransports =0;
 	};
 
 	struct BuildManager
@@ -75,9 +75,11 @@ public:
 		BuildManager(AIBrain* owner) : owner(owner) {}
 		void Update(float dt);
 		void QueueBuilding(const std::string& name, const Vec2& pos);
+		bool HasBuilding(const std::string& name) const;
 
 		AIBrain* owner;
 		std::vector<std::string> queue;
+		std::vector<std::string> builtBuildings;
 	};
 
 	struct ManufacturingManager
@@ -97,7 +99,8 @@ public:
 		void TrainSoldiers(int count);
 
 		AIBrain* owner;
-		int soldiers = 0;
+		int soldiers =0;
+		int trainingQueue =0;
 	};
 
 	struct TaskAllocator
@@ -111,7 +114,7 @@ public:
 
 		AIBrain* owner;
 		std::vector<Task> tasks;
-		int nextId = 1;
+		int nextId =1;
 	};
 
 public:
@@ -130,15 +133,15 @@ public:
 	void SetConstructionPriority(float p) { constructionPriority = p; }
 
 	// Desire API
-	void AddDesire(const std::string& name, TaskType taskType, ResourceType primaryResource, int targetCount, float importance = 1.0f);
+	void AddDesire(const std::string& name, TaskType taskType, ResourceType primaryResource, int targetCount, float importance =1.0f);
 
 private:
 	GameAI* ownerAI = nullptr;
 
 	// Priorities
-	float materialPriority = 1.0f;
-	float laborPriority = 1.0f;
-	float constructionPriority = 1.0f;
+	float materialPriority =1.0f;
+	float laborPriority =1.0f;
+	float constructionPriority =1.0f;
 
 	// Managers
 	std::unique_ptr<WorldDiscoveryManager> discovery;
