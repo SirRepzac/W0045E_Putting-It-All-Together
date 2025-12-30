@@ -18,9 +18,8 @@ AIBrain::AIBrain(GameAI* owner) : ownerAI(owner)
 	resources->inventory[ResourceType::Coal] = 0;
 	resources->inventory[ResourceType::Iron] = 0;
 
-	woodNeed = 0.0f;
-	coalNeed = 0.0f;
-	ironNeed = 0.0f;
+	// Example desire:20 soldiers
+	AddDesire("HaveSoldiers", TaskType::TrainSoldiers, ResourceType::None, 20, 1.0f);
 }
 
 AIBrain::~AIBrain()
@@ -33,7 +32,8 @@ void AIBrain::Think(float deltaTime)
 {
 	if (!ownerAI)
 		return;
-	// Simple need decay over time
+
+	// Simple priority decay over time
 	Decay(deltaTime);
 
 	UpdateValues(deltaTime);
@@ -54,68 +54,29 @@ void AIBrain::Think(float deltaTime)
 
 void AIBrain::UpdateValues(float deltaTime)
 {
-	// Very simple need model: needs slowly increase over time and are reduced when resources available
-	woodNeed += deltaTime * 0.2f;
-	coalNeed += deltaTime * 0.15f;
-	ironNeed += deltaTime * 0.1f;
-
-	// If we have inventory, reduce needs
-	int haveWood = resources->Get(ResourceType::Wood);
-	int haveCoal = resources->Get(ResourceType::Coal);
-	int haveIron = resources->Get(ResourceType::Iron);
-
-	if (haveWood > 0 && woodNeed > 0.0f)
+	// Desire-driven needs
+	for (Desire& d : desires)
 	{
-		float used = std::min(woodNeed, static_cast<float>(haveWood));
-		woodNeed -= used;
-		// consume from inventory
-		resources->Request(ResourceType::Wood, static_cast<int>(used));
-	}
-	if (haveCoal > 0 && coalNeed > 0.0f)
-	{
-		float used = std::min(coalNeed, static_cast<float>(haveCoal));
-		coalNeed -= used;
-		resources->Request(ResourceType::Coal, static_cast<int>(used));
-	}
-	if (haveIron > 0 && ironNeed > 0.0f)
-	{
-		float used = std::min(ironNeed, static_cast<float>(haveIron));
-		ironNeed -= used;
-		resources->Request(ResourceType::Iron, static_cast<int>(used));
-	}
-
-	// If needs exceed thresholds, create tasks
-	const float needThreshold = 5.0f;
-	if (woodNeed > needThreshold)
-	{
-		Task t;
-		t.type = TaskType::FellTrees;
-		t.priority = woodNeed * materialPriority;
-		t.resource = ResourceType::Wood;
-		allocator->AddTask(t);
-		woodNeed = 0.0f; // reset a bit to avoid spamming
-	}
-	if (coalNeed > needThreshold)
-	{
-		Task t;
-		t.type = TaskType::Transport;
-		t.priority = coalNeed * materialPriority;
-		t.resource = ResourceType::Coal;
-		allocator->AddTask(t);
-		coalNeed = 0.0f;
-	}
-	if (ironNeed > needThreshold)
-	{
-		Task t;
-		t.type = TaskType::Transport;
-		t.priority = ironNeed * materialPriority;
-		t.resource = ResourceType::Iron;
-		allocator->AddTask(t);
-		ironNeed = 0.0f;
+		// Update current progress for desire (for example, soldiers count)
+		if (d.fulfillTaskType == TaskType::TrainSoldiers)
+		{
+			// use military manager known count
+			d.currentCount = military->soldiers;
+			int remaining = std::max(0, d.targetCount - d.currentCount);
+			if (remaining > 0)
+			{
+				// create a training task scaled by importance
+				Task t;
+				t.type = TaskType::TrainSoldiers;
+				t.priority = static_cast<float>(remaining) * d.importance * laborPriority;
+				t.resource = d.primaryResource;
+				allocator->AddTask(t);
+			}
+		}
 	}
 }
 
-// Decay of the AI's needs over time
+// Decay of the AI's priorities over time
 void AIBrain::Decay(float deltaTime)
 {
 	// Gradually lower priorities to simulate attention shifting
@@ -147,17 +108,21 @@ void AIBrain::FSM(float deltaTime)
 		Task t = allocator->GetNext();
 		switch (t.type)
 		{
-		case TaskType::FellTrees:
-			Logger::Instance().Log(ownerAI->GetName() + " assigned to fell trees (task id: " + std::to_string(t.id) + ")\n");
-			// create a very small behaviour change: set AI state to SEEK to a target position if set
-			ownerAI->SetState(GameAI::State::STATE_SEEK);
-			break;
-		case TaskType::Transport:
-			Logger::Instance().Log(ownerAI->GetName() + " assigned to transport resource (task id: " + std::to_string(t.id) + ")\n");
-			ownerAI->SetState(GameAI::State::STATE_FOLLOW_PATH);
-			break;
-		default:
-			break;
+			case TaskType::FellTrees:
+				Logger::Instance().Log(ownerAI->GetName() + " assigned to fell trees (task id: " + std::to_string(t.id) + ")\n");
+				ownerAI->SetState(GameAI::State::STATE_SEEK);
+				break;
+			case TaskType::Transport:
+				Logger::Instance().Log(ownerAI->GetName() + " assigned to transport resource (task id: " + std::to_string(t.id) + ")\n");
+				ownerAI->SetState(GameAI::State::STATE_FOLLOW_PATH);
+				break;
+			case TaskType::TrainSoldiers:
+				Logger::Instance().Log(ownerAI->GetName() + " assigned to train soldiers (task id: " + std::to_string(t.id) + ")\n");
+				// perform training immediately for this simple example
+				military->TrainSoldiers(1);
+				break;
+			default:
+				break;
 		}
 	}
 	else
@@ -195,7 +160,8 @@ void AIBrain::ResourceManager::Update(float dt)
 int AIBrain::ResourceManager::Get(ResourceType r) const
 {
 	auto it = inventory.find(r);
-	if (it == inventory.end()) return 0;
+	if (it == inventory.end())
+		return 0;
 	return it->second;
 }
 
@@ -207,8 +173,10 @@ void AIBrain::ResourceManager::Add(ResourceType r, int amount)
 bool AIBrain::ResourceManager::Request(ResourceType r, int amount)
 {
 	auto it = inventory.find(r);
-	if (it == inventory.end()) return false;
-	if (it->second < amount) return false;
+	if (it == inventory.end())
+		return false;
+	if (it->second < amount)
+		return false;
 	it->second -= amount;
 	return true;
 }
@@ -290,13 +258,25 @@ void AIBrain::TaskAllocator::Update(float dt)
 	Reprioritize();
 }
 
-bool AIBrain::TaskAllocator::HasPending() const
+void AIBrain::TaskAllocator::Reprioritize()
 {
-	for (const Task& t : tasks)
+	// Simple example: boost tasks that relate to material using brain priority weights
+	for (Task& t : tasks)
 	{
-		if (!t.assigned) return true;
+		float base = t.priority;
+		if (t.resource != ResourceType::None)
+		{
+			base *= owner->materialPriority;
+		}
+		// construction related
+		if (t.type == TaskType::Build)
+			base *= owner->constructionPriority;
+		// labor-related (training)
+		if (t.type == TaskType::TrainSoldiers)
+			base *= owner->laborPriority;
+		// clamp
+		t.priority = std::max(0.0f, base);
 	}
-	return false;
 }
 
 AIBrain::Task AIBrain::TaskAllocator::GetNext()
@@ -314,23 +294,15 @@ AIBrain::Task AIBrain::TaskAllocator::GetNext()
 	return t;
 }
 
-void AIBrain::TaskAllocator::Reprioritize()
+// New: AddDesire implementation
+void AIBrain::AddDesire(const std::string& name, AIBrain::TaskType taskType, AIBrain::ResourceType primaryResource, int targetCount, float importance)
 {
-	// Simple example: boost tasks that relate to material using brain priority weights
-	for (Task& t : tasks)
-	{
-		float base = t.priority;
-		if (t.resource != ResourceType::None)
-		{
-			base *= brain->materialPriority;
-		}
-		// construction related
-		if (t.type == TaskType::Build)
-			base *= brain->constructionPriority;
-		// labor-related (training)
-		if (t.type == TaskType::TrainSoldiers)
-			base *= brain->laborPriority;
-		// clamp
-		t.priority = std::max(0.0f, base);
-	}
+	Desire d;
+	d.name = name;
+	d.fulfillTaskType = taskType;
+	d.primaryResource = primaryResource;
+	d.targetCount = targetCount;
+	d.currentCount = 0;
+	d.importance = importance;
+	desires.push_back(d);
 }

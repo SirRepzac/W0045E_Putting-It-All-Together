@@ -78,7 +78,7 @@ void GameLoop::InitializeGame()
 {
 	pathfinder = new AStar(&grid);
 
-	CreateAI(4);
+	CreateAI(1);
 
 	CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
 
