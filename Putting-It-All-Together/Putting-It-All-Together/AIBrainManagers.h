@@ -17,7 +17,7 @@ static const int BARRACK_IRON_COST = 20;
 
 // High-level enums and data structures used by the managers and AIBrain
 enum class ResourceType { Wood, Coal, Iron, None };
-enum class TaskType { None, Discover, FellTrees, Transport, Build, MineCoal, MineIron, TrainSoldiers };
+enum class TaskType { None, Discover, FellTrees, Transport, Build, MineCoal, MineIron, TrainSoldiers, Manafacture };
 
 struct Task
 {
@@ -26,7 +26,6 @@ struct Task
 	ResourceType resource = ResourceType::None;
 	float priority = 0.0f;
 	bool assigned = false;
-	Vec2 targetPos = Vec2(0, 0);
 	std::string meta;
 	int amount = 0;
 };
@@ -61,12 +60,12 @@ public:
 	ResourceManager(AIBrain* owner);
 	void Update(float dt);
 	int Get(ResourceType r) const;
-	void Add(ResourceType r, int amount);
-	bool Request(ResourceType r, int amount);
+	void Add(ResourceType r, float amount);
+	bool Request(ResourceType r, float amount);
 
 private:
 	AIBrain* owner;
-	std::map<ResourceType, int> inventory;
+	std::map<ResourceType, float> inventory;
 };
 
 class TransportManager
@@ -131,7 +130,12 @@ public:
 	void Update(float dt);
 	bool HasPending() const;
 	Task GetNext();
-	void Reprioritize();
+	void RemoveTask(int id);
+	void RemoveTaskByType(TaskType type) { tasks.erase(std::remove_if(tasks.begin(), tasks.end(),
+		[type](const Task& t) { return t.type == type; }), tasks.end());
+	}
+	void RemoveTaskByMeta(const std::string& meta);
+	void Clear() { tasks.clear(); }
 
 private:
 	AIBrain* owner;

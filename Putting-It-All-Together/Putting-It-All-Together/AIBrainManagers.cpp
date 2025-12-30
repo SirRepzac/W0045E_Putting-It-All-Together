@@ -31,11 +31,11 @@ int ResourceManager::Get(ResourceType r) const
 		return 0;
 	return it->second;
 }
-void ResourceManager::Add(ResourceType r, int amount)
+void ResourceManager::Add(ResourceType r, float amount)
 {
 	inventory[r] += amount;
 }
-bool ResourceManager::Request(ResourceType r, int amount)
+bool ResourceManager::Request(ResourceType r, float amount)
 {
 	auto it = inventory.find(r);
 	if (it == inventory.end())
@@ -88,7 +88,7 @@ void BuildManager::Update(float dt)
 			owner->GetAllocator()->AddTask(gather);
 		}
 
-		if (owner->GetResources()->Get(ResourceType::Wood) > BARRACK_WOOD_COST && owner->GetResources()->Get(ResourceType::Iron) > BARRACK_IRON_COST)
+		if (owner->GetResources()->Get(ResourceType::Wood) >= BARRACK_WOOD_COST && owner->GetResources()->Get(ResourceType::Iron) >= BARRACK_IRON_COST)
 		{
 			owner->GetResources()->Request(ResourceType::Wood, BARRACK_WOOD_COST);
 			owner->GetResources()->Request(ResourceType::Iron, BARRACK_IRON_COST);
@@ -96,6 +96,7 @@ void BuildManager::Update(float dt)
 			builtBuildings.push_back(name);
 			queue.erase(queue.begin());
 			Logger::Instance().Log(std::string("Built: ") + name + "\n");
+			owner->GetAllocator()->RemoveTaskByMeta(name);
 		}
 	}
 	else
@@ -165,7 +166,6 @@ int TaskAllocator::AddTask(const Task& t)
 void TaskAllocator::Update(float dt)
 {
 	(void)dt;
-	Reprioritize();
 }
 bool TaskAllocator::HasPending() const
 {
@@ -177,7 +177,6 @@ bool TaskAllocator::HasPending() const
 
 Task TaskAllocator::GetNext()
 {
-	Reprioritize();
 	auto it = std::max_element(tasks.begin(), tasks.end(), [](const Task& a, const Task& b)
 		{
 			return a.priority < b.priority;
@@ -196,18 +195,12 @@ Task TaskAllocator::GetNext()
 	return t;
 }
 
-void TaskAllocator::Reprioritize()
+void TaskAllocator::RemoveTask(int id)
 {
-	return;
-	for (Task& t : tasks)
-	{
-		float base = t.priority;
-		if (t.resource != ResourceType::None)
-			base *= owner->GetResources()->Get(ResourceType::Wood) + 1; // placeholder multiplier
-		if (t.type == TaskType::Build)
-			base *= owner->GetResources()->Get(ResourceType::Wood) + 1;
-		if (t.type == TaskType::TrainSoldiers)
-			base *= owner->GetMilitary()->GetTrainingQueue();
-		t.priority = std::max(0.0f, base);
-	}
+	tasks.erase(std::remove_if(tasks.begin(), tasks.end(), [id](const Task& t) { return t.id == id; }), tasks.end());
+}
+
+void TaskAllocator::RemoveTaskByMeta(const std::string& meta)
+{
+	tasks.erase(std::remove_if(tasks.begin(), tasks.end(), [meta](const Task& t) { return t.meta == meta; }), tasks.end());
 }

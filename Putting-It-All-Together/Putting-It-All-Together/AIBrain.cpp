@@ -87,7 +87,7 @@ void AIBrain::UpdateValues(float deltaTime)
 				Task bTask;
 				bTask.type = TaskType::Build;
 				bTask.meta = "Barrack";
-				bTask.priority = 3;//static_cast<float>(remaining) * d.importance * constructionPriority;
+				bTask.priority = 3;
 				allocator->AddTask(bTask);
 				continue;
 			}
@@ -104,7 +104,8 @@ void AIBrain::UpdateValues(float deltaTime)
 				{
 					Task t; 
 					t.type = TaskType::TrainSoldiers; 
-					t.priority = 1;//static_cast<float>(remaining) * d.importance * laborPriority; allocator->AddTask(t);
+					t.priority = 10;
+					allocator->AddTask(t);
 				}
 				else
 				{
@@ -126,18 +127,19 @@ void AIBrain::UpdateValues(float deltaTime)
 			{
 				if (haveWood < COST_WOOD_PER_SOLDIER)
 				{
-					if (!discovery->HasUnexplored()) 
-					{ 
-						Task disc; 
-						disc.type = TaskType::Discover; 
-						disc.priority = 1.0f; 
-						allocator->AddTask(disc); 
-					}
+					//if (!discovery->HasUnexplored()) 
+					//{ 
+					//	Task disc; 
+					//	disc.type = TaskType::Discover; 
+					//	disc.priority = 1.0f;
+					//	allocator->AddTask(disc); 
+					//}
 
 					Task gather; 
 					gather.type = TaskType::FellTrees; 
 					gather.resource = ResourceType::Wood; 
-					gather.priority = 2;//static_cast<float>(remaining)* d.importance* materialPriority;
+					gather.priority = 2;
+					gather.amount = COST_WOOD_PER_SOLDIER * remaining;
 					allocator->AddTask(gather);
 				}
 				if (haveIron < COST_IRON_PER_SOLDIER)
@@ -145,7 +147,8 @@ void AIBrain::UpdateValues(float deltaTime)
 					Task gather; 
 					gather.type = TaskType::MineIron; 
 					gather.resource = ResourceType::Iron; 
-					gather.priority = 2;//static_cast<float>(remaining) * d.importance * materialPriority; 
+					gather.priority = 2;
+					gather.amount = COST_IRON_PER_SOLDIER * remaining;
 					allocator->AddTask(gather);
 				}
 			}
@@ -180,13 +183,18 @@ void AIBrain::FSM(float deltaTime)
 	switch (t.type)
 	{
 	case TaskType::FellTrees:
+		if (t.id != prevTaskID)
 		Logger::Instance().Log(ownerAI->GetName() + " assigned to fell trees (task id: " + std::to_string(t.id) + " priority=" + std::to_string(t.priority) + ")\n");
 
 		grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, PathNode::Wood);
 		if (!nodes.empty())
 		{
 			// is close
-			resources->Add(ResourceType::Wood, 1);
+			resources->Add(ResourceType::Wood, 60 * deltaTime);
+			if (resources->Get(ResourceType::Wood) > t.amount)
+			{
+				allocator->RemoveTaskByType(t.type);
+			}
 		}
 		else
 		{
@@ -196,13 +204,18 @@ void AIBrain::FSM(float deltaTime)
 		}
 		break;
 	case TaskType::MineCoal:
+		if (t.id != prevTaskID)
 		Logger::Instance().Log(ownerAI->GetName() + " assigned to mine coal (task id: " + std::to_string(t.id) + " priority=" + std::to_string(t.priority) + ")\n");
 
 		grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, PathNode::Coal);
 		if (!nodes.empty())
 		{
 			// is close
-			resources->Add(ResourceType::Coal, 1);
+			resources->Add(ResourceType::Coal, 60 * deltaTime);
+			if (resources->Get(ResourceType::Coal) > t.amount)
+			{
+				allocator->RemoveTaskByType(t.type);
+			}
 		}
 		else
 		{
@@ -212,13 +225,19 @@ void AIBrain::FSM(float deltaTime)
 		}
 		break;
 	case TaskType::MineIron:
+		if (t.id != prevTaskID)
 		Logger::Instance().Log(ownerAI->GetName() + " assigned mine iron (task id: " + std::to_string(t.id) + " priority=" + std::to_string(t.priority) + ")\n");
 
 		grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, PathNode::Iron);
 		if (!nodes.empty())
 		{
 			// is close
-			resources->Add(ResourceType::Iron, 1);
+			resources->Add(ResourceType::Iron, 60 * deltaTime);
+
+			if (resources->Get(ResourceType::Iron) > t.amount)
+			{
+				allocator->RemoveTaskByType(t.type);
+			}
 		}
 		else
 		{
@@ -234,6 +253,7 @@ void AIBrain::FSM(float deltaTime)
 	case TaskType::TrainSoldiers:
 		Logger::Instance().Log(ownerAI->GetName() + " assigned to train soldiers (task id: " + std::to_string(t.id) + " priority=" + std::to_string(t.priority) + ")\n");
 		military->TrainSoldiers(1);
+		allocator->RemoveTask(t.id);
 		break;
 	case TaskType::Build:
 		Logger::Instance().Log(ownerAI->GetName() + " assigned to build (task id: " + std::to_string(t.id) + ") meta=" + t.meta + " priority=" + std::to_string(t.priority) + "\n");
@@ -244,6 +264,12 @@ void AIBrain::FSM(float deltaTime)
 		ownerAI->SetState(GameAI::State::STATE_WANDER);
 		break;
 	default: break;
+	}
+	prevTaskID = t.id;
+
+	if (military->GetSoldierCount() >= 20)
+	{
+		ownerAI->SetState(GameAI::State::STATE_IDLE);
 	}
 }
 

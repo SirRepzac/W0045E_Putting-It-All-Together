@@ -51,4 +51,6 @@ private:
 	std::unique_ptr<ManufacturingManager> manufacturing;
 	std::unique_ptr<MilitaryManager> military;
 	std::unique_ptr<TaskAllocator> allocator;
+
+	int prevTaskID = -1;
 };
