@@ -17,7 +17,7 @@ static const int BARRACK_IRON_COST = 20;
 
 // High-level enums and data structures used by the managers and AIBrain
 enum class ResourceType { Wood, Coal, Iron, None };
-enum class TaskType { None, Discover, FellTrees, Transport, Build, Manufacture, TrainSoldiers };
+enum class TaskType { None, Discover, FellTrees, Transport, Build, MineCoal, MineIron, TrainSoldiers };
 
 struct Task
 {
@@ -28,6 +28,7 @@ struct Task
 	bool assigned = false;
 	Vec2 targetPos = Vec2(0, 0);
 	std::string meta;
+	int amount = 0;
 };
 
 struct Desire

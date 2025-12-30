@@ -69,8 +69,30 @@ void BuildManager::Update(float dt)
 	std::string name = queue.front();
 	if (name == "Barrack")
 	{
-		if (owner->GetResources()->Request(ResourceType::Wood, BARRACK_WOOD_COST) && owner->GetResources()->Request(ResourceType::Iron, BARRACK_IRON_COST))
+		if (owner->GetResources()->Get(ResourceType::Wood) < BARRACK_WOOD_COST)
 		{
+			Task gather;
+			gather.type = TaskType::FellTrees;
+			gather.resource = ResourceType::Wood;
+			gather.priority = 5;
+			gather.amount = BARRACK_WOOD_COST;
+			owner->GetAllocator()->AddTask(gather);
+		}
+		if (owner->GetResources()->Get(ResourceType::Iron) < BARRACK_IRON_COST)
+		{
+			Task gather;
+			gather.type = TaskType::MineIron;
+			gather.resource = ResourceType::Iron;
+			gather.priority = 5;
+			gather.amount = BARRACK_IRON_COST;
+			owner->GetAllocator()->AddTask(gather);
+		}
+
+		if (owner->GetResources()->Get(ResourceType::Wood) > BARRACK_WOOD_COST && owner->GetResources()->Get(ResourceType::Iron) > BARRACK_IRON_COST)
+		{
+			owner->GetResources()->Request(ResourceType::Wood, BARRACK_WOOD_COST);
+			owner->GetResources()->Request(ResourceType::Iron, BARRACK_IRON_COST);
+
 			builtBuildings.push_back(name);
 			queue.erase(queue.begin());
 			Logger::Instance().Log(std::string("Built: ") + name + "\n");
@@ -124,8 +146,6 @@ void MilitaryManager::Update(float dt)
 	}
 }
 void MilitaryManager::TrainSoldiers(int count) { trainingQueue += count; }
-int MilitaryManager::GetSoldierCount() const { return soldiers; }
-int MilitaryManager::GetTrainingQueue() const { return trainingQueue; }
 
 // TaskAllocator
 TaskAllocator::TaskAllocator(AIBrain* owner) : owner(owner) {}
@@ -178,13 +198,14 @@ Task TaskAllocator::GetNext()
 
 void TaskAllocator::Reprioritize()
 {
+	return;
 	for (Task& t : tasks)
 	{
 		float base = t.priority;
 		if (t.resource != ResourceType::None)
-			base *= owner->GetResources()->Get(ResourceType::Wood); // placeholder multiplier
+			base *= owner->GetResources()->Get(ResourceType::Wood) + 1; // placeholder multiplier
 		if (t.type == TaskType::Build)
-			base *= owner->GetResources()->Get(ResourceType::Wood);
+			base *= owner->GetResources()->Get(ResourceType::Wood) + 1;
 		if (t.type == TaskType::TrainSoldiers)
 			base *= owner->GetMilitary()->GetTrainingQueue();
 		t.priority = std::max(0.0f, base);

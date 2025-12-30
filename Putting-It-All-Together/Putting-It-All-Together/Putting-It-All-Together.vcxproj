@@ -125,6 +125,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AIBrain.cpp" />
+    <ClCompile Include="AIBrainManagers.cpp" />
     <ClCompile Include="AStar.cpp" />
     <ClCompile Include="Behaviour.cpp" />
     <ClCompile Include="GameAI.cpp" />
@@ -140,6 +141,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AIBrain.h" />
+    <ClInclude Include="AIBrainManagers.h" />
     <ClInclude Include="AStar.h" />
     <ClInclude Include="Behaviour.h" />
     <ClInclude Include="Constants.h" />

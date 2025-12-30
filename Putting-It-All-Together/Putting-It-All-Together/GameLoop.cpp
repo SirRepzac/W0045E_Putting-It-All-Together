@@ -8,6 +8,7 @@
 #include "AStar.h"
 #include <direct.h>
 #include <filesystem>
+#include "AIBrainManagers.h"
 
 
 struct DataPoint
@@ -297,10 +298,10 @@ void GameLoop::UpdateRenderer()
 	if (!aiList.empty())
 	{
 
-		std::string str1 = "";
-		std::string str2 = "";
-		std::string str3 = "";
-		std::string str4 = "";
+		std::string str1 = "Wood: " + std::to_string(aiList[0]->GetBrain()->GetResources()->Get(ResourceType::Wood));
+		std::string str2 = "Iron: " + std::to_string(aiList[0]->GetBrain()->GetResources()->Get(ResourceType::Iron));
+		std::string str3 = "Coal: " + std::to_string(aiList[0]->GetBrain()->GetResources()->Get(ResourceType::Coal));
+		std::string str4 = "Soldiers: " + std::to_string(aiList[0]->GetBrain()->GetMilitary()->GetSoldierCount());
 		std::string str5 = "";
 
 		std::vector<std::string> overlay = {
