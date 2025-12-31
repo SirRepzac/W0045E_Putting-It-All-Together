@@ -19,6 +19,33 @@ static const int BARRACK_IRON_COST = 20;
 enum class ResourceType { Wood, Coal, Iron, None };
 enum class TaskType { None, Discover, FellTrees, Transport, Build, MineCoal, MineIron, TrainSoldiers, Manafacture };
 
+static std::string ToString(TaskType type)
+{
+	switch (type)
+	{
+	case (TaskType::None):
+		return "nothing";
+	case (TaskType::Discover):
+		return "exploring";
+	case (TaskType::FellTrees):
+		return "chop wood";
+	case (TaskType::Transport):
+		return "transport";
+	case (TaskType::Build):
+		return "build";
+	case (TaskType::MineCoal):
+		return "mine coal";
+	case (TaskType::MineIron):
+		return "mine iron";
+	case (TaskType::TrainSoldiers):
+		return "train soldiers";
+	case (TaskType::Manafacture):
+		return "manafacture";
+	default:
+		return "nothing";
+	}
+}
+
 struct Task
 {
 	int id = -1;
@@ -32,6 +59,7 @@ struct Task
 
 struct Desire
 {
+	bool added = false;
 	std::string name;
 	TaskType fulfillTaskType = TaskType::None;
 	ResourceType primaryResource = ResourceType::None;
@@ -87,6 +115,7 @@ public:
 	void Update(float dt);
 	void QueueBuilding(const std::string& name, const Vec2& pos);
 	bool HasBuilding(const std::string& name) const;
+	bool IsInQueue(const std::string& name) const;
 
 private:
 	AIBrain* owner;
@@ -129,7 +158,7 @@ public:
 	int AddTask(const Task& t);
 	void Update(float dt);
 	bool HasPending() const;
-	Task GetNext();
+	Task* GetNext();
 	void RemoveTask(int id);
 	void RemoveTaskByType(TaskType type) { tasks.erase(std::remove_if(tasks.begin(), tasks.end(),
 		[type](const Task& t) { return t.type == type; }), tasks.end());

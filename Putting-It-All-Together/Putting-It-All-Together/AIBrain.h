@@ -52,5 +52,5 @@ private:
 	std::unique_ptr<MilitaryManager> military;
 	std::unique_ptr<TaskAllocator> allocator;
 
-	int prevTaskID = -1;
+	TaskType prevTaskType = TaskType::None;
 };

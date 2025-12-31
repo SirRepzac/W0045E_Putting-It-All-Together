@@ -67,48 +67,19 @@ void BuildManager::Update(float dt)
 	(void)dt;
 	if (queue.empty()) return;
 	std::string name = queue.front();
-	if (name == "Barrack")
-	{
-		if (owner->GetResources()->Get(ResourceType::Wood) < BARRACK_WOOD_COST)
-		{
-			Task gather;
-			gather.type = TaskType::FellTrees;
-			gather.resource = ResourceType::Wood;
-			gather.priority = 5;
-			gather.amount = BARRACK_WOOD_COST;
-			owner->GetAllocator()->AddTask(gather);
-		}
-		if (owner->GetResources()->Get(ResourceType::Iron) < BARRACK_IRON_COST)
-		{
-			Task gather;
-			gather.type = TaskType::MineIron;
-			gather.resource = ResourceType::Iron;
-			gather.priority = 5;
-			gather.amount = BARRACK_IRON_COST;
-			owner->GetAllocator()->AddTask(gather);
-		}
 
-		if (owner->GetResources()->Get(ResourceType::Wood) >= BARRACK_WOOD_COST && owner->GetResources()->Get(ResourceType::Iron) >= BARRACK_IRON_COST)
-		{
-			owner->GetResources()->Request(ResourceType::Wood, BARRACK_WOOD_COST);
-			owner->GetResources()->Request(ResourceType::Iron, BARRACK_IRON_COST);
-
-			builtBuildings.push_back(name);
-			queue.erase(queue.begin());
-			Logger::Instance().Log(std::string("Built: ") + name + "\n");
-			owner->GetAllocator()->RemoveTaskByMeta(name);
-		}
-	}
-	else
-	{
-		builtBuildings.push_back(name);
-		queue.erase(queue.begin());
-	}
+	builtBuildings.push_back(name);
+	queue.erase(queue.begin());
+	Logger::Instance().Log(std::string("Built: ") + name + "\n");
 }
 
 bool BuildManager::HasBuilding(const std::string& name) const
 {
 	return std::find(builtBuildings.begin(), builtBuildings.end(), name) != builtBuildings.end();
+}
+bool BuildManager::IsInQueue(const std::string& name) const
+{
+	return std::find(queue.begin(), queue.end(), name) != queue.end();
 }
 void BuildManager::QueueBuilding(const std::string& name, const Vec2& pos)
 {
@@ -154,7 +125,7 @@ int TaskAllocator::AddTask(const Task& t)
 {
 	for (Task& existing : tasks)
 	{
-		if (!existing.assigned && existing.type == t.type && existing.resource == t.resource && existing.meta == t.meta)
+		if (!existing.assigned && existing.type == TaskType::Build && existing.meta == t.meta)
 		{
 			existing.priority = std::max(existing.priority, t.priority);
 			return existing.id;
@@ -175,24 +146,44 @@ bool TaskAllocator::HasPending() const
 	return false;
 }
 
-Task TaskAllocator::GetNext()
+// PLAN (pseudocode):
+// 1. Change the GetNext() function to return a pointer to Task (Task*).
+//    - This allows callers to modify the actual Task stored in the allocator's vector.
+//    - If no task is available, return nullptr so the caller can check.
+// 2. Find the highest-priority task using std::max_element.
+//    - Use a comparator taking const Task& to avoid accidental modification.
+// 3. If no tasks, return nullptr.
+// 4. Otherwise mark the selected Task as assigned directly on the element in the vector.
+// 5. Return a pointer to that element so the caller can edit it in-place.
+// 6. NOTE: You must also update the declaration in the header
+//    (`Putting-It-All-Together\AIBrainManagers.h`) from:
+//       Task GetNext();
+//    to:
+//       Task* GetNext();
+//    so the signature matches this implementation.
+//
+// Implementation below updates only the .cpp definition. Ensure header is updated accordingly.
+
+Task* TaskAllocator::GetNext()
 {
+	// If there are no tasks, return nullptr
+	if (tasks.empty())
+		return nullptr;
+
+	// Find iterator to the highest-priority task
 	auto it = std::max_element(tasks.begin(), tasks.end(), [](const Task& a, const Task& b)
 		{
 			return a.priority < b.priority;
 		});
+
 	if (it == tasks.end())
-		return Task();
-	Task t = *it;
-	for (Task& tt : tasks)
-	{
-		if (tt.id == t.id)
-		{
-			tt.assigned = true;
-			break;
-		}
-	}
-	return t;
+		return nullptr;
+
+	// Mark the actual task stored in the vector as assigned
+	it->assigned = true;
+
+	// Return pointer to the actual Task so caller can edit it in-place
+	return &(*it);
 }
 
 void TaskAllocator::RemoveTask(int id)
