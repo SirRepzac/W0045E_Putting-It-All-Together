@@ -16,7 +16,8 @@ enum Type
 	Wood,
 	Coal,
 	Iron,
-	End
+	End,
+	Special
 };
 
 
@@ -38,7 +39,7 @@ enum Type
 
 	bool IsObstacle() const
 	{
-		if (type == Wall)
+		if (type == Wall || type == Special)
 			return true;
 		else return false;
 	}

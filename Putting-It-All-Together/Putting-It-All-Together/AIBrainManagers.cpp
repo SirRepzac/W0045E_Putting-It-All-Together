@@ -2,6 +2,7 @@
 #include "AIBrain.h"
 #include "Logger.h"
 #include <algorithm>
+#include "GameLoop.h"
 
 // WorldDiscoveryManager
 WorldDiscoveryManager::WorldDiscoveryManager(AIBrain* owner) : owner(owner) {}
@@ -69,6 +70,15 @@ void BuildManager::Update(float dt)
 	std::string name = queue.front();
 
 	builtBuildings.push_back(name);
+
+	if (name == "Barrack")
+	{
+		Grid& grid = GameLoop::Instance().GetGrid();
+		PathNode* node = grid.GetNodeAt(Vec2(WORLD_WIDTH / 3 * 2, WORLD_HEIGHT / 3));
+		grid.SetSpecialNode(node, PathNode::Special);
+		node->color = Renderer::Purple;
+	}
+
 	queue.erase(queue.begin());
 	Logger::Instance().Log(std::string("Built: ") + name + "\n");
 }
@@ -145,24 +155,6 @@ bool TaskAllocator::HasPending() const
 			return true;
 	return false;
 }
-
-// PLAN (pseudocode):
-// 1. Change the GetNext() function to return a pointer to Task (Task*).
-//    - This allows callers to modify the actual Task stored in the allocator's vector.
-//    - If no task is available, return nullptr so the caller can check.
-// 2. Find the highest-priority task using std::max_element.
-//    - Use a comparator taking const Task& to avoid accidental modification.
-// 3. If no tasks, return nullptr.
-// 4. Otherwise mark the selected Task as assigned directly on the element in the vector.
-// 5. Return a pointer to that element so the caller can edit it in-place.
-// 6. NOTE: You must also update the declaration in the header
-//    (`Putting-It-All-Together\AIBrainManagers.h`) from:
-//       Task GetNext();
-//    to:
-//       Task* GetNext();
-//    so the signature matches this implementation.
-//
-// Implementation below updates only the .cpp definition. Ensure header is updated accordingly.
 
 Task* TaskAllocator::GetNext()
 {

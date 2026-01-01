@@ -62,9 +62,7 @@ struct Desire
 	bool added = false;
 	std::string name;
 	TaskType fulfillTaskType = TaskType::None;
-	ResourceType primaryResource = ResourceType::None;
 	int targetCount = 0;
-	int currentCount = 0;
 	float importance = 1.0f;
 };
 

@@ -58,9 +58,7 @@ void AIBrain::AddDesire(const std::string& name, TaskType taskType, ResourceType
 	Desire d;
 	d.name = name;
 	d.fulfillTaskType = taskType;
-	d.primaryResource = primaryResource;
 	d.targetCount = targetCount;
-	d.currentCount = 0;
 	d.importance = importance;
 	desires.push_back(d);
 }
@@ -272,5 +270,12 @@ void AIBrain::FSM(float deltaTime)
 
 void AIBrain::CheckDeath()
 {
-	// placeholder
+	bool someCondition = false;
+	// placeholder: no death logic yet
+	if (someCondition)
+	{
+		Logger::Instance().Log(ownerAI->GetName() + " has died due to unmet needs.\n");
+		ownerAI->SetState(GameAI::State::STATE_IDLE);
+		GameLoop::Instance().ScheduleDeath(ownerAI);
+	}
 }

@@ -111,7 +111,7 @@ void GameLoop::SaveData()
 		for (int c = 0; c < cols; ++c)
 		{
 			PathNode& n = nodes[r][c];
-			if (n.type == PathNode::Nothing) continue;
+			if (n.type <= PathNode::Start || n.type >= PathNode::End) continue;
 			s << static_cast<int>(n.type) << " " << n.position.x << " " << n.position.y << "\n";
 		}
 	}
@@ -425,12 +425,12 @@ void GameLoop::LMBMouseClickAction(Vec2 clickPos)
 {
 	PathNode* node = grid.GetNodeAt(clickPos);
 	if (node->type == currentPlacingType || currentPlacingType == PathNode::Nothing)
+	{
 		grid.RemoveSpecialNode(node);
+		grid.DrawGrid();
+	}
 	else
 		grid.SetSpecialNode(node, currentPlacingType);
-
-	ClearDrawEntities();
-	grid.DrawGrid();
 }
 
 void GameLoop::RMBMouseClickAction(Vec2 clickPos)

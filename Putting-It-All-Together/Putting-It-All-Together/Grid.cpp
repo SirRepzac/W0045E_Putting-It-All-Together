@@ -160,6 +160,8 @@ void Grid::SetNeighbors(int rows, int cols)
 
 void Grid::DrawGrid()
 {
+	GameLoop::Instance().ClearDrawEntities();
+
 	float realWidth = cols * cellSize;
 	float realHeight = rows * cellSize;
 

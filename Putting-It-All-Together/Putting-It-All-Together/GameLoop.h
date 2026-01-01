@@ -50,10 +50,10 @@ public:
 
 	void ScheduleDeath(GameAI* ai) { deathRow.push_back(ai); }
 
+	void ClearDrawEntities() { environmentEnts.clear(); }
 private:
 	GameLoop();
 	void ClearDebugEntities() { debugEnts.clear(); }
-	void ClearDrawEntities() { environmentEnts.clear(); }
 	void UpdateRenderer();
 	void HandleInput(float delta);
 	void CreatePlayer(Vec2 pos = Vec2(WORLD_WIDTH / 2.0f, WORLD_HEIGHT - 100.0f));

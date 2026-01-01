@@ -102,6 +102,7 @@ public:
 
 		baseNode->type = type;
 		specialLocations[Index(col, row)] = baseNode;
+		DrawGrid();
 	}
 
 	void RemoveSpecialNode(PathNode* node)
