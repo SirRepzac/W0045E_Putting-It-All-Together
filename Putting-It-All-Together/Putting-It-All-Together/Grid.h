@@ -73,7 +73,7 @@ public:
 		return y * cols + x;
 	}
 
-	void SetSpecialNode(PathNode* node, PathNode::Type type)
+	void SetSpecialNode(PathNode* node, PathNode::Type type, uint32_t specialColor = 0xFFFFFF)
 	{
 		RemoveSpecialNode(node);
 
@@ -99,6 +99,8 @@ public:
 			baseNode->color = 0xFFFFFF; // white
 		else if (type == PathNode::End)
 			baseNode->color = 0xFFFFFF; // white
+		else if (type == PathNode::Special)
+			baseNode->color = specialColor;
 
 		baseNode->type = type;
 		specialLocations[Index(col, row)] = baseNode;

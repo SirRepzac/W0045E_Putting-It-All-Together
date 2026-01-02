@@ -74,9 +74,17 @@ void BuildManager::Update(float dt)
 	if (name == "Barrack")
 	{
 		Grid& grid = GameLoop::Instance().GetGrid();
-		PathNode* node = grid.GetNodeAt(Vec2(WORLD_WIDTH / 3 * 2, WORLD_HEIGHT / 3));
-		grid.SetSpecialNode(node, PathNode::Special);
-		node->color = Renderer::Purple;
+		Vec2 baseBarrackLoc = Vec2(WORLD_WIDTH / 3 * 2, WORLD_HEIGHT / 3);
+
+		PathNode* node1 = grid.GetNodeAt(baseBarrackLoc);
+		PathNode* node2 = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, 0));
+		PathNode* node3 = grid.GetNodeAt(baseBarrackLoc + Vec2(0, DEFAULT_CELL_SIZE));
+		PathNode* node4 = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, DEFAULT_CELL_SIZE));
+
+		grid.SetSpecialNode(node1, PathNode::Special, Renderer::Purple);
+		grid.SetSpecialNode(node2, PathNode::Special, Renderer::Purple);
+		grid.SetSpecialNode(node3, PathNode::Special, Renderer::Purple);
+		grid.SetSpecialNode(node4, PathNode::Special, Renderer::Purple);
 	}
 
 	queue.erase(queue.begin());
