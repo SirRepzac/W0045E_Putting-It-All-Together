@@ -85,6 +85,8 @@ void GameLoop::InitializeGame()
 
 	LoadGameData();
 
+	grid.SetClearence();
+
 	grid.DrawGrid();
 }
 

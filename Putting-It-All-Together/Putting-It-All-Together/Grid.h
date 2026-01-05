@@ -107,9 +107,6 @@ public:
 		baseNode->type = type;
 		specialLocations[Index(col, row)] = baseNode;
 
-		if (baseNode->IsObstacle())
-			SetClearence();
-
 		DrawGrid();
 	}
 
