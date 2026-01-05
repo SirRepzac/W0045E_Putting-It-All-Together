@@ -170,10 +170,15 @@ void TaskAllocator::Update(float dt)
 }
 bool TaskAllocator::HasPending() const
 {
-	for (const Task& t : tasks)
-		if (!t.assigned)
-			return true;
-	return false;
+	if (tasks.empty())
+		return false;
+	else
+		return true;
+
+	//for (const Task& t : tasks)
+	//	if (!t.assigned)
+	//		return true;
+	//return false;
 }
 
 Task* TaskAllocator::GetNext()

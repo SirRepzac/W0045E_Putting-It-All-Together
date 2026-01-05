@@ -59,6 +59,8 @@ public:
 	// returns vector of the rows containing all the nodes in the grid
 	std::vector<std::vector<PathNode>>& GetNodes() { return nodes; }
 
+	void SetClearence();
+
 	void QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out);
 	void QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, PathNode::Type type = PathNode::Nothing);
 	void InsertMovable(Movable* m);
@@ -104,6 +106,10 @@ public:
 
 		baseNode->type = type;
 		specialLocations[Index(col, row)] = baseNode;
+
+		if (baseNode->IsObstacle())
+			SetClearence();
+
 		DrawGrid();
 	}
 
@@ -131,7 +137,7 @@ public:
 
 	PathNode* GetNodeAt(Vec2 pos);
 
-	bool HasLineOfSight(const Vec2& from, const Vec2& to) const;
+	bool HasLineOfSight(const Vec2& from, const Vec2& to, float agentRadius) const;
 
 private:
 	int width;

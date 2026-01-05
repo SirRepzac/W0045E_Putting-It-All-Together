@@ -10,10 +10,10 @@ public:
 	AStar(Grid* grid) : grid(grid) { }
 
 	// Overrides base RequestPath
-	std::vector<PathNode*> RequestPath(PathNode* startNode, PathNode* endNode, float& outDist) override;
+	std::vector<PathNode*> RequestPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius) override;
 
 	// Buffer between RequestPath and calculations
-	std::vector<PathNode*> FindPath(PathNode* startNode, PathNode* endNode, float& outDist);
+	std::vector<PathNode*> FindPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius);
 
 	// Get the heuristic between a and b
 	// --------------------------

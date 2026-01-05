@@ -37,6 +37,8 @@ enum Type
 
 	uint32_t color = 0xFFFFFFFF; // default white
 
+	float clearance = 0;
+
 	bool IsObstacle() const
 	{
 		if (type == Wall)

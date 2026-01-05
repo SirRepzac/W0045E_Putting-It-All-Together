@@ -81,4 +81,6 @@ private:
 
 	std::string dataPath = "Data";
 	std::string positionPath = "wall_positions.data";
+
+	double currentFPS = 0.0;
 };

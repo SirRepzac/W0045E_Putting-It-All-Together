@@ -162,12 +162,13 @@ void GameLoop::CreateAI(int count)
 
 void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::function<void(float)> perFrame)
 {
-	using clock = std::chrono::high_resolution_clock;
+	using clock = std::chrono::steady_clock;
 	using secondsd = std::chrono::duration<double>;
 
 	const secondsd targetFrameDuration(1.0 / static_cast<double>(fps));
+
+	auto lastFrameStart = clock::now();
 	auto startTime = clock::now();
-	auto lastTime = startTime;
 
 	// create renderer and start window
 	renderer = new Renderer(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -181,17 +182,20 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 	while (durationSeconds < 0.0 || std::chrono::duration_cast<secondsd>(clock::now() - startTime).count() < durationSeconds)
 	{
 		frameAmount++;
-		auto now = clock::now();
-		secondsd delta = now - lastTime;
-		lastTime = now;
+		auto frameStart = clock::now();
+		secondsd delta = frameStart - lastFrameStart;
+		lastFrameStart = frameStart;
 
 		if (frameAmount % 300 == 299)
 			SaveData();
 
 		float dt = static_cast<float>(delta.count());
 
+		currentFPS = 1 / delta.count();
+
 		// call update with delta in seconds as float
-		UpdateGameLoop(static_cast<float>(delta.count()), std::chrono::duration_cast<secondsd>(clock::now() - startTime).count());
+		UpdateGameLoop(dt, std::chrono::duration_cast<secondsd>(clock::now() - startTime).count());
+		UpdateRenderer();
 
 		if (renderer && !renderer->IsRunning())
 		{
@@ -209,9 +213,9 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 		}
 
 		// Sleep until next frame
-		auto workEnd = clock::now();
-		secondsd workTime = workEnd - now;
-		secondsd sleepTime = targetFrameDuration - workTime;
+		auto frameEnd = clock::now();
+		secondsd frameTime = frameEnd - frameStart;
+		secondsd sleepTime = targetFrameDuration - frameTime;
 		if (sleepTime > secondsd::zero())
 		{
 			std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::microseconds>(sleepTime));
@@ -240,8 +244,6 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 		ai->Update(delta);
 	}
 	HandlePlayerInput(delta);
-
-	UpdateRenderer();
 }
 
 void GameLoop::UpdateRenderer()
@@ -302,7 +304,7 @@ void GameLoop::UpdateRenderer()
 		std::string str2 = "Iron: " + std::to_string(aiList[0]->GetBrain()->GetResources()->Get(ResourceType::Iron));
 		std::string str3 = "Coal: " + std::to_string(aiList[0]->GetBrain()->GetResources()->Get(ResourceType::Coal));
 		std::string str4 = "Soldiers: " + std::to_string(aiList[0]->GetBrain()->GetMilitary()->GetSoldierCount());
-		std::string str5 = "";
+		std::string str5 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
 
 		std::vector<std::string> overlay = {
 			str1,

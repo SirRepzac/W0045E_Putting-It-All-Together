@@ -51,6 +51,8 @@ public:
 
 	Vec2 GetPrevPos() { return prevPos; }
 
+	PathNode* GetPathDestination();
+
 private:
 	Vec2 targetPos;
 	Movable* targetMovable = nullptr;
@@ -63,7 +65,7 @@ private:
 	float BEHAVIOUR_WEIGHT = 1;
 	float SEPARATION_WEIGHT = 0; // recommended value: 2.0
 	float AGENTAVOIDANCE_WEIGHT = 2.0f; // recommended value: 2.0
-	float WALLAVOIDANCE_WEIGHT = 0.0f; // recommended value: 1.0
+	float WALLAVOIDANCE_WEIGHT = 1.0f; // recommended value: 1.0
 
 	PathNode* sleepingNode = nullptr;
 	PathNode* workingNode = nullptr;
@@ -71,7 +73,7 @@ private:
 	AIBrain* brain;
 };
 
-static inline const char* ToString(GameAI::State s)
+static inline const std::string ToString(GameAI::State s)
 {
 	switch (s)
 	{

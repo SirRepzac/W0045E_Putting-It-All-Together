@@ -28,6 +28,38 @@ Grid::Grid(int width, int height, int cellSize)
 	}
 
 	SetNeighbors(rows, cols);
+	SetClearence();
+}
+
+void Grid::SetClearence()
+{
+	for (int r = 0; r < rows; r++)
+	{
+		for (int c = 0; c < cols; c++)
+		{
+			PathNode& node = nodes[r][c];
+			if (node.IsObstacle())
+			{
+				node.clearance = 0;
+				continue;
+			}
+
+			float shortest = INT_MAX;
+			for (PathNode* n : specialLocations)
+			{
+				if (n == nullptr)
+					continue;
+				if (!n->IsObstacle())
+					continue;
+
+				float distBetw = DistanceBetween(n->position, node.position);
+				if (distBetw < shortest)
+					shortest = distBetw;
+			}
+
+			node.clearance = shortest - (DEFAULT_CELL_SIZE / 2);
+		}
+	}
 }
 
 bool Grid::WorldToGrid(const Vec2& pos, int& row, int& col) const
@@ -57,7 +89,7 @@ PathNode* Grid::GetNodeAt(Vec2 pos)
 	return &nodes.at(row).at(col);
 }
 
-bool Grid::HasLineOfSight(const Vec2& from, const Vec2& to) const
+bool Grid::HasLineOfSight(const Vec2& from, const Vec2& to, float agentRadius) const
 {
 	int r0, c0, r1, c1;
 	if (!WorldToGrid(from, r0, c0) || !WorldToGrid(to, r1, c1))
@@ -71,11 +103,13 @@ bool Grid::HasLineOfSight(const Vec2& from, const Vec2& to) const
 	float dx = x1 - x0;
 	float dy = y1 - y0;
 
-	int stepX = (dx > 0) ? 1 : -1;
-	int stepY = (dy > 0) ? 1 : -1;
+	int stepX = (dx > 0) ? 1 : (dx < 0 ? -1 : 0);
+	int stepY = (dy > 0) ? 1 : (dy < 0 ? -1 : 0);
 
-	float tDeltaX = std::abs(1.0f / dx);
-	float tDeltaY = std::abs(1.0f / dy);
+	constexpr float INF = std::numeric_limits<float>::infinity();
+
+	float tDeltaX = (dx != 0.0f) ? std::abs(1.0f / dx) : INF;
+	float tDeltaY = (dy != 0.0f) ? std::abs(1.0f / dy) : INF;
 
 	float tMaxX;
 	float tMaxY;
@@ -93,13 +127,23 @@ bool Grid::HasLineOfSight(const Vec2& from, const Vec2& to) const
 	int x = c0;
 	int y = r0;
 
+	bool first = true;
+
 	while (true)
 	{
 		if (x < 0 || x >= cols || y < 0 || y >= rows)
 			return false;
 
-		if (nodes[y][x].IsObstacle())
-			return false;
+		if (!first)
+		{
+			const PathNode& node = nodes[y][x];
+
+			// Treat insufficient clearance as blocked
+			if (node.IsObstacle() || node.clearance < agentRadius)
+				return false;
+		}
+
+		first = false;
 
 		if (x == c1 && y == r1)
 			break;
@@ -109,9 +153,17 @@ bool Grid::HasLineOfSight(const Vec2& from, const Vec2& to) const
 			tMaxX += tDeltaX;
 			x += stepX;
 		}
-		else
+		else if (tMaxY < tMaxX)
 		{
 			tMaxY += tDeltaY;
+			y += stepY;
+		}
+		else // EXACT corner hit
+		{
+			// advance both
+			tMaxX += tDeltaX;
+			tMaxY += tDeltaY;
+			x += stepX;
 			y += stepY;
 		}
 	}

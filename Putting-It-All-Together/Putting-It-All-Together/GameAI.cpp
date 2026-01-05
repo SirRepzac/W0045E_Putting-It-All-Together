@@ -38,6 +38,8 @@ GameAI::~GameAI()
 
 void GameAI::SetState(State state)
 {
+	if (state != currentState)
+		Logger::Instance().Log("State changed to: " + ToString(state) + "\n");
 	currentState = state;
 }
 
@@ -78,13 +80,19 @@ void GameAI::Update(float deltaTime)
 
 void GameAI::GoTo(PathNode* destination)
 {
+	if (!destination)
+		return;
+
+	if (GetPathDestination() != nullptr)
+		return;
+
 	GameLoop& game = GameLoop::Instance();
 	Pathfinder* pathfinder = game.pathfinder;
 	PathNode* currNode = game.GetGrid().GetNodeAt(position);
 	PathNode* dest = destination;
 	float pathDist = 0;
 	std::vector<PathNode*> path;
-	path = pathfinder->RequestPath(currNode, dest, pathDist);
+	path = pathfinder->RequestPath(currNode, dest, pathDist, radius);
 
 	if (path.empty())
 		return;
@@ -96,6 +104,9 @@ void GameAI::GoTo(PathNode* destination)
 
 void GameAI::GoToClosest(std::vector<PathNode*> destinations)
 {
+	if (GetPathDestination() != nullptr)
+		return;
+
 	GameLoop& game = GameLoop::Instance();
 	Pathfinder* pathfinder = game.pathfinder;
 	PathNode* currNode = game.GetGrid().GetNodeAt(position);
@@ -105,7 +116,7 @@ void GameAI::GoToClosest(std::vector<PathNode*> destinations)
 	for (PathNode* dest : destinations)
 	{
 		float pathDist = 0;
-		std::vector<PathNode*> currPath = pathfinder->RequestPath(currNode, dest, pathDist);
+		std::vector<PathNode*> currPath = pathfinder->RequestPath(currNode, dest, pathDist, radius);
 		if (pathDist < shortestDist)
 		{
 			shortestDist = pathDist;
@@ -118,4 +129,9 @@ void GameAI::GoToClosest(std::vector<PathNode*> destinations)
 
 	SetState(State::STATE_FOLLOW_PATH);
 	behaviour->SetPath(path);
+}
+
+PathNode* GameAI::GetPathDestination()
+{
+	 return behaviour->GetDestinationNode(); 
 }

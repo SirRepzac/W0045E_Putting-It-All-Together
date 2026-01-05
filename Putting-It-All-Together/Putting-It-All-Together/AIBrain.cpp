@@ -235,10 +235,10 @@ void AIBrain::FSM(float deltaTime)
 		}
 
 		barrackLoc = build->GetBuildingLocation("Barrack");
-		Logger::Instance().Log(barrackLoc.ToString());
-		if (DistanceBetween(ownerAI->GetPosition(), barrackLoc) > ownerAI->GetRadius())
+		if (DistanceBetween(ownerAI->GetPosition(), barrackLoc) > ownerAI->GetRadius() + 2)
 		{
-			ownerAI->GoTo(grid.GetNodeAt(barrackLoc));
+			PathNode* barrackNode = grid.GetNodeAt(barrackLoc + Vec2(0, 1));
+			ownerAI->GoTo(barrackNode);
 		}
 		else
 		{
@@ -269,6 +269,7 @@ void AIBrain::FSM(float deltaTime)
 			Logger::Instance().Log(ownerAI->GetName() + " cannot afford barrack \n");
 			allocator->RemoveTask(t.id);
 		}
+		break;
 	case TaskType::Discover:
 		ownerAI->SetState(GameAI::State::STATE_WANDER);
 		break;

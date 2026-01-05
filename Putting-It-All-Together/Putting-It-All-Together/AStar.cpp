@@ -22,7 +22,7 @@ struct OpenEntryCompare
 	}
 };
 
-std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, float& outDist)
+std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius)
 {
 	std::unordered_map<PathNode*, NodeRecord> records;
 
@@ -62,7 +62,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 		// Expand
 		for (PathNode* neighbor : current->neighbors)
 		{
-			if (neighbor->IsObstacle() || closed.contains(neighbor))
+			if (neighbor->IsObstacle() || closed.contains(neighbor) || neighbor->clearance <= agentRadius)
 				continue;
 			float dx = current->position.x - neighbor->position.x;
 			float dy = current->position.y - neighbor->position.y;
@@ -123,7 +123,7 @@ float AStar::Heuristic(PathNode* a, PathNode* b)
 	//return DistanceBetween(a, b);
 }
 
-std::vector<PathNode*> AStar::RequestPath(PathNode* startNode, PathNode* endNode, float& outDist)
+std::vector<PathNode*> AStar::RequestPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius)
 {
-	return FindPath(startNode, endNode, outDist);
+	return FindPath(startNode, endNode, outDist, agentRadius);
 }

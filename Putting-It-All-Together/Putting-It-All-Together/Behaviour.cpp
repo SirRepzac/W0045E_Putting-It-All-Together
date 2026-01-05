@@ -62,7 +62,7 @@ Behaviour::Info Behaviour::Arrive(float deltaTime, Vec2 t)
 	}
 
 	// If already very close, stop
-	if (dist < (arrivalRadius / 5.0f) || dist < ai->GetRadius())
+	if (dist < (arrivalRadius / 5.0f) || dist < ai->GetRadius() / 2)
 	{
 		return Info{ Vec2(0,0), 0.0f };
 	}
@@ -219,7 +219,9 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 	}
 
 	if (DistanceBetween(ai->GetPosition(), path.back()->position) < ai->GetRadius())
+	{
 		path.pop_back();
+	}
 
 	if (path.empty())
 	{
@@ -229,18 +231,19 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 
 	Grid& grid = game.GetGrid();
 
-	// LOS smoothing
-	if (!grid.HasLineOfSight(ai->GetPosition(), path.back()->position))
+	// If the AI has lost the path
+	if (!grid.HasLineOfSight(ai->GetPosition(), path.back()->position, ai->GetRadius()))
 	{
 		PathNode* dest = path.front();
 		path.clear();
 		ai->GoTo(dest);
 	}
 
+	// LOS smoothing
 	bool foundObstructed = false;
 	while (!foundObstructed && path.size() > 1)
 	{
-		if (grid.HasLineOfSight(ai->GetPosition(), path.at(path.size() - 2)->position))
+		if (grid.HasLineOfSight(ai->GetPosition(), path.at(path.size() - 2)->position, ai->GetRadius()))
 		{
 			path.pop_back();
 		}
@@ -249,6 +252,7 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 			foundObstructed = true;
 		}
 	}
+
 	if (path.size() == 1)
 		return Arrive(deltaTime, path.back()->position);
 	if (!path.empty())
@@ -330,7 +334,7 @@ Behaviour::Info Behaviour::WallAvoidance(float deltaTime, GameAI::State state)
 
 	Vec2 steering(0.0f, 0.0f);
 
-	const float detectionRadius = ai->GetRadius() * 2;
+	const float detectionRadius = ai->GetRadius() * 0.5f;
 	Vec2 forward = ai->GetDirection();
 
 	std::vector<PathNode*> obstacles;

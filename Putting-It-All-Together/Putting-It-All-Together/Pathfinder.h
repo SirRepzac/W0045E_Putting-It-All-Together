@@ -14,7 +14,7 @@ public:
 	// outDist - output parameter to receive the distance of the path
 	// --------------------------
 	// returns a vector containing references to the nodes to traverse to get from startNode to endNode
-	virtual std::vector<PathNode*> RequestPath(PathNode* startNode, PathNode* endNode, float& outDist) = 0;
+	virtual std::vector<PathNode*> RequestPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius) = 0;
 
 	// Get the name of the algorithm
 	// --------------------------
