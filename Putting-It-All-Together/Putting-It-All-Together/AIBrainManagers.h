@@ -114,11 +114,13 @@ public:
 	void QueueBuilding(const std::string& name, const Vec2& pos);
 	bool HasBuilding(const std::string& name) const;
 	bool IsInQueue(const std::string& name) const;
+	Vec2 GetBuildingLocation(const std::string& name);
 
 private:
 	AIBrain* owner;
 	std::vector<std::string> queue;
 	std::vector<std::string> builtBuildings;
+	std::map<std::string, Vec2> buildingLocations;
 };
 
 class ManufacturingManager

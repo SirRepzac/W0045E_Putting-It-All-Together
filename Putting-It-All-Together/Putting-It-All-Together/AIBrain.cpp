@@ -142,8 +142,10 @@ void AIBrain::FSM(float deltaTime)
 		return;
 	}
 
-	Grid grid = GameLoop::Instance().GetGrid();
+	Grid& grid = GameLoop::Instance().GetGrid();
 	std::vector<PathNode*> nodes;
+
+	Vec2 barrackLoc;
 
 	Task* tt = allocator->GetNext();
 	if (tt == nullptr)
@@ -232,22 +234,30 @@ void AIBrain::FSM(float deltaTime)
 			break;
 		}
 
-		if (resources->Request(ResourceType::Iron, COST_IRON_PER_SOLDIER) && resources->Request(ResourceType::Wood, COST_WOOD_PER_SOLDIER))
+		barrackLoc = build->GetBuildingLocation("Barrack");
+		Logger::Instance().Log(barrackLoc.ToString());
+		if (DistanceBetween(ownerAI->GetPosition(), barrackLoc) > ownerAI->GetRadius())
 		{
-			military->TrainSoldiers(1);
-			t.amount--;
+			ownerAI->GoTo(grid.GetNodeAt(barrackLoc));
 		}
 		else
 		{
-			Logger::Instance().Log(ownerAI->GetName() + " not enough resources to train soldier \n");
-			allocator->RemoveTask(t.id);
-		}
+			if (resources->Request(ResourceType::Iron, COST_IRON_PER_SOLDIER) && resources->Request(ResourceType::Wood, COST_WOOD_PER_SOLDIER))
+			{
+				military->TrainSoldiers(1);
+				t.amount--;
+			}
+			else
+			{
+				Logger::Instance().Log(ownerAI->GetName() + " not enough resources to train soldier \n");
+				allocator->RemoveTask(t.id);
+			}
 
+		}
 		break;
 	case TaskType::Build:
 		if (build->HasBuilding(t.meta))
 			allocator->RemoveTask(t.id);
-
 		if (resources->Request(ResourceType::Iron, BARRACK_IRON_COST) && resources->Request(ResourceType::Wood, BARRACK_WOOD_COST))
 		{
 			build->QueueBuilding(t.meta, ownerAI->GetPosition());

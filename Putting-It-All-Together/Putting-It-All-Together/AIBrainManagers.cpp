@@ -85,6 +85,8 @@ void BuildManager::Update(float dt)
 		grid.SetSpecialNode(node2, PathNode::Special, Renderer::Purple);
 		grid.SetSpecialNode(node3, PathNode::Special, Renderer::Purple);
 		grid.SetSpecialNode(node4, PathNode::Special, Renderer::Purple);
+
+		buildingLocations[name] = baseBarrackLoc;
 	}
 
 	queue.erase(queue.begin());
@@ -98,6 +100,16 @@ bool BuildManager::HasBuilding(const std::string& name) const
 bool BuildManager::IsInQueue(const std::string& name) const
 {
 	return std::find(queue.begin(), queue.end(), name) != queue.end();
+}
+Vec2 BuildManager::GetBuildingLocation(const std::string& name)
+{
+	if (buildingLocations.contains(name))
+		return buildingLocations[name];
+	else
+	{
+		Logger::Instance().Log("No barrack position\n");
+		return Vec2();
+	}
 }
 void BuildManager::QueueBuilding(const std::string& name, const Vec2& pos)
 {

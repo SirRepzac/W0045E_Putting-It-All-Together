@@ -81,13 +81,15 @@ void GameAI::GoTo(PathNode* destination)
 	GameLoop& game = GameLoop::Instance();
 	Pathfinder* pathfinder = game.pathfinder;
 	PathNode* currNode = game.GetGrid().GetNodeAt(position);
+	PathNode* dest = destination;
 	float pathDist = 0;
-	std::vector<PathNode*> path = pathfinder->RequestPath(currNode, destination, pathDist);
+	std::vector<PathNode*> path;
+	path = pathfinder->RequestPath(currNode, dest, pathDist);
+
 	if (path.empty())
 		return;
 
-	if (GetCurrentState() != State::STATE_FOLLOW_PATH)
-		SetState(State::STATE_FOLLOW_PATH);
+	SetState(State::STATE_FOLLOW_PATH);
 	behaviour->SetPath(path);
 
 }

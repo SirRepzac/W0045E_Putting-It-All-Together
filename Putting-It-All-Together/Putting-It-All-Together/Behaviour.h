@@ -58,6 +58,8 @@ public:
         return path.back();
 	}
 
+    std::vector<PathNode*> GetPath() { return path; }
+
 private:
     void UpdateLoggerWithDiscrepancies(GameAI::State state);
 

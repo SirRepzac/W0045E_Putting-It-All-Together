@@ -39,7 +39,7 @@ enum Type
 
 	bool IsObstacle() const
 	{
-		if (type == Wall || type == Special)
+		if (type == Wall)
 			return true;
 		else return false;
 	}
