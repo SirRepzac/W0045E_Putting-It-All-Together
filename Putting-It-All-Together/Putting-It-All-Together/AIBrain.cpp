@@ -169,8 +169,7 @@ void AIBrain::FSM(float deltaTime)
 		else
 		{
 			// is not close, go to closest
-			grid.QueryNodes(ownerAI->GetPosition(), 1000.0f, nodes, PathNode::Wood);
-			ownerAI->GoToClosest(nodes);
+			ownerAI->GoToClosest(PathNode::Wood);
 		}
 		break;
 	case TaskType::MineCoal:
@@ -187,8 +186,7 @@ void AIBrain::FSM(float deltaTime)
 		else
 		{
 			// is not close, go to closest
-			grid.QueryNodes(ownerAI->GetPosition(), 1000.0f, nodes, PathNode::Coal);
-			ownerAI->GoToClosest(nodes);
+			ownerAI->GoToClosest(PathNode::Coal);
 		}
 		break;
 	case TaskType::MineIron:
@@ -207,8 +205,7 @@ void AIBrain::FSM(float deltaTime)
 		else
 		{
 			// is not close, go to closest
-			grid.QueryNodes(ownerAI->GetPosition(), 1000.0f, nodes, PathNode::Iron);
-			ownerAI->GoToClosest(nodes);
+			ownerAI->GoToClosest(PathNode::Iron);
 		}
 		break;
 	case TaskType::Transport:

@@ -39,7 +39,7 @@ public:
 	void Update(float deltaTime);
 
 	void GoTo(PathNode* destination);
-	void GoToClosest(std::vector<PathNode*> destinations);
+	void GoToClosest(PathNode::Type destinationType);
 
 	void SetTarget(Vec2 target) { targetPos = target; }
 	void SetTarget(Movable* target) { targetMovable = target; }

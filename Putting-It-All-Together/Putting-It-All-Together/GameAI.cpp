@@ -102,7 +102,7 @@ void GameAI::GoTo(PathNode* destination)
 
 }
 
-void GameAI::GoToClosest(std::vector<PathNode*> destinations)
+void GameAI::GoToClosest(PathNode::Type destinationType)
 {
 	if (GetPathDestination() != nullptr)
 		return;
@@ -111,18 +111,9 @@ void GameAI::GoToClosest(std::vector<PathNode*> destinations)
 	Pathfinder* pathfinder = game.pathfinder;
 	PathNode* currNode = game.GetGrid().GetNodeAt(position);
 	std::vector<PathNode*> path;
-	int shortestDist = INT_MAX;
+	float dist = 0;
 
-	for (PathNode* dest : destinations)
-	{
-		float pathDist = 0;
-		std::vector<PathNode*> currPath = pathfinder->RequestPath(currNode, dest, pathDist, radius);
-		if (pathDist < shortestDist)
-		{
-			shortestDist = pathDist;
-			path = currPath;
-		}
-	}
+	path = pathfinder->RequestClosestPath(currNode, destinationType, dist, radius);
 
 	if (path.empty())
 		return;

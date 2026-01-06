@@ -15,6 +15,7 @@ public:
 	// --------------------------
 	// returns a vector containing references to the nodes to traverse to get from startNode to endNode
 	virtual std::vector<PathNode*> RequestPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius) = 0;
+	virtual std::vector<PathNode*> RequestClosestPath(PathNode* startNode, PathNode::Type endType, float& outDist, float agentRadius) = 0;
 
 	// Get the name of the algorithm
 	// --------------------------
