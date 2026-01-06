@@ -33,6 +33,7 @@ private:
 	// internal update steps
 	void UpdateValues(float deltaTime);
 	void Decay(float deltaTime);
+	void GatherResource(ResourceType resourceType, Task& t, float deltaTime);
 	void FSM(float deltaTime);
 	void CheckDeath();
 

@@ -74,7 +74,7 @@ void BuildManager::Update(float dt)
 	if (name == "Barrack")
 	{
 		Grid& grid = GameLoop::Instance().GetGrid();
-		Vec2 baseBarrackLoc = Vec2(WORLD_WIDTH / 3 * 2, WORLD_HEIGHT / 3);
+		Vec2 baseBarrackLoc = Vec2(990.000000, 670.000000);
 
 		PathNode* node1 = grid.GetNodeAt(baseBarrackLoc);
 		PathNode* node2 = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, 0));
@@ -170,15 +170,7 @@ void TaskAllocator::Update(float dt)
 }
 bool TaskAllocator::HasPending() const
 {
-	if (tasks.empty())
-		return false;
-	else
-		return true;
-
-	//for (const Task& t : tasks)
-	//	if (!t.assigned)
-	//		return true;
-	//return false;
+	return !tasks.empty();
 }
 
 Task* TaskAllocator::GetNext()
@@ -206,9 +198,4 @@ Task* TaskAllocator::GetNext()
 void TaskAllocator::RemoveTask(int id)
 {
 	tasks.erase(std::remove_if(tasks.begin(), tasks.end(), [id](const Task& t) { return t.id == id; }), tasks.end());
-}
-
-void TaskAllocator::RemoveTaskByMeta(const std::string& meta)
-{
-	tasks.erase(std::remove_if(tasks.begin(), tasks.end(), [meta](const Task& t) { return t.meta == meta; }), tasks.end());
 }

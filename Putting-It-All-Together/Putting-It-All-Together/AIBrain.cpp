@@ -83,43 +83,6 @@ void AIBrain::UpdateValues(float deltaTime)
 			t.priority = basePrio;
 			t.amount = amount;
 			allocator->AddTask(t);
-
-			Task gatherW;
-			gatherW.type = TaskType::FellTrees;
-			gatherW.resource = ResourceType::Wood;
-			gatherW.priority = basePrio + 1;
-			gatherW.amount = COST_WOOD_PER_SOLDIER * amount;
-			allocator->AddTask(gatherW);
-
-			Task gatherI;
-			gatherI.type = TaskType::MineIron;
-			gatherI.resource = ResourceType::Iron;
-			gatherI.priority = basePrio + 1;
-			gatherI.amount = COST_IRON_PER_SOLDIER * amount;
-			allocator->AddTask(gatherI);
-
-			if (!build->HasBuilding("Barrack"))
-			{
-				Task bTask;
-				bTask.type = TaskType::Build;
-				bTask.meta = "Barrack";
-				bTask.priority = basePrio + 2;
-				allocator->AddTask(bTask);
-
-				Task gatherBW;
-				gatherBW.type = TaskType::FellTrees;
-				gatherBW.resource = ResourceType::Wood;
-				gatherBW.priority = basePrio + 3;
-				gatherBW.amount = BARRACK_WOOD_COST;
-				allocator->AddTask(gatherBW);
-
-				Task gatherBI;
-				gatherBI.type = TaskType::MineIron;
-				gatherBI.resource = ResourceType::Iron;
-				gatherBI.priority = basePrio + 3;
-				gatherBI.amount = BARRACK_IRON_COST;
-				allocator->AddTask(gatherBI);
-			}
 		}
 	}
 }
@@ -129,6 +92,31 @@ void AIBrain::Decay(float deltaTime)
 	materialPriority = std::max(0.1f, materialPriority - deltaTime * 0.01f);
 	laborPriority = std::max(0.1f, laborPriority - deltaTime * 0.005f);
 	constructionPriority = std::max(0.1f, constructionPriority - deltaTime * 0.007f);
+}
+
+void AIBrain::GatherResource(ResourceType resourceType, Task& t, float deltaTime)
+{
+
+	if (resources->Get(resourceType) > t.amount)
+	{
+		allocator->RemoveTask(t.id);
+	}
+
+	Grid& grid = GameLoop::Instance().GetGrid();
+	std::vector<PathNode*> nodes;
+
+	grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, ResourceToNode(resourceType));
+	if (!nodes.empty())
+	{
+		// is close
+		resources->Add(resourceType, 60 * deltaTime);
+
+	}
+	else
+	{
+		// is not close, go to closest
+		ownerAI->GoToClosest(ResourceToNode(resourceType));
+	}
 }
 
 void AIBrain::FSM(float deltaTime)
@@ -146,6 +134,9 @@ void AIBrain::FSM(float deltaTime)
 	std::vector<PathNode*> nodes;
 
 	Vec2 barrackLoc;
+	Task gatherWood;
+	Task gatherIron;
+	Task bTask;
 
 	Task* tt = allocator->GetNext();
 	if (tt == nullptr)
@@ -153,60 +144,20 @@ void AIBrain::FSM(float deltaTime)
 	Task& t = *tt;
 	if (t.type != prevTaskType)
 		Logger::Instance().Log(ownerAI->GetName() + " assigned to " + ToString(t.type) + "(task id : " + std::to_string(t.id) + " priority = " + std::to_string(t.priority) + ")\n");
+
 	switch (t.type)
 	{
 	case TaskType::FellTrees:
-		grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, PathNode::Wood);
-		if (!nodes.empty())
-		{
-			// is close
-			resources->Add(ResourceType::Wood, 60 * deltaTime);
-			if (resources->Get(ResourceType::Wood) > t.amount)
-			{
-				allocator->RemoveTask(t.id);
-			}
-		}
-		else
-		{
-			// is not close, go to closest
-			ownerAI->GoToClosest(PathNode::Wood);
-		}
+
+		GatherResource(ResourceType::Wood, t, deltaTime);
 		break;
 	case TaskType::MineCoal:
-		grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, PathNode::Coal);
-		if (!nodes.empty())
-		{
-			// is close
-			resources->Add(ResourceType::Coal, 60 * deltaTime);
-			if (resources->Get(ResourceType::Coal) > t.amount)
-			{
-				allocator->RemoveTask(t.id);
-			}
-		}
-		else
-		{
-			// is not close, go to closest
-			ownerAI->GoToClosest(PathNode::Coal);
-		}
+
+		GatherResource(ResourceType::Coal, t, deltaTime);
 		break;
 	case TaskType::MineIron:
 
-		grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, PathNode::Iron);
-		if (!nodes.empty())
-		{
-			// is close
-			resources->Add(ResourceType::Iron, 60 * deltaTime);
-
-			if (resources->Get(ResourceType::Iron) > t.amount)
-			{
-				allocator->RemoveTask(t.id);
-			}
-		}
-		else
-		{
-			// is not close, go to closest
-			ownerAI->GoToClosest(PathNode::Iron);
-		}
+		GatherResource(ResourceType::Iron, t, deltaTime);
 		break;
 	case TaskType::Transport:
 		ownerAI->SetState(GameAI::State::STATE_FOLLOW_PATH);
@@ -226,12 +177,16 @@ void AIBrain::FSM(float deltaTime)
 
 		if (!build->HasBuilding("Barrack"))
 		{
-			Logger::Instance().Log(ownerAI->GetName() + " no barrack to train soldier \n");
-			allocator->RemoveTask(t.id);
+			Logger::Instance().Log(ownerAI->GetName() + " no barrack to train soldiers \n");
+			bTask.type = TaskType::Build;
+			bTask.meta = "Barrack";
+			bTask.priority = t.priority + 1;
+			allocator->AddTask(bTask);
 			break;
 		}
 
 		barrackLoc = build->GetBuildingLocation("Barrack");
+
 		if (DistanceBetween(ownerAI->GetPosition(), barrackLoc) > ownerAI->GetRadius() + 2)
 		{
 			PathNode* barrackNode = grid.GetNodeAt(barrackLoc + Vec2(0, 1));
@@ -247,7 +202,18 @@ void AIBrain::FSM(float deltaTime)
 			else
 			{
 				Logger::Instance().Log(ownerAI->GetName() + " not enough resources to train soldier \n");
-				allocator->RemoveTask(t.id);
+
+				gatherWood.type = TaskType::FellTrees;
+				gatherWood.resource = ResourceType::Wood;
+				gatherWood.priority = t.priority + 1;
+				gatherWood.amount = COST_WOOD_PER_SOLDIER * t.amount;
+				allocator->AddTask(gatherWood);
+
+				gatherIron.type = TaskType::MineIron;
+				gatherIron.resource = ResourceType::Iron;
+				gatherIron.priority = t.priority + 1;
+				gatherIron.amount = COST_IRON_PER_SOLDIER * t.amount;
+				allocator->AddTask(gatherIron);
 			}
 
 		}
@@ -264,7 +230,19 @@ void AIBrain::FSM(float deltaTime)
 		else
 		{
 			Logger::Instance().Log(ownerAI->GetName() + " cannot afford barrack \n");
-			allocator->RemoveTask(t.id);
+
+			
+			gatherWood.type = TaskType::FellTrees;
+			gatherWood.resource = ResourceType::Wood;
+			gatherWood.priority = t.priority + 1;
+			gatherWood.amount = BARRACK_WOOD_COST;
+			allocator->AddTask(gatherWood);
+
+			gatherIron.type = TaskType::MineIron;
+			gatherIron.resource = ResourceType::Iron;
+			gatherIron.priority = t.priority + 1;
+			gatherIron.amount = BARRACK_IRON_COST;
+			allocator->AddTask(gatherIron);
 		}
 		break;
 	case TaskType::Discover:

@@ -4,6 +4,7 @@
 #include <map>
 #include <algorithm>
 #include "Vec2.h"
+#include "PathNode.h"
 
 class AIBrain; // forward
 
@@ -18,6 +19,21 @@ static const int BARRACK_IRON_COST = 20;
 // High-level enums and data structures used by the managers and AIBrain
 enum class ResourceType { Wood, Coal, Iron, None };
 enum class TaskType { None, Discover, FellTrees, Transport, Build, MineCoal, MineIron, TrainSoldiers, Manafacture };
+
+static PathNode::Type ResourceToNode(ResourceType resourceType)
+{
+	switch (resourceType)
+	{
+	case (ResourceType::Wood):
+		return PathNode::Type::Wood;
+	case (ResourceType::Coal):
+		return PathNode::Type::Coal;
+	case (ResourceType::Iron):
+		return PathNode::Type::Iron;
+	default:
+		return PathNode::Type::Nothing;
+	}
+}
 
 static std::string ToString(TaskType type)
 {
@@ -160,10 +176,6 @@ public:
 	bool HasPending() const;
 	Task* GetNext();
 	void RemoveTask(int id);
-	void RemoveTaskByType(TaskType type) { tasks.erase(std::remove_if(tasks.begin(), tasks.end(),
-		[type](const Task& t) { return t.type == type; }), tasks.end());
-	}
-	void RemoveTaskByMeta(const std::string& meta);
 	void Clear() { tasks.clear(); }
 
 private:
