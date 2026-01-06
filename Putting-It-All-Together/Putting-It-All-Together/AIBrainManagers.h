@@ -62,6 +62,8 @@ static std::string ToString(TaskType type)
 	}
 }
 
+
+
 struct Task
 {
 	int id = -1;
@@ -122,6 +124,13 @@ private:
 	int pendingTransports = 0;
 };
 
+struct Building
+{
+	Building(std::string name, Vec2 pos) : name(name), position(pos) {}
+	Vec2 position = 0;
+	std::string name = "";
+};
+
 class BuildManager
 {
 public:
@@ -134,9 +143,8 @@ public:
 
 private:
 	AIBrain* owner;
-	std::vector<std::string> queue;
-	std::vector<std::string> builtBuildings;
-	std::map<std::string, Vec2> buildingLocations;
+	std::vector<Building> queue;
+	std::vector<Building> builtBuildings;
 };
 
 class ManufacturingManager

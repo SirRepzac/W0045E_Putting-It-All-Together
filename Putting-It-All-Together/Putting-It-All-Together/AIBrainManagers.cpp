@@ -67,14 +67,14 @@ void BuildManager::Update(float dt)
 {
 	(void)dt;
 	if (queue.empty()) return;
-	std::string name = queue.front();
+	Building building = queue.front();
 
-	builtBuildings.push_back(name);
+	builtBuildings.push_back(building);
 
-	if (name == "Barrack")
+	if (building.name == "Barrack")
 	{
 		Grid& grid = GameLoop::Instance().GetGrid();
-		Vec2 baseBarrackLoc = Vec2(990.000000, 670.000000);
+		Vec2 baseBarrackLoc = building.position;
 
 		PathNode* node1 = grid.GetNodeAt(baseBarrackLoc);
 		PathNode* node2 = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, 0));
@@ -85,36 +85,52 @@ void BuildManager::Update(float dt)
 		grid.SetSpecialNode(node2, PathNode::Special, Renderer::Purple);
 		grid.SetSpecialNode(node3, PathNode::Special, Renderer::Purple);
 		grid.SetSpecialNode(node4, PathNode::Special, Renderer::Purple);
-
-		buildingLocations[name] = baseBarrackLoc;
 	}
 
 	queue.erase(queue.begin());
-	Logger::Instance().Log(std::string("Built: ") + name + "\n");
+	Logger::Instance().Log(std::string("Built: ") + building.name + "\n");
 }
 
 bool BuildManager::HasBuilding(const std::string& name) const
 {
-	return std::find(builtBuildings.begin(), builtBuildings.end(), name) != builtBuildings.end();
+	bool found = false;
+	for (Building b : builtBuildings)
+	{
+		if (b.name == name)
+		{
+			found = true;
+			break;
+		}
+	}
+	return found;
 }
 bool BuildManager::IsInQueue(const std::string& name) const
 {
-	return std::find(queue.begin(), queue.end(), name) != queue.end();
+	bool found = false;
+	for (Building b : queue)
+	{
+		if (b.name == name)
+		{
+			found = true;
+			break;
+		}
+	}
+	return found;
 }
 Vec2 BuildManager::GetBuildingLocation(const std::string& name)
 {
-	if (buildingLocations.contains(name))
-		return buildingLocations[name];
-	else
+	for (Building b : builtBuildings)
 	{
-		Logger::Instance().Log("No barrack position\n");
-		return Vec2();
+		if (b.name == name)
+			return b.position;
 	}
+
+	Logger::Instance().Log("No building position\n");
+	return Vec2();
 }
 void BuildManager::QueueBuilding(const std::string& name, const Vec2& pos)
 {
-	(void)pos;
-	queue.push_back(name);
+	queue.push_back(Building(name, pos));
 }
 
 // ManufacturingManager
@@ -153,15 +169,13 @@ void MilitaryManager::TrainSoldiers(int count) { trainingQueue += count; }
 TaskAllocator::TaskAllocator(AIBrain* owner) : owner(owner) {}
 int TaskAllocator::AddTask(const Task& t)
 {
-	for (Task& existing : tasks)
-	{
-		if (!existing.assigned && existing.type == TaskType::Build && existing.meta == t.meta)
-		{
-			existing.priority = std::max(existing.priority, t.priority);
-			return existing.id;
-		}
-	}
 	Task copy = t; copy.id = nextId++; tasks.push_back(copy); return copy.id;
+
+	Logger::Instance().Log("Task List: \n");
+	for (Task ttt : tasks)
+	{
+		Logger::Instance().Log(ToString(ttt.type) + " task id : " + std::to_string(ttt.id) + " priority = " + std::to_string(ttt.priority));
+	}
 }
 
 void TaskAllocator::Update(float dt)
