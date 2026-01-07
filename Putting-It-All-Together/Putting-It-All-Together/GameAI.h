@@ -36,7 +36,7 @@ public:
 
 	const std::string& GetName() { return name; };
 
-	void Update(float deltaTime);
+	void Update(float deltaTime) override;
 
 	bool CanUseNode(const PathNode* node) const;
 

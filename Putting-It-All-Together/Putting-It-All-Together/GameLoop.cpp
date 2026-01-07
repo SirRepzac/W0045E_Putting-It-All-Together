@@ -72,7 +72,6 @@ void GameLoop::DeleteAll()
 	aiList.clear();
 	persistentEnts.clear();
 	debugEnts.clear();
-	grid.ClearMovables();
 }
 
 void GameLoop::InitializeGame()
@@ -197,7 +196,8 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 
 		// call update with delta in seconds as float
 		UpdateGameLoop(dt, std::chrono::duration_cast<secondsd>(clock::now() - startTime).count());
-		UpdateRenderer();
+		if (frameAmount % 2 == 0) // Update every other frame
+			UpdateRenderer();
 
 		if (renderer && !renderer->IsRunning())
 		{
@@ -234,19 +234,16 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 
 	delta *= gameSpeed;
 	gameTime += delta;
-	grid.ClearMovables();
 	ClearDebugEntities();
 
 	ExecuteDeathRow();
 
-	for (Movable* m : GetMovables())
-		grid.InsertMovable(m);
-
-	for (GameAI* ai : aiList)
-	{
-		ai->Update(delta);
-	}
 	HandlePlayerInput(delta);
+
+	for (Movable* m : GetMovables())
+	{
+		m->Update(delta);
+	}
 }
 
 void GameLoop::UpdateRenderer()
@@ -472,7 +469,7 @@ void GameLoop::HandlePlayerInput(float delta)
 	}
 
 
-	player->Update(moveDir, MAXIMUM_ACCELERATION, delta);
+	player->SetDirection(moveDir);
 }
 
 void GameLoop::ExecuteDeathRow()

@@ -9,9 +9,11 @@ Player::Player(Vec2 pos)
 	color = 0x0078C8;
 }
 
-void Player::Update(Vec2 dir, float acc, float deltaTime)
+void Player::Update(float deltaTime)
 {
-	Move(dir, acc, deltaTime);
+	Move(direction, MAXIMUM_ACCELERATION, deltaTime);
+
+	Movable::Update(deltaTime);
 }
 
 

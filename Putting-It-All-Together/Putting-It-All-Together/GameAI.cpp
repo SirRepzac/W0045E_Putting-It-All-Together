@@ -75,14 +75,15 @@ void GameAI::Update(float deltaTime)
 	Move(steering.Normalized(), steering.Length(), deltaTime);
 
 	prevPos = position;
-	
+
+	Movable::Update(deltaTime);
 }
 
 bool GameAI::CanUseNode(const PathNode* node) const
 {
 
-	// temp
-	return !node->IsObstacle();
+	// if ai should be know the entire map, use line below
+	//return !node->IsObstacle();
 	//
 	if (!brain)
 		return false;

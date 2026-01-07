@@ -63,12 +63,7 @@ public:
 
 	void QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out);
 	void QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, PathNode::Type type = PathNode::Nothing);
-	void InsertMovable(Movable* m);
-
-	void ClearMovables()
-	{
-		for (auto& c : movablesLocations) c.clear();
-	}
+	void UpdateMovable(Movable* m);
 
 	inline int Index(int x, int y) const
 	{
@@ -115,7 +110,7 @@ private:
 	int rows;
 	int cols;
 	std::vector<std::vector<PathNode>> nodes;
-	std::vector<std::vector<Movable*>> movablesLocations;
+	std::vector<std::vector<Movable*>> movableLocations;
 	std::vector<PathNode*> nodeLocations;
 
 	// Set all neighbors for all nodes

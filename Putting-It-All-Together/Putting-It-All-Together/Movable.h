@@ -7,6 +7,7 @@
 class Movable
 {
 public:
+	virtual void Update(float deltaTime);
 	Vec2 GetPosition() { return position; };
 	Vec2 GetVelocity() { return velocity; };
 	Vec2 GetDirection() { return direction; };
@@ -21,6 +22,9 @@ public:
 	void Push(Vec2 dir, float force);
 
 	uint32_t GetColor() { return color; }
+
+	int cellX = -1;
+	int cellY = -1;
 
 protected:
 

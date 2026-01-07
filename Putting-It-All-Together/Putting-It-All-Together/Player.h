@@ -10,7 +10,7 @@ class Player : public Movable
 public:
 	Player(Vec2 pos = Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
 
-	void Update(Vec2 dir, float acc, float deltaTime);
+	void Update(float deltaTime) override;
 
 	std::string GetName() { return "Player"; };
 

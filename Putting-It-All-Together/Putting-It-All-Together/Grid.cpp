@@ -14,7 +14,7 @@ Grid::Grid(int width, int height, int cellSize)
 	if (rows <= 0 || cols <= 0 || cellSize <= 0) return;
 
 	nodes.assign(rows, std::vector<PathNode>(cols));
-	movablesLocations.resize(cols * rows);
+	movableLocations.resize(cols * rows);
 	nodeLocations.resize(cols * rows);
 
 	for (int r = 0; r < rows; r++)
@@ -299,7 +299,7 @@ void Grid::QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out)
 			if (cx < 0 || cy < 0 || cx >= cols || cy >= rows)
 				continue;
 
-			for (Movable* m : movablesLocations[Index(cx, cy)])
+			for (Movable* m : movableLocations[Index(cx, cy)])
 				out.push_back(m);
 		}
 }
@@ -328,13 +328,32 @@ void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out
 		}
 }
 
-void Grid::InsertMovable(Movable* m)
+void Grid::UpdateMovable(Movable* m)
 {
-	int cx = static_cast<int>(m->GetPosition().x / cellSize);
-	int cy = static_cast<int>(m->GetPosition().y / cellSize);
+	int newX, newY;
+	WorldToGrid(m->GetPosition(), newY, newX);
 
-	if (cx < 0 || cy < 0 || cx >= cols || cy >= rows)
+	// First-time insert
+	if (m->cellX == -1)
+	{
+		movableLocations[Index(newX, newY)].push_back(m);
+		m->cellX = newX;
+		m->cellY = newY;
+		return;
+	}
+
+	// Same cell -> nothing to do
+	if (m->cellX == newX && m->cellY == newY)
 		return;
 
-	movablesLocations[Index(cx, cy)].push_back(m);
+	// Remove from old cell
+	auto& oldCell = movableLocations[Index(m->cellX, m->cellY)];
+	std::erase(oldCell, m);
+
+	// Add to new cell
+	movableLocations[Index(newX, newY)].push_back(m);
+
+	m->cellX = newX;
+	m->cellY = newY;
+
 }

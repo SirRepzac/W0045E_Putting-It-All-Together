@@ -2,6 +2,11 @@
 #include "GameLoop.h"
 #include <cmath>
 
+void Movable::Update(float deltaTime)
+{
+	GameLoop::Instance().GetGrid().UpdateMovable(this);
+}
+
 void Movable::Push(Vec2 dir, float force)
 {
 	float invWeight = 1 / weight;
