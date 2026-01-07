@@ -6,6 +6,14 @@
 
 #include "AIBrainManagers.h"
 
+struct KnownNode
+{
+	bool discovered = false;
+	bool walkable = false;   // belief
+	float lastSeenTime = 0;  // optional
+	ResourceType resource = ResourceType::None;
+};
+
 class AIBrain
 {
 public:
@@ -23,11 +31,14 @@ public:
 	void AddDesire(const std::string& name, TaskType taskType, ResourceType primaryResource, int targetCount, float importance = 1.0f);
 
 	// Expose managers for now (could switch to accessor methods)
-	WorldDiscoveryManager* GetDiscovery() { return discovery.get(); }
 	ResourceManager* GetResources() { return resources.get(); }
 	BuildManager* GetBuild() { return build.get(); }
 	MilitaryManager* GetMilitary() { return military.get(); }
 	TaskAllocator* GetAllocator() { return allocator.get(); }
+
+	std::vector<std::vector<KnownNode>> GetKnownNodes() { return knownNodes; }
+
+	void UpdateDiscovered();
 
 private:
 	// internal update steps
@@ -45,13 +56,14 @@ private:
 
 	std::vector<Desire> desires;
 
-	std::unique_ptr<WorldDiscoveryManager> discovery;
 	std::unique_ptr<ResourceManager> resources;
 	std::unique_ptr<TransportManager> transport;
 	std::unique_ptr<BuildManager> build;
 	std::unique_ptr<ManufacturingManager> manufacturing;
 	std::unique_ptr<MilitaryManager> military;
 	std::unique_ptr<TaskAllocator> allocator;
+
+	std::vector<std::vector<KnownNode>> knownNodes;
 
 	int prevTaskId = -1;
 };

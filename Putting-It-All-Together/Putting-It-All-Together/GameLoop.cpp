@@ -81,7 +81,7 @@ void GameLoop::InitializeGame()
 
 	CreateAI(1);
 
-	CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
+	//CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
 
 	LoadGameData();
 
@@ -129,7 +129,7 @@ void GameLoop::LoadGameData()
 	std::vector<DataPoint> dataPoints = LoadDataFile(fileName);
 	for (const DataPoint& p : dataPoints)
 	{
-		grid.SetSpecialNode(grid.GetNodeAt({ p.x, p.y }), p.type);
+		grid.SetNode(grid.GetNodeAt({ p.x, p.y }), p.type);
 	}
 }
 
@@ -233,6 +233,7 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 	HandleInput(delta);
 
 	delta *= gameSpeed;
+	gameTime += delta;
 	grid.ClearMovables();
 	ClearDebugEntities();
 
@@ -428,13 +429,13 @@ void GameLoop::CreatePlayer(Vec2 pos)
 void GameLoop::LMBMouseClickAction(Vec2 clickPos)
 {
 	PathNode* node = grid.GetNodeAt(clickPos);
-	if (node->type == currentPlacingType || currentPlacingType == PathNode::Nothing)
-	{
-		grid.RemoveSpecialNode(node);
-		grid.DrawGrid();
-	}
-	else
-		grid.SetSpecialNode(node, currentPlacingType);
+
+	PathNode::Type placingType = currentPlacingType;
+	// if the same node is pressed twice, remove the type node instead
+	if (currentPlacingType == node->type)
+		placingType = PathNode::Nothing;
+
+	grid.SetNode(node, placingType);
 }
 
 void GameLoop::RMBMouseClickAction(Vec2 clickPos)
@@ -443,7 +444,8 @@ void GameLoop::RMBMouseClickAction(Vec2 clickPos)
 
 	for (auto ai : aiList)
 	{
-		ai->GoTo(node);
+		bool valid = true;
+		ai->GoTo(node, valid);
 	}
 }
 

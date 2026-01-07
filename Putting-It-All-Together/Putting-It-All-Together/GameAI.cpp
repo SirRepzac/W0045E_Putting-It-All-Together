@@ -78,7 +78,28 @@ void GameAI::Update(float deltaTime)
 	
 }
 
-void GameAI::GoTo(PathNode* destination)
+bool GameAI::CanUseNode(const PathNode* node) const
+{
+	if (!brain)
+		return false;
+
+	Grid& grid = GameLoop::Instance().GetGrid();
+
+	int r, c;
+	grid.WorldToGrid(node->position, r, c);
+
+	auto knownNodes = brain->GetKnownNodes();
+
+	const KnownNode& k = knownNodes[r][c];
+
+	// Option A: unknown = blocked
+	if (!k.discovered)
+		return false;
+
+	return k.walkable;
+}
+
+void GameAI::GoTo(PathNode* destination, bool &isPathValid)
 {
 	if (!destination)
 		return;
@@ -92,17 +113,21 @@ void GameAI::GoTo(PathNode* destination)
 	PathNode* dest = destination;
 	float pathDist = 0;
 	std::vector<PathNode*> path;
-	path = pathfinder->RequestPath(currNode, dest, pathDist, radius);
+	path = pathfinder->RequestPath(currNode, dest, pathDist, radius, [this](const PathNode* node) { return CanUseNode(node); });
 
 	if (path.empty())
+	{
+		isPathValid = false;
 		return;
+	}
 
 	SetState(State::STATE_FOLLOW_PATH);
 	behaviour->SetPath(path);
-
+	isPathValid = true;
+	return;
 }
 
-void GameAI::GoToClosest(PathNode::Type destinationType)
+void GameAI::GoToClosest(PathNode::Type destinationType, bool& isPathValid)
 {
 	if (GetPathDestination() != nullptr)
 		return;
@@ -113,13 +138,18 @@ void GameAI::GoToClosest(PathNode::Type destinationType)
 	std::vector<PathNode*> path;
 	float dist = 0;
 
-	path = pathfinder->RequestClosestPath(currNode, destinationType, dist, radius);
+	path = pathfinder->RequestClosestPath(currNode, destinationType, dist, radius, [this](const PathNode* node) { return CanUseNode(node); });
 
 	if (path.empty())
+	{
+		isPathValid = false;
 		return;
+	}
 
 	SetState(State::STATE_FOLLOW_PATH);
 	behaviour->SetPath(path);
+	isPathValid = true;
+	return;
 }
 
 PathNode* GameAI::GetPathDestination()

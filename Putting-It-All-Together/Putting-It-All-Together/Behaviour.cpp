@@ -154,6 +154,14 @@ Behaviour::Info Behaviour::Wander()
 			shouldRecalculate = true;
 		}
 
+		Grid& grid = GameLoop::Instance().GetGrid();
+
+		if (!shouldRecalculate && !grid.HasLineOfSight(ai->GetPosition(), newTarget, ai->GetRadius()))
+		{
+			adjDir *= cos(PI);
+			shouldRecalculate = true;
+		}
+
 
 		if (shouldRecalculate)
 			newTarget = ai->GetPosition() + adjDir * distFromAI + direction * wanderRadius;
@@ -236,7 +244,8 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 	{
 		PathNode* dest = path.front();
 		path.clear();
-		ai->GoTo(dest);
+		bool valid = true;
+		ai->GoTo(dest, valid);
 	}
 
 	// LOS smoothing

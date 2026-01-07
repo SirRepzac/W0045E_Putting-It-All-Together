@@ -6,7 +6,6 @@
 
 AIBrain::AIBrain(GameAI* owner) : ownerAI(owner)
 {
-	discovery = std::make_unique<WorldDiscoveryManager>(this);
 	resources = std::make_unique<ResourceManager>(this);
 	transport = std::make_unique<TransportManager>(this);
 	build = std::make_unique<BuildManager>(this);
@@ -19,8 +18,13 @@ AIBrain::AIBrain(GameAI* owner) : ownerAI(owner)
 	resources->Add(ResourceType::Coal, 0);
 	resources->Add(ResourceType::Iron, 0);
 
-	// Example desire:20 soldiers
+	// Desire: 20 soldiers
 	AddDesire("HaveSoldiers", TaskType::TrainSoldiers, ResourceType::None, 20, 1.0f);
+
+	Grid& grid = GameLoop::Instance().GetGrid();
+	int rows = grid.GetRows();
+	int cols = grid.GetCols();
+	knownNodes.assign(rows, std::vector<KnownNode>(cols));
 }
 
 AIBrain::~AIBrain()
@@ -37,7 +41,8 @@ void AIBrain::Think(float deltaTime)
 	UpdateValues(deltaTime);
 
 	// update managers
-	discovery->Update(deltaTime);
+	UpdateDiscovered();
+
 	resources->Update(deltaTime);
 	transport->Update(deltaTime);
 	build->Update(deltaTime);
@@ -61,6 +66,29 @@ void AIBrain::AddDesire(const std::string& name, TaskType taskType, ResourceType
 	d.targetCount = targetCount;
 	d.importance = importance;
 	desires.push_back(d);
+}
+
+void AIBrain::UpdateDiscovered()
+{
+
+	Grid& grid = GameLoop::Instance().GetGrid();
+	double gameTime = GameLoop::Instance().GetGameTime();
+
+	std::vector<PathNode*> visible;
+	float visionRadius = ownerAI->GetRadius() * 5;
+
+	grid.QueryNodes(ownerAI->GetPosition(), visionRadius, visible);
+
+	for (PathNode* node : visible)
+	{
+		int r, c;
+		grid.WorldToGrid(node->position, r, c);
+
+		knownNodes[r][c].discovered = true;
+		knownNodes[r][c].walkable = !node->IsObstacle();
+		knownNodes[r][c].lastSeenTime = gameTime;
+		knownNodes[r][c].resource = NodeToResource(node->type);
+	}
 }
 
 void AIBrain::UpdateValues(float deltaTime)
@@ -110,12 +138,21 @@ void AIBrain::GatherResource(ResourceType resourceType, Task& t, float deltaTime
 	{
 		// is close
 		resources->Add(resourceType, 60 * deltaTime);
-
 	}
 	else
 	{
+		bool valid = true;
 		// is not close, go to closest
-		ownerAI->GoToClosest(ResourceToNode(resourceType));
+		ownerAI->GoToClosest(ResourceToNode(resourceType), valid);
+
+		if (!valid)
+		{
+			Task tt;
+			tt.type = TaskType::Discover;
+			tt.priority = t.priority + 1;
+			tt.resource = resourceType;
+			allocator->AddTask(tt);
+		}
 	}
 }
 
@@ -192,7 +229,11 @@ void AIBrain::FSM(float deltaTime)
 		if (DistanceBetween(ownerAI->GetPosition(), barrackLoc) > ownerAI->GetRadius() + 2)
 		{
 			PathNode* barrackNode = grid.GetNodeAt(barrackLoc + Vec2(0, 1));
-			ownerAI->GoTo(barrackNode);
+
+			bool valid = true;
+			ownerAI->GoTo(barrackNode, valid);
+
+			// if not valid, explore towards barrackNode
 		}
 		else
 		{
@@ -250,7 +291,12 @@ void AIBrain::FSM(float deltaTime)
 
 		if (DistanceBetween(ownerAI->GetPosition(), baseBarrackLoc) > ownerAI->GetRadius() + 2)
 		{
-			ownerAI->GoTo(grid.GetNodeAt(baseBarrackLoc));
+
+			bool valid = true;
+			ownerAI->GoTo(grid.GetNodeAt(baseBarrackLoc), valid);
+
+			// if not valid, explore towards barrackNode
+
 			break;
 		}
 
@@ -264,6 +310,18 @@ void AIBrain::FSM(float deltaTime)
 		break;
 	case TaskType::Discover:
 		ownerAI->SetState(GameAI::State::STATE_WANDER);
+		for (auto row : knownNodes)
+		{
+			for (auto node : row)
+			{
+				if (node.resource == t.resource)
+				{
+					Logger::Instance().Log(ownerAI->GetName() + " discovered resource \n");
+					allocator->RemoveTask(t.id);
+					break;
+				}
+			}
+		}
 		break;
 	default: break;
 	}

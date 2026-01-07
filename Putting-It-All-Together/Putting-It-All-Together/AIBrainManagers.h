@@ -35,6 +35,21 @@ static PathNode::Type ResourceToNode(ResourceType resourceType)
 	}
 }
 
+static ResourceType NodeToResource(PathNode::Type nodeType)
+{
+	switch (nodeType)
+	{
+	case (PathNode::Type::Wood):
+		return ResourceType::Wood;
+	case (PathNode::Type::Coal):
+		return ResourceType::Coal;
+	case (PathNode::Type::Iron):
+		return ResourceType::Iron;
+	default:
+		return ResourceType::None;
+	}
+}
+
 static std::string ToString(TaskType type)
 {
 	switch (type)
@@ -85,19 +100,6 @@ struct Desire
 };
 
 // Managers - small public interfaces
-class WorldDiscoveryManager
-{
-public:
-	WorldDiscoveryManager(AIBrain* owner);
-	void Update(float dt);
-	void DiscoverAround(const Vec2& pos, float range);
-	bool HasUnexplored() const;
-
-private:
-	AIBrain* owner;
-	std::vector<Vec2> unexplored;
-};
-
 class ResourceManager
 {
 public:

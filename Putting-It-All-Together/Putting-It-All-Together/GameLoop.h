@@ -43,6 +43,7 @@ public:
 	std::vector<Movable*> GetMovables();
 	std::vector<Renderer::Entity>& GetDebugEntities() { return debugEnts; }
 	Grid& GetGrid() { return grid; }
+	double GetGameTime() { return gameTime; }
 
 	bool DEBUG_MODE = true;
 
@@ -83,4 +84,6 @@ private:
 	std::string positionPath = "wall_positions.data";
 
 	double currentFPS = 0.0;
+
+	double gameTime = 0.0;
 };

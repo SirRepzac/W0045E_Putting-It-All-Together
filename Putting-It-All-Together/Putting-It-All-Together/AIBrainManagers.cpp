@@ -4,21 +4,6 @@
 #include <algorithm>
 #include "GameLoop.h"
 
-// WorldDiscoveryManager
-WorldDiscoveryManager::WorldDiscoveryManager(AIBrain* owner) : owner(owner) {}
-void WorldDiscoveryManager::Update(float dt)
-{
-	(void)dt;
-}
-void WorldDiscoveryManager::DiscoverAround(const Vec2& pos, float range)
-{
-	unexplored.push_back(pos + Vec2(range, 0.0f));
-}
-bool WorldDiscoveryManager::HasUnexplored() const
-{
-	return !unexplored.empty();
-}
-
 // ResourceManager
 ResourceManager::ResourceManager(AIBrain* owner) : owner(owner) {}
 void ResourceManager::Update(float dt)
@@ -81,10 +66,10 @@ void BuildManager::Update(float dt)
 		PathNode* node3 = grid.GetNodeAt(baseBarrackLoc + Vec2(0, DEFAULT_CELL_SIZE));
 		PathNode* node4 = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, DEFAULT_CELL_SIZE));
 
-		grid.SetSpecialNode(node1, PathNode::Special, Renderer::Purple);
-		grid.SetSpecialNode(node2, PathNode::Special, Renderer::Purple);
-		grid.SetSpecialNode(node3, PathNode::Special, Renderer::Purple);
-		grid.SetSpecialNode(node4, PathNode::Special, Renderer::Purple);
+		grid.SetNode(node1, PathNode::Special, Renderer::Purple);
+		grid.SetNode(node2, PathNode::Special, Renderer::Purple);
+		grid.SetNode(node3, PathNode::Special, Renderer::Purple);
+		grid.SetNode(node4, PathNode::Special, Renderer::Purple);
 	}
 
 	queue.erase(queue.begin());

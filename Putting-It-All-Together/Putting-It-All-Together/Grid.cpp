@@ -15,7 +15,7 @@ Grid::Grid(int width, int height, int cellSize)
 
 	nodes.assign(rows, std::vector<PathNode>(cols));
 	movablesLocations.resize(cols * rows);
-	specialLocations.resize(cols * rows);
+	nodeLocations.resize(cols * rows);
 
 	for (int r = 0; r < rows; r++)
 	{
@@ -24,6 +24,7 @@ Grid::Grid(int width, int height, int cellSize)
 			nodes[r][c].position = GetCellCenter(r, c);
 			nodes[r][c].id = nodeIds++;
 			nodes[r][c].size = cellSize / 2;
+			nodeLocations[Index(c, r)] = &nodes[r][c];
 		}
 	}
 
@@ -45,7 +46,7 @@ void Grid::SetClearence()
 			}
 
 			float shortest = INT_MAX;
-			for (PathNode* n : specialLocations)
+			for (PathNode* n : nodeLocations)
 			{
 				if (n == nullptr)
 					continue;
@@ -318,7 +319,7 @@ void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out
 			if (cx < 0 || cy < 0 || cx >= cols || cy >= rows)
 				continue;
 
-			auto loc = specialLocations[Index(cx, cy)];
+			auto loc = nodeLocations[Index(cx, cy)];
 
 			if (loc == nullptr || (!(loc->type == type) && type != PathNode::Nothing))
 				continue;

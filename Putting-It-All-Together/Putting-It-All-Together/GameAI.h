@@ -38,8 +38,10 @@ public:
 
 	void Update(float deltaTime);
 
-	void GoTo(PathNode* destination);
-	void GoToClosest(PathNode::Type destinationType);
+	bool CanUseNode(const PathNode* node) const;
+
+	void GoTo(PathNode* destination, bool& isPathValid);
+	void GoToClosest(PathNode::Type destinationType, bool& isPathValid);
 
 	void SetTarget(Vec2 target) { targetPos = target; }
 	void SetTarget(Movable* target) { targetMovable = target; }
@@ -50,6 +52,7 @@ public:
 	AIBrain* GetBrain() { return brain; }
 
 	Vec2 GetPrevPos() { return prevPos; }
+
 
 	PathNode* GetPathDestination();
 

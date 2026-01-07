@@ -8,6 +8,8 @@
 #include <iostream>
 #include <cmath>
 
+using NodeFilter = std::function<bool(const PathNode*)>;
+
 struct OpenEntry
 {
 	PathNode* node;
@@ -22,7 +24,7 @@ struct OpenEntryCompare
 	}
 };
 
-std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius)
+std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
 	std::unordered_map<PathNode*, NodeRecord> records;
 
@@ -62,8 +64,15 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 		// Expand
 		for (PathNode* neighbor : current->neighbors)
 		{
-			if (neighbor->IsObstacle() || closed.contains(neighbor) || neighbor->clearance <= agentRadius)
+			if (closed.contains(neighbor))
 				continue;
+
+			if (!canTraverse(neighbor))
+				continue;
+
+			if (neighbor->clearance <= agentRadius)
+				continue;
+
 			float dx = current->position.x - neighbor->position.x;
 			float dy = current->position.y - neighbor->position.y;
 			float edgeCost = (dx == 0 || dy == 0) ? 1.0f : 1.41421356f;
@@ -74,8 +83,8 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 				PathNode* sideA = grid->GetNodeAt(Vec2(current->position.x - dx, current->position.y));
 				PathNode* sideB = grid->GetNodeAt(Vec2(current->position.x, current->position.y - dy));
 
-				if ((sideA && sideA->IsObstacle()) ||
-					(sideB && sideB->IsObstacle()))
+				if ((sideA && !canTraverse(sideA)) ||
+					(sideB && !canTraverse(sideB)))
 				{
 					continue;
 				}
@@ -103,7 +112,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 	return std::vector<PathNode*>();
 }
 
-std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, PathNode::Type endType, float& outDist, float agentRadius)
+std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, PathNode::Type endType, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
 	std::unordered_map<PathNode*, NodeRecord> records;
 
@@ -143,8 +152,15 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, PathNode::Typ
 		// Expand
 		for (PathNode* neighbor : current->neighbors)
 		{
-			if (neighbor->IsObstacle() || closed.contains(neighbor) || neighbor->clearance <= agentRadius)
+			if (closed.contains(neighbor))
 				continue;
+
+			if (!canTraverse(neighbor))
+				continue;
+
+			if (neighbor->clearance <= agentRadius)
+				continue;
+
 			float dx = current->position.x - neighbor->position.x;
 			float dy = current->position.y - neighbor->position.y;
 			float edgeCost = (dx == 0 || dy == 0) ? 1.0f : 1.41421356f;
@@ -155,8 +171,8 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, PathNode::Typ
 				PathNode* sideA = grid->GetNodeAt(Vec2(current->position.x - dx, current->position.y));
 				PathNode* sideB = grid->GetNodeAt(Vec2(current->position.x, current->position.y - dy));
 
-				if ((sideA && sideA->IsObstacle()) ||
-					(sideB && sideB->IsObstacle()))
+				if ((sideA && !canTraverse(sideA)) ||
+					(sideB && !canTraverse(sideB)))
 				{
 					continue;
 				}
@@ -196,20 +212,14 @@ float AStar::Heuristic(PathNode* a, PathNode* b)
 	float D2 = 1.41421356f;
 
 	return D * (std::max(dx, dy)) + (D2 - D) * std::min(dx, dy);
-
-	// Manhattan distance
-	//return std::abs(a.x - b.x) + std::abs(a.y - b.y);
-
-	// Euclidean distance
-	//return DistanceBetween(a, b);
 }
 
-std::vector<PathNode*> AStar::RequestPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius)
+std::vector<PathNode*> AStar::RequestPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
-	return FindPath(startNode, endNode, outDist, agentRadius);
+	return FindPath(startNode, endNode, outDist, agentRadius, canTraverse);
 }
 
-std::vector<PathNode*> AStar::RequestClosestPath(PathNode* startNode, PathNode::Type endType, float& outDist, float agentRadius)
+std::vector<PathNode*> AStar::RequestClosestPath(PathNode* startNode, PathNode::Type endType, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
-	return FindClosestPath(startNode, endType, outDist, agentRadius);
+	return FindClosestPath(startNode, endType, outDist, agentRadius, canTraverse);
 }
