@@ -84,6 +84,7 @@ struct Task
 	int id = -1;
 	TaskType type = TaskType::None;
 	ResourceType resource = ResourceType::None;
+	Vec2 destination = Vec2();
 	float priority = 0.0f;
 	bool assigned = false;
 	std::string meta;

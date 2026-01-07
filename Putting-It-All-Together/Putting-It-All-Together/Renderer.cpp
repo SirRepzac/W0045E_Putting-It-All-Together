@@ -514,7 +514,7 @@ void Renderer::OnPaint(void* hdcPtr)
             if (!ent.filled)
                 pen = CreatePen(PS_SOLID, max(1, int(ent.thickness)), RGB(r, g, b));
             else
-                pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                pen = CreatePen(PS_SOLID, 1, RGB(r, g, b));
 
             HPEN oldPen = (HPEN)SelectObject(memDC, pen);
 

@@ -93,7 +93,7 @@ bool GameAI::CanUseNode(const PathNode* node) const
 	int r, c;
 	grid.WorldToGrid(node->position, r, c);
 
-	auto knownNodes = brain->GetKnownNodes();
+	auto& knownNodes = brain->knownNodes;
 
 	const KnownNode& k = knownNodes[r][c];
 

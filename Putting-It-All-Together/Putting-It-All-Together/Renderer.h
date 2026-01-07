@@ -85,7 +85,6 @@ public:
             static_cast<uint32_t>(b);
     }
 
-    // https://www.rapidtables.com/convert/color/hex-to-rgb.html
     static inline uint32_t Black = 0x000000;
     static inline uint32_t White = 0xFFFFFF;
     static inline uint32_t Red = 0xFF0000;
@@ -95,6 +94,7 @@ public:
     static inline uint32_t Purple = 0x800080;
     static inline uint32_t Maroon = 0x800000;
     static inline uint32_t Yellow = 0xFFFF00;
+    static inline uint32_t DarkGray = 0x575757;
 
     Renderer(int width, int height);
     ~Renderer();

@@ -161,7 +161,24 @@ bool Grid::HasLineOfSight(const Vec2& from, const Vec2& to, float agentRadius) c
 		}
 		else // EXACT corner hit
 		{
-			// advance both
+			int sideX = x + stepX;
+			int sideY = y;
+			int sideX2 = x;
+			int sideY2 = y + stepY;
+
+			// Check bounds
+			if (sideX < 0 || sideX >= cols || sideY < 0 || sideY >= rows ||
+				sideX2 < 0 || sideX2 >= cols || sideY2 < 0 || sideY2 >= rows)
+				return false;
+
+			const PathNode& nodeA = nodes[sideY][sideX];
+			const PathNode& nodeB = nodes[sideY2][sideX2];
+
+			if (nodeA.IsObstacle() || nodeA.clearance < agentRadius ||
+				nodeB.IsObstacle() || nodeB.clearance < agentRadius)
+				return false;
+
+			// Now safe to advance diagonally
 			tMaxX += tDeltaX;
 			tMaxY += tDeltaY;
 			x += stepX;
@@ -246,16 +263,27 @@ void Grid::DrawGrid()
 	}
 
 	{
-		// Draw special nodes
+		// Draw nodes
 		for (int r = 0; r < rows; r++)
 		{
 			for (int c = 0; c < cols; c++)
 			{
-				if (nodes[r][c].type != PathNode::Nothing)
-				{
-					auto e = nodes[r][c].Draw();
-					GameLoop::Instance().AddDrawEntity(e);
-				}
+
+				//if (nodes[r][c].type == PathNode::Type::Nothing)
+					//continue;
+
+				auto e = nodes[r][c].Draw();
+
+				GameLoop& gameLoop = GameLoop::Instance();
+
+				auto movables = gameLoop.GetMovables();
+				GameAI* ai_1 = dynamic_cast<GameAI*>(movables[0]);
+
+				if (!ai_1->GetBrain()->knownNodes[r][c].discovered)
+					e.color = Renderer::DarkGray;
+
+				gameLoop.AddDrawEntity(e);
+
 			}
 		}
 	}

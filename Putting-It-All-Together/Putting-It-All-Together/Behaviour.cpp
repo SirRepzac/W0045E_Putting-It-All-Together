@@ -233,7 +233,6 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 
 	if (path.empty())
 	{
-		ai->SetState(GameAI::State::STATE_IDLE);
 		return Info{ Vec2(0,0), 0.0f };
 	}
 

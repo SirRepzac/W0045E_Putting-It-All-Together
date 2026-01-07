@@ -24,6 +24,7 @@ struct OpenEntryCompare
 	}
 };
 
+#include "GameLoop.h"
 std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
 	std::unordered_map<PathNode*, NodeRecord> records;
@@ -108,6 +109,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 	}
 
 	std::cout << "Path not found!" << std::endl;
+	GameLoop::Instance().AddDebugEntity(endNode->position, Renderer::Lime, 10);
 	outDist = -1;
 	return std::vector<PathNode*>();
 }

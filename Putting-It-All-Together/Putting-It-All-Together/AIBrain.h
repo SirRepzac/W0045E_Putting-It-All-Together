@@ -3,6 +3,8 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <queue>
+#include <unordered_set>
 
 #include "AIBrainManagers.h"
 
@@ -36,10 +38,9 @@ public:
 	MilitaryManager* GetMilitary() { return military.get(); }
 	TaskAllocator* GetAllocator() { return allocator.get(); }
 
-	std::vector<std::vector<KnownNode>> GetKnownNodes() { return knownNodes; }
-
 	void UpdateDiscovered();
 
+	std::vector<std::vector<KnownNode>> knownNodes;
 private:
 	// internal update steps
 	void UpdateValues(float deltaTime);
@@ -47,6 +48,10 @@ private:
 	void GatherResource(ResourceType resourceType, Task& t, float deltaTime);
 	void FSM(float deltaTime);
 	void CheckDeath();
+
+	bool IsFrontierNode(const PathNode* node);
+
+	PathNode* FindClosestFrontier();
 
 	GameAI* ownerAI = nullptr;
 
@@ -63,7 +68,6 @@ private:
 	std::unique_ptr<MilitaryManager> military;
 	std::unique_ptr<TaskAllocator> allocator;
 
-	std::vector<std::vector<KnownNode>> knownNodes;
 
 	int prevTaskId = -1;
 };

@@ -81,6 +81,9 @@ void AIBrain::UpdateDiscovered()
 
 	for (PathNode* node : visible)
 	{
+		if (!grid.HasLineOfSight(ownerAI->GetPosition(), node->position, 1) && !node->IsObstacle())
+			continue;
+		
 		int r, c;
 		grid.WorldToGrid(node->position, r, c);
 
@@ -175,6 +178,7 @@ void AIBrain::FSM(float deltaTime)
 	Task gatherIron;
 	Task bTask;
 	Vec2 baseBarrackLoc = Vec2(990.000000, 670.000000);
+	PathNode* frontier;
 
 	Task* tt = allocator->GetNext();
 	if (tt == nullptr)
@@ -233,7 +237,12 @@ void AIBrain::FSM(float deltaTime)
 			bool valid = true;
 			ownerAI->GoTo(barrackNode, valid);
 
-			// if not valid, explore towards barrackNode
+			// if not valid, explore
+			Task tt;
+			tt.type = TaskType::Discover;
+			tt.priority = t.priority + 1;
+			tt.destination = baseBarrackLoc;
+			allocator->AddTask(tt);
 		}
 		else
 		{
@@ -295,7 +304,12 @@ void AIBrain::FSM(float deltaTime)
 			bool valid = true;
 			ownerAI->GoTo(grid.GetNodeAt(baseBarrackLoc), valid);
 
-			// if not valid, explore towards barrackNode
+			// if not valid, explore
+			Task tt;
+			tt.type = TaskType::Discover;
+			tt.priority = t.priority + 1;
+			tt.destination = baseBarrackLoc;
+			allocator->AddTask(tt);
 
 			break;
 		}
@@ -309,12 +323,14 @@ void AIBrain::FSM(float deltaTime)
 
 		break;
 	case TaskType::Discover:
-		ownerAI->SetState(GameAI::State::STATE_WANDER);
-		for (auto row : knownNodes)
+		for (int row = 0; row < grid.GetRows(); ++row)
 		{
-			for (auto node : row)
+			for (int col = 0; col < grid.GetCols(); ++col)
 			{
-				if (node.resource == t.resource)
+
+				auto& k = knownNodes[row][col];
+
+				if (k.discovered && (k.resource == t.resource || t.resource == ResourceType::None))
 				{
 					Logger::Instance().Log(ownerAI->GetName() + " discovered resource \n");
 					allocator->RemoveTask(t.id);
@@ -322,6 +338,14 @@ void AIBrain::FSM(float deltaTime)
 				}
 			}
 		}
+
+		frontier = FindClosestFrontier();
+		if (frontier)
+		{
+			bool valid = true;
+			ownerAI->GoTo(frontier, valid);
+		}
+
 		break;
 	default: break;
 	}
@@ -339,4 +363,81 @@ void AIBrain::CheckDeath()
 		ownerAI->SetState(GameAI::State::STATE_IDLE);
 		GameLoop::Instance().ScheduleDeath(ownerAI);
 	}
+}
+
+bool AIBrain::IsFrontierNode(const PathNode* node)
+{
+	Grid& grid = GameLoop::Instance().GetGrid();
+
+	int r = -1;
+	int c = -1;
+	grid.WorldToGrid(node->position, r, c);
+
+	const KnownNode& k = knownNodes[r][c];
+
+	if (!k.discovered)
+		return false;
+
+	if (node->clearance < ownerAI->GetRadius())
+		return false;
+
+	for (PathNode* n : node->neighbors)
+	{
+		int nr = -1;
+		int nc = -1;
+		grid.WorldToGrid(n->position, nr, nc);
+		const KnownNode& kn = knownNodes[nr][nc];
+
+		if (!kn.discovered)
+			return true;
+	}
+	return false;
+}
+
+PathNode* AIBrain::FindClosestFrontier()
+{
+	GameLoop& game = GameLoop::Instance();
+	Grid& grid = game.GetGrid();
+
+	PathNode* start = grid.GetNodeAt(ownerAI->GetPosition());
+
+	int sr, sc;
+	grid.WorldToGrid(start->position, sr, sc);
+
+	if (!knownNodes[sr][sc].discovered)
+	{
+		// ensure at least current node is known
+		knownNodes[sr][sc].discovered = true;
+		knownNodes[sr][sc].walkable = !start->IsObstacle();
+	}
+
+	std::queue<PathNode*> q;
+	std::unordered_set<PathNode*> visited;
+
+	q.push(start);
+	visited.insert(start);
+
+	while (!q.empty())
+	{
+		PathNode* current = q.front();
+		q.pop();
+
+		if (IsFrontierNode(current))
+			return current;
+
+		for (PathNode* n : current->neighbors)
+		{
+			int r = -1;
+			int c = -1;
+			grid.WorldToGrid(n->position, r, c);
+
+			if (!visited.contains(n) && knownNodes[r][c].discovered && knownNodes[r][c].walkable)
+			{
+				visited.insert(n);
+				q.push(n);
+			}
+		}
+	}
+
+	return nullptr;
 }

@@ -198,6 +198,8 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 		UpdateGameLoop(dt, std::chrono::duration_cast<secondsd>(clock::now() - startTime).count());
 		if (frameAmount % 2 == 0) // Update every other frame
 			UpdateRenderer();
+		if (frameAmount % 10 == 0)
+			grid.DrawGrid();
 
 		if (renderer && !renderer->IsRunning())
 		{
@@ -233,6 +235,10 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 	HandleInput(delta);
 
 	delta *= gameSpeed;
+
+	if (delta > 0.5f)
+		delta = 0.5f;
+
 	gameTime += delta;
 	ClearDebugEntities();
 

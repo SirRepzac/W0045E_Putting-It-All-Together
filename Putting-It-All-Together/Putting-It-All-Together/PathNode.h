@@ -52,13 +52,11 @@ enum Type
 	}
 
 	// Draw the cell of this node
-	// --------------------------
-	// c - the color in which to draw this node
 	Renderer::Entity Draw()
 	{
 		Vec2 bottomLeft = position - Vec2(size, size);
 		Vec2 topRight = position + Vec2(size, size);
-		return Renderer::Entity::MakeRect(bottomLeft.x, bottomLeft.y, topRight.x, topRight.y, color, true, 2.0f, displayLetter);
+		return Renderer::Entity::MakeRect(bottomLeft.x, bottomLeft.y, topRight.x, topRight.y, color, true, 0, displayLetter);
 	}
 };
 

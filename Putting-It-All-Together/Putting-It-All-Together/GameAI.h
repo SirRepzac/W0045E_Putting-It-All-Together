@@ -70,9 +70,6 @@ private:
 	float AGENTAVOIDANCE_WEIGHT = 2.0f; // recommended value: 2.0
 	float WALLAVOIDANCE_WEIGHT = 1.0f; // recommended value: 1.0
 
-	PathNode* sleepingNode = nullptr;
-	PathNode* workingNode = nullptr;
-
 	AIBrain* brain;
 };
 
