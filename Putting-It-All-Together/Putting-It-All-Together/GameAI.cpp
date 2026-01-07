@@ -80,6 +80,10 @@ void GameAI::Update(float deltaTime)
 
 bool GameAI::CanUseNode(const PathNode* node) const
 {
+
+	// temp
+	return !node->IsObstacle();
+	//
 	if (!brain)
 		return false;
 

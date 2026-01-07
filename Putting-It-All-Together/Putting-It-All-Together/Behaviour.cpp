@@ -454,7 +454,6 @@ Behaviour::Info Behaviour::Update(float deltaTime, GameAI::State state)
 			DrawDebugTarget();
 			return Persue(deltaTime);
 		case GameAI::State::STATE_FOLLOW_PATH:
-			if (GameLoop::Instance().DEBUG_MODE)
 			return FollowPath(deltaTime);
 		default:
 			return Info{ Vec2(0,0), 0.0f };

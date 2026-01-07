@@ -45,7 +45,7 @@ public:
 	Grid& GetGrid() { return grid; }
 	double GetGameTime() { return gameTime; }
 
-	bool DEBUG_MODE = true;
+	bool DEBUG_MODE = false;
 
 	Pathfinder* pathfinder;
 
