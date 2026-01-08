@@ -92,13 +92,13 @@ void Renderer::SetEntities(const std::vector<Entity>& entities)
     }
 }
 
-void Renderer::SetOverlayLines(const std::vector<std::string>& lines)
+void Renderer::SetOverlayLines(Overlay& overlay, const std::vector<std::string>& lines)
 {
     if (!running_.load())
         return;
     {
-        std::lock_guard<std::mutex> lk(overlayMtx_);
-        overlayLines_ = lines;
+        std::lock_guard<std::mutex> lk(overlay.overlayMtx_);
+        overlay.overlayLines_ = lines;
     }
     if (hwnd_)
     {
@@ -106,13 +106,13 @@ void Renderer::SetOverlayLines(const std::vector<std::string>& lines)
     }
 }
 
-void Renderer::ClearOverlayLines()
+void Renderer::ClearOverlayLines(Overlay& overlay)
 {
     if (!running_.load())
         return;
     {
-        std::lock_guard<std::mutex> lk(overlayMtx_);
-        overlayLines_.clear();
+        std::lock_guard<std::mutex> lk(overlay.overlayMtx_);
+        overlay.overlayLines_.clear();
     }
     if (hwnd_)
     {
@@ -623,14 +623,15 @@ void Renderer::OnPaint(void* hdcPtr)
 
 
     {
-        std::vector<std::string> overlay;
+        for (Overlay* overlayPtr : overlays)
         {
-            std::lock_guard<std::mutex> lk(overlayMtx_);
-            overlay = overlayLines_;
-        }
+            Overlay& overlay = *overlayPtr;
 
-        if (!overlay.empty())
-        {
+            if (overlay.overlayLines_.empty())
+                continue;
+
+            std::lock_guard<std::mutex> lk(overlay.overlayMtx_);
+
             // set transparent background for text
             int oldBkMode = SetBkMode(memDC, TRANSPARENT);
             COLORREF oldColor = SetTextColor(memDC, RGB(0, 0, 0));
@@ -642,24 +643,60 @@ void Renderer::OnPaint(void* hdcPtr)
             const int padding = 8;
             const int lineSpacing = 2;
 
-            for (size_t i = 0; i < overlay.size(); ++i)
+            int lineCount = (int)overlay.overlayLines_.size();
+            int blockHeight =
+                padding * 2 +
+                lineCount * lineHeight +
+                (lineCount - 1) * lineSpacing;
+
+            int blockWidth = 0;
+
+            for (const std::string& s : overlay.overlayLines_)
             {
-                const std::string& s = overlay[i];
                 if (s.empty()) continue;
 
                 int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
                 if (len <= 0) continue;
-                std::wstring w;
-                w.resize(len - 1);
+
+                std::wstring w(len - 1, L'\0');
                 MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &w[0], len);
 
                 SIZE ext;
                 GetTextExtentPoint32W(memDC, w.c_str(), (int)w.size(), &ext);
 
-                int x = clientW - padding - ext.cx;
-                int y = padding + static_cast<int>(i) * (lineHeight + lineSpacing);
+                blockWidth = std::max<int>(blockWidth, ext.cx);
+            }
 
-                TextOutW(memDC, x, y, w.c_str(), (int)w.size());
+            blockWidth += padding * 2;
+
+            int blockX = overlay.position.x - padding - blockWidth;
+            int blockY = overlay.position.y + padding;
+
+            if (blockX < 0)
+                blockX = 0;
+            else if (blockX + blockWidth > clientW)
+                blockX = clientW - blockWidth;
+
+            if (blockY < 0)
+                blockY = 0;
+            else if (blockY + blockHeight > clientH)
+                blockY = clientH - blockHeight;
+
+            for (size_t i = 0; i < overlay.overlayLines_.size(); ++i)
+            {
+                const std::string& s = overlay.overlayLines_[i];
+                if (s.empty()) continue;
+
+                int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+                if (len <= 0) continue;
+
+                std::wstring w(len - 1, L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &w[0], len);
+
+                int textX = blockX + padding;
+                int textY = blockY + (int)i * (lineHeight + lineSpacing);
+
+                TextOutW(memDC, textX, textY, w.c_str(), (int)w.size());
             }
 
             SetTextColor(memDC, oldColor);

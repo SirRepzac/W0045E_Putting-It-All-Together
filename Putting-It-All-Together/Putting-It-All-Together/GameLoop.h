@@ -85,4 +85,7 @@ private:
 
 	double gameTime = 0.0;
 
+	// top right
+	Renderer::Overlay resourceOverlay;
+
 };

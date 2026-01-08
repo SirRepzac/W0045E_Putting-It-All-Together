@@ -79,27 +79,19 @@ public:
         }
     };
 
-    //struct Overlay
-    //{
-    //    std::string overlayName;
-    //    std::vector<std::string> texts;
-    //    Vec2 position;
-    //};
+    struct Overlay
+    {
+        std::mutex overlayMtx_;
+        std::vector<std::string> overlayLines_;
+        Vec2 position;
+    };
 
-    //std::vector<Overlay> overlays;
+    std::vector<Overlay*> overlays;
 
-    //void AddOverlay(Overlay o)
-    //{
-    //    for (auto& ol : overlays)
-    //    {
-    //        if (ol.overlayName == o.overlayName)
-    //        {
-    //            ol = o;
-    //            return;
-    //        }
-    //    }
-    //    overlays.push_back(o);
-    //}
+    void AddOverlay(Overlay* o)
+    {
+        overlays.push_back(o);
+    }
 
 
 
@@ -162,9 +154,9 @@ public:
     // Provide entities to draw (preferred)
     void SetEntities(const std::vector<Entity>& entities);
 
-    // Overlay text (top-right). Thread-safe: call from game thread.
-    void SetOverlayLines(const std::vector<std::string>& lines);
-    void ClearOverlayLines();
+    // Overlay text
+    void SetOverlayLines(Overlay& overlay, const std::vector<std::string>& lines);
+    void ClearOverlayLines(Overlay& overlay);
 
     void OnPaint(void* hdc);
 
@@ -200,10 +192,6 @@ private:
     std::atomic<bool> running_;
     std::mutex mtx_;
     std::vector<Entity> entities_;         // store entities (positions + color + name)
-
-    // overlay text
-    std::mutex overlayMtx_;
-    std::vector<std::string> overlayLines_;
 
     // input state
     mutable std::mutex inputMtx_;

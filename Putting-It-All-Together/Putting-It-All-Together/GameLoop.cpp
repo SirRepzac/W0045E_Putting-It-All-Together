@@ -114,6 +114,8 @@ void GameLoop::InitializeGame()
 	LoadGameData();
 
 	grid.SetClearence();
+	resourceOverlay.position = (Vec2(WORLD_WIDTH, 0));
+	renderer->AddOverlay(&resourceOverlay);
 }
 
 void GameLoop::SaveData()
@@ -223,8 +225,7 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 
 		// call update with delta in seconds as float
 		UpdateGameLoop(dt, std::chrono::duration_cast<secondsd>(clock::now() - startTime).count());
-		if (frameAmount % 2 == 0) // Update every other frame
-			UpdateRenderer();
+		UpdateRenderer();
 
 		if (renderer && !renderer->IsRunning())
 		{
@@ -283,7 +284,6 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 
 void GameLoop::UpdateRenderer()
 {
-	renderer->ClearOverlayLines();
 	std::vector<Renderer::Entity> ents;
 	ents.reserve(aiList.size() + 1 + debugEnts.size());
 
@@ -345,7 +345,7 @@ void GameLoop::UpdateRenderer()
 				str5
 			};
 
-			renderer->SetOverlayLines(overlay);
+			renderer->SetOverlayLines(resourceOverlay, overlay);
 		}
 	}
 
