@@ -143,7 +143,7 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, PathNode::Typ
 			continue;
 
 		// Found goal
-		if (current->type == endType)
+		if (current->type == endType && current->hitpoints > 0)
 		{
 			outDist = records.at(current).gCost;
 			return ReconstructPath(records, current);

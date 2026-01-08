@@ -155,12 +155,31 @@ void AIBrain::GatherResource(ResourceType resourceType, Task& t, float deltaTime
 
 	Grid& grid = GameLoop::Instance().GetGrid();
 	std::vector<PathNode*> nodes;
+	std::vector<PathNode*> healthynodes;
 
 	grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, ResourceToNode(resourceType));
-	if (!nodes.empty())
+
+	for (PathNode* node : nodes)
 	{
+		if (node->hitpoints > 0)
+			healthynodes.push_back(node);
+	}
+
+	if (!healthynodes.empty())
+	{
+		PathNode* healthyNode = healthynodes[0];
 		// is close
-		resources->Add(resourceType, 60 * deltaTime);
+		healthyNode->hitpoints -= 20 * deltaTime;
+		resources->Add(resourceType, 20 * deltaTime);
+
+		if (healthyNode->hitpoints <= 0)
+		{
+			int r;
+			int c;
+			grid.WorldToGrid(healthyNode->position, r, c);
+			healthyNode->color = Renderer::White;
+			GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
+		}
 	}
 	else
 	{

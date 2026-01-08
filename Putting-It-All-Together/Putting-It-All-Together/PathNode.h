@@ -27,6 +27,8 @@ enum Type
 	int id = -1; // Id of the node
 	Vec2 position; // Position of the node
 
+	float hitpoints = 10;
+
 	std::vector<PathNode*> neighbors; // Adjecent nodes
 
 	float size = 0; // radius of this node
