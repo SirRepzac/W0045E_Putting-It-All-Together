@@ -81,10 +81,6 @@ void GameAI::Update(float deltaTime)
 
 bool GameAI::CanUseNode(const PathNode* node) const
 {
-
-	// if ai should be know the entire map, use line below
-	//return !node->IsObstacle();
-	//
 	if (!brain)
 		return false;
 
@@ -104,12 +100,9 @@ bool GameAI::CanUseNode(const PathNode* node) const
 	return k.walkable;
 }
 
-void GameAI::GoTo(PathNode* destination, bool &isPathValid)
+void GameAI::GoTo(PathNode* destination, bool &isPathValid, bool ignoreFog)
 {
 	if (!destination)
-		return;
-
-	if (GetPathDestination() != nullptr)
 		return;
 
 	GameLoop& game = GameLoop::Instance();
@@ -118,7 +111,16 @@ void GameAI::GoTo(PathNode* destination, bool &isPathValid)
 	PathNode* dest = destination;
 	float pathDist = 0;
 	std::vector<PathNode*> path;
-	path = pathfinder->RequestPath(currNode, dest, pathDist, radius, [this](const PathNode* node) { return CanUseNode(node); });
+	if (ignoreFog)
+		path = pathfinder->RequestPath(currNode, dest, pathDist, radius, [this](const PathNode* node)
+			{
+				return !node->IsObstacle();
+			});
+	else
+		path = pathfinder->RequestPath(currNode, dest, pathDist, radius, [this](const PathNode* node) 
+			{ 
+				return CanUseNode(node); 
+			});
 
 	if (path.empty())
 	{
@@ -134,8 +136,6 @@ void GameAI::GoTo(PathNode* destination, bool &isPathValid)
 
 void GameAI::GoToClosest(PathNode::Type destinationType, bool& isPathValid)
 {
-	if (GetPathDestination() != nullptr)
-		return;
 
 	GameLoop& game = GameLoop::Instance();
 	Pathfinder* pathfinder = game.pathfinder;

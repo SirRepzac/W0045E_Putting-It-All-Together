@@ -40,7 +40,8 @@ public:
 
 	bool CanUseNode(const PathNode* node) const;
 
-	void GoTo(PathNode* destination, bool& isPathValid);
+	void GoTo(PathNode* destination, bool& isPathValid, bool ignoreFog = false);
+
 	void GoToClosest(PathNode::Type destinationType, bool& isPathValid);
 
 	void SetTarget(Vec2 target) { targetPos = target; }

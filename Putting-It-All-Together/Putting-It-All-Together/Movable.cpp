@@ -15,7 +15,7 @@ void Movable::Push(Vec2 dir, float force)
 
 void Movable::Move(Vec2 dir, float acc, float deltaTime)
 {
-	Vec2 acceleration = dir * acc;
+	Vec2 acceleration = (dir + direction) / 2 * acc;
 
 	velocity += acceleration * deltaTime;
 

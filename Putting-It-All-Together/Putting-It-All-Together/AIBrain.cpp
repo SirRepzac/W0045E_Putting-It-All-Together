@@ -274,14 +274,17 @@ void AIBrain::FSM(float deltaTime)
 			PathNode* barrackNode = grid.GetNodeAt(barrackLoc + Vec2(0, 1));
 
 			bool valid = true;
-			ownerAI->GoTo(barrackNode, valid);
+			ownerAI->GoTo(barrackNode, valid, true);
 
 			// if not valid, explore
-			Task tt;
-			tt.type = TaskType::Discover;
-			tt.priority = t.priority + 1;
-			tt.destination = baseBarrackLoc;
-			allocator->AddTask(tt);
+			if (!valid)
+			{
+				Task tt;
+				tt.type = TaskType::Discover;
+				tt.priority = t.priority + 1;
+				tt.destination = baseBarrackLoc;
+				allocator->AddTask(tt);
+			}
 		}
 		else
 		{
@@ -341,14 +344,17 @@ void AIBrain::FSM(float deltaTime)
 		{
 
 			bool valid = true;
-			ownerAI->GoTo(grid.GetNodeAt(baseBarrackLoc), valid);
+			ownerAI->GoTo(grid.GetNodeAt(baseBarrackLoc), valid, true);
 
 			// if not valid, explore
-			Task tt;
-			tt.type = TaskType::Discover;
-			tt.priority = t.priority + 1;
-			tt.destination = baseBarrackLoc;
-			allocator->AddTask(tt);
+			if (!valid)
+			{
+				Task tt;
+				tt.type = TaskType::Discover;
+				tt.priority = t.priority + 1;
+				tt.destination = baseBarrackLoc;
+				allocator->AddTask(tt);
+			}
 
 			break;
 		}
