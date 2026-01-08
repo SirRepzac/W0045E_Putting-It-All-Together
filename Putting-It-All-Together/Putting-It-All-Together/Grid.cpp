@@ -79,6 +79,37 @@ bool Grid::WorldToGrid(const Vec2& pos, int& row, int& col) const
 	return row >= 0 && row < rows && col >= 0 && col < cols;
 }
 
+void Grid::SetNode(PathNode* node, PathNode::Type type, uint32_t specialColor)
+{
+	int row = static_cast<int>(node->position.y / cellSize);
+	int col = static_cast<int>(node->position.x / cellSize);
+
+	int index = Index(col, row);
+
+	PathNode* baseNode = nodeLocations[index];
+
+	// if caller wants Nothing, we're done
+	if (type == PathNode::Nothing)
+		node->color = 0xFFFFFF; // white
+	else if (type == PathNode::Wood)
+		node->color = 0x5E3500; // brown
+	else if (type == PathNode::Coal)
+		node->color = 0x000000; // black
+	else if (type == PathNode::Iron)
+		node->color = 0xC0C0C0; // silver
+	else if (type == PathNode::Wall)
+		node->color = 0xFF0000; // red
+	else if (type == PathNode::Start)
+		node->color = 0xFFFFFF; // white
+	else if (type == PathNode::End)
+		node->color = 0xFFFFFF; // white
+	else if (type == PathNode::Special)
+		node->color = specialColor;
+
+	node->type = type;
+	GameLoop::Instance().renderer->MarkNodeDirty(index);
+}
+
 PathNode* Grid::GetNodeAt(Vec2 pos)
 {
 	int row;
@@ -228,66 +259,33 @@ void Grid::SetNeighbors(int rows, int cols)
 	}
 }
 
-void Grid::DrawGrid()
+void Grid::DrawGridLines()
 {
-	GameLoop::Instance().ClearDrawEntities();
+	if (!GameLoop::Instance().DEBUG_MODE)
+		return;
 
 	float realWidth = cols * cellSize;
 	float realHeight = rows * cellSize;
 
 	Vec2 centeringVec = Vec2((width - realWidth) / 2.0f, (height - realHeight) / 2.0f);
 
-	if (GameLoop::Instance().DEBUG_MODE)
+	uint32_t lineColor = Renderer::Black;
+	for (int i = 0; i <= rows; i++)
 	{
-		if (false) // show grid lines
-		{
+		Vec2 vec1 = Vec2(0.0f, static_cast<float>(i * cellSize)) + centeringVec;
+		Vec2 vec2 = Vec2(realWidth, static_cast<float>(i * cellSize)) + centeringVec;
 
-			uint32_t lineColor = Renderer::Black;
-			for (int i = 0; i <= rows; i++)
-			{
-				Vec2 vec1 = Vec2(0.0f, static_cast<float>(i * cellSize)) + centeringVec;
-				Vec2 vec2 = Vec2(realWidth, static_cast<float>(i * cellSize)) + centeringVec;
-
-				auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
-				GameLoop::Instance().AddDrawEntity(e);
-			}
-			for (int j = 0; j <= cols; j++)
-			{
-				Vec2 vec1 = Vec2(static_cast<float>(j * cellSize), 0.0f) + centeringVec;
-				Vec2 vec2 = Vec2(static_cast<float>(j * cellSize), realHeight) + centeringVec;
-
-				auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
-				GameLoop::Instance().AddDrawEntity(e);
-			}
-		}
+		auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
+		GameLoop::Instance().AddDebugEntity(e);
 	}
-
+	for (int j = 0; j <= cols; j++)
 	{
-		// Draw nodes
-		for (int r = 0; r < rows; r++)
-		{
-			for (int c = 0; c < cols; c++)
-			{
+		Vec2 vec1 = Vec2(static_cast<float>(j * cellSize), 0.0f) + centeringVec;
+		Vec2 vec2 = Vec2(static_cast<float>(j * cellSize), realHeight) + centeringVec;
 
-				//if (nodes[r][c].type == PathNode::Type::Nothing)
-					//continue;
-
-				auto e = nodes[r][c].Draw();
-
-				GameLoop& gameLoop = GameLoop::Instance();
-
-				auto movables = gameLoop.GetMovables();
-				GameAI* ai_1 = dynamic_cast<GameAI*>(movables[0]);
-
-				if (!ai_1->GetBrain()->knownNodes[r][c].discovered)
-					e.color = Renderer::DarkGray;
-
-				gameLoop.AddDrawEntity(e);
-
-			}
-		}
+		auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
+		GameLoop::Instance().AddDebugEntity(e);
 	}
-
 }
 
 std::vector<float> Grid::GetPosition()

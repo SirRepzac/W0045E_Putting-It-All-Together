@@ -284,16 +284,16 @@ Behaviour::Info Behaviour::AgentAvoidance(float deltaTime, GameAI::State state)
 	GameLoop& game = GameLoop::Instance();
 	float detectionRadius = 75;
 
-	if (game.DEBUG_MODE)
-	{
-		float halfFov = DegToRad(fov) * 0.5f;
+	//if (game.DEBUG_MODE)
+	//{
+	//	float halfFov = DegToRad(fov) * 0.5f;
 
-		Vec2 leftDir = forward.Rotated(halfFov);
-		Vec2 rightDir = forward.Rotated(-halfFov);
+	//	Vec2 leftDir = forward.Rotated(halfFov);
+	//	Vec2 rightDir = forward.Rotated(-halfFov);
 
-		game.AddDebugLine(pos, pos + leftDir * detectionRadius, Renderer::Color(200, 0, 0));
-		game.AddDebugLine(pos, pos + rightDir * detectionRadius, Renderer::Color(200, 0, 0));
-	}
+	//	game.AddDebugLine(pos, pos + leftDir * detectionRadius, Renderer::Color(200, 0, 0));
+	//	game.AddDebugLine(pos, pos + rightDir * detectionRadius, Renderer::Color(200, 0, 0));
+	//}
 
 	std::vector<Movable*> agents;
 	game.GetGrid().QueryEnt(pos, detectionRadius + ai->GetRadius() * 0.5f, agents);
@@ -365,13 +365,13 @@ Behaviour::Info Behaviour::WallAvoidance(float deltaTime, GameAI::State state)
 
 		steering += diff.Normalized() * strength;
 
-		if (game.DEBUG_MODE)
-		{
-			Vec2 closest = ClosestPointOnSquare(pos, so->position, so->size);
-			// show closest point and line to it
-			game.AddDebugEntity(closest, Renderer::Color(0, 200, 0), 3, true);
-			game.AddDebugLine(pos, closest, Renderer::Color(0, 200, 0));
-		}
+		//if (game.DEBUG_MODE)
+		//{
+		//	Vec2 closest = ClosestPointOnSquare(pos, so->position, so->size);
+		//	// show closest point and line to it
+		//	game.AddDebugEntity(closest, Renderer::Color(0, 200, 0), 3, true);
+		//	game.AddDebugLine(pos, closest, Renderer::Color(0, 200, 0));
+		//}
 	}
 
 	if (steering.IsZero())

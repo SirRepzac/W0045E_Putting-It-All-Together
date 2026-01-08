@@ -40,7 +40,12 @@ public:
 
 	void UpdateDiscovered();
 
+	void Discover(PathNode* node, Grid& grid, double& gameTime);
+
 	std::vector<std::vector<KnownNode>> knownNodes;
+
+	bool IsDiscovered(int index) const;
+
 private:
 	// internal update steps
 	void UpdateValues(float deltaTime);

@@ -36,9 +36,8 @@ public:
 	void UpdateGameLoop(float delta, double timePassed);
 
 	void AddDebugEntity(Vec2 pos, uint32_t color = Renderer::Color(200, 0, 0)/*red*/, int radius = 1, bool filled = true, std::string name = "");
+	void AddDebugEntity(Renderer::Entity e);
 	void AddDebugLine(Vec2 a, Vec2 b, uint32_t color, float thickness = 2.0f);
-
-	void AddDrawEntity(Renderer::Entity e) { environmentEnts.push_back(e); }
 
 	std::vector<Movable*> GetMovables();
 	std::vector<Renderer::Entity>& GetDebugEntities() { return debugEnts; }
@@ -48,10 +47,11 @@ public:
 	bool DEBUG_MODE = true;
 
 	Pathfinder* pathfinder;
+	Renderer* renderer;
 
 	void ScheduleDeath(GameAI* ai) { deathRow.push_back(ai); }
 
-	void ClearDrawEntities() { environmentEnts.clear(); }
+	GameAI* focusedAgent = nullptr;
 private:
 	GameLoop();
 	void ClearDebugEntities() { debugEnts.clear(); }
@@ -70,11 +70,9 @@ private:
 	float gameSpeed = 1.0f;
 
 	std::vector<Renderer::Entity> debugEnts;
-	std::vector<Renderer::Entity> environmentEnts;
 	std::vector<Renderer::Entity> persistentEnts;
 	Grid grid;
 
-	Renderer* renderer;
 	Player* player = nullptr;
 
 	std::vector<GameAI*> aiList;
@@ -86,4 +84,5 @@ private:
 	double currentFPS = 0.0;
 
 	double gameTime = 0.0;
+
 };

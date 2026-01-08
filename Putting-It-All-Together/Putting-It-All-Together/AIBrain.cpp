@@ -84,14 +84,34 @@ void AIBrain::UpdateDiscovered()
 		if (!grid.HasLineOfSight(ownerAI->GetPosition(), node->position, 1) && !node->IsObstacle())
 			continue;
 		
-		int r, c;
-		grid.WorldToGrid(node->position, r, c);
-
-		knownNodes[r][c].discovered = true;
-		knownNodes[r][c].walkable = !node->IsObstacle();
-		knownNodes[r][c].lastSeenTime = gameTime;
-		knownNodes[r][c].resource = NodeToResource(node->type);
+		Discover(node, grid, gameTime);
 	}
+}
+
+void AIBrain::Discover(PathNode* node, Grid& grid, double& gameTime)
+{
+	int r, c;
+	grid.WorldToGrid(node->position, r, c);
+
+	KnownNode& kNode = knownNodes[r][c];
+
+	if (kNode.discovered)
+		return;
+
+	kNode.discovered = true;
+	kNode.walkable = !node->IsObstacle();
+	kNode.lastSeenTime = gameTime;
+	kNode.resource = NodeToResource(node->type);
+
+	GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
+}
+
+bool AIBrain::IsDiscovered(int index) const
+{
+	Grid& grid = GameLoop::Instance().GetGrid();
+	auto indexPair = grid.TwoDIndex(index);
+
+	return knownNodes[indexPair.first][indexPair.second].discovered;
 }
 
 void AIBrain::UpdateValues(float deltaTime)

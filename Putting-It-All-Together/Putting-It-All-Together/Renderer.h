@@ -12,6 +12,8 @@
 #include <limits>
 #include <algorithm>
 
+class AIBrain;
+
 class Renderer
 {
 public:
@@ -76,6 +78,58 @@ public:
             return e;
         }
     };
+
+    //struct Overlay
+    //{
+    //    std::string overlayName;
+    //    std::vector<std::string> texts;
+    //    Vec2 position;
+    //};
+
+    //std::vector<Overlay> overlays;
+
+    //void AddOverlay(Overlay o)
+    //{
+    //    for (auto& ol : overlays)
+    //    {
+    //        if (ol.overlayName == o.overlayName)
+    //        {
+    //            ol = o;
+    //            return;
+    //        }
+    //    }
+    //    overlays.push_back(o);
+    //}
+
+
+
+    struct DrawNode
+    {
+        float left;
+        float right;
+        float top;
+        float bottom;
+
+        uint32_t color;
+
+        //DrawNode(float left, float right, float top, float bottom, uint32_t col) : left(left), right(right), top(top), bottom(bottom), color(col) {}
+    };
+
+    std::vector<DrawNode> nodeCache;
+    std::vector<bool> nodeNeedsUpdate;
+
+    void UpdateNode(size_t index, const DrawNode& node)
+    {
+        nodeCache[index] = node;
+        MarkNodeDirty(index);
+    }
+
+    void MarkNodeDirty(size_t index)
+    {
+        nodeNeedsUpdate[index] = true;
+    }
+
+    void UpdateDirtyNodes(const AIBrain* brain);
 
     // helper to build 0xRRGGBB color
     static inline uint32_t Color(uint8_t r, uint8_t g, uint8_t b)

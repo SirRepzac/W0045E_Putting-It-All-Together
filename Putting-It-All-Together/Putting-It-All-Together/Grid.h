@@ -32,7 +32,7 @@ public:
 	// Draw the outlines of the grid
 	// --------------------------
 	// color - the color of the lines
-	void DrawGrid();
+	void DrawGridLines();
 
 	// Get the amount of rows in the grid
 	// --------------------------
@@ -70,34 +70,17 @@ public:
 		return y * cols + x;
 	}
 
-	void SetNode(PathNode* node, PathNode::Type type, uint32_t specialColor = 0xFFFFFF)
+	std::pair<int, int> TwoDIndex(int index)
 	{
-		int row = static_cast<int>(node->position.y / cellSize);
-		int col = static_cast<int>(node->position.x / cellSize);
+		int rowSize = cols;
 
-		PathNode* baseNode = nodeLocations[Index(col, row)];
+		int row = index / rowSize;
+		int col = index % rowSize;
 
-		// if caller wants Nothing, we're done
-		if (type == PathNode::Nothing)
-			node->color = 0xFFFFFF; // white
-		else if (type == PathNode::Wood)
-			node->color = 0x5E3500; // brown
-		else if (type == PathNode::Coal)
-			node->color = 0x000000; // black
-		else if (type == PathNode::Iron)
-			node->color = 0xC0C0C0; // silver
-		else if (type == PathNode::Wall)
-			node->color = 0xFF0000; // red
-		else if (type == PathNode::Start)
-			node->color = 0xFFFFFF; // white
-		else if (type == PathNode::End)
-			node->color = 0xFFFFFF; // white
-		else if (type == PathNode::Special)
-			node->color = specialColor;
-
-		node->type = type;
-		DrawGrid();
+		return std::pair<int, int>(row, col);
 	}
+
+	void SetNode(PathNode* node, PathNode::Type type, uint32_t specialColor = 0xFFFFFF);
 
 	PathNode* GetNodeAt(Vec2 pos);
 

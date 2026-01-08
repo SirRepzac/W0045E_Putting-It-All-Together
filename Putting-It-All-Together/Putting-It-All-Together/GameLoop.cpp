@@ -64,6 +64,8 @@ void GameLoop::DeleteAll()
 
 	delete pathfinder;
 
+	focusedAgent = nullptr;
+
 	for (GameAI* ai : aiList)
 	{
 		delete ai;
@@ -80,13 +82,38 @@ void GameLoop::InitializeGame()
 
 	CreateAI(1);
 
+	if (!aiList.empty())
+		focusedAgent = aiList[0];
+
 	//CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
+
+	renderer->nodeCache.resize(grid.GetCols() * grid.GetRows());
+	renderer->nodeNeedsUpdate.resize(grid.GetCols() * grid.GetRows());
+
+	for (int r = 0; r < grid.GetRows(); r++)
+	{
+		for (int c = 0; c < grid.GetCols(); c++)
+		{
+			PathNode& pathNode = grid.GetNodes()[r][c];
+			float top = pathNode.position.y - pathNode.size;
+			float bottom = pathNode.position.y + pathNode.size;
+			float right = pathNode.position.x + pathNode.size;
+			float left = pathNode.position.x - pathNode.size;
+			Renderer::DrawNode drawNode;
+			drawNode.top = top;
+			drawNode.bottom = bottom;
+			drawNode.right = right;
+			drawNode.left = left;
+			drawNode.color = pathNode.color;
+			int index = grid.Index(c, r);
+			renderer->nodeCache[index] = drawNode;
+			renderer->nodeNeedsUpdate[index] = true;
+		}
+	}
 
 	LoadGameData();
 
 	grid.SetClearence();
-
-	grid.DrawGrid();
 }
 
 void GameLoop::SaveData()
@@ -198,8 +225,6 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 		UpdateGameLoop(dt, std::chrono::duration_cast<secondsd>(clock::now() - startTime).count());
 		if (frameAmount % 2 == 0) // Update every other frame
 			UpdateRenderer();
-		if (frameAmount % 10 == 0)
-			grid.DrawGrid();
 
 		if (renderer && !renderer->IsRunning())
 		{
@@ -250,6 +275,10 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 	{
 		m->Update(delta);
 	}
+
+	//grid.DrawGridLines();
+
+	renderer->UpdateDirtyNodes(focusedAgent->GetBrain());
 }
 
 void GameLoop::UpdateRenderer()
@@ -268,11 +297,6 @@ void GameLoop::UpdateRenderer()
 	}
 
 	for (Renderer::Entity e : persistentEnts)
-	{
-		ents.push_back(e);
-	}
-
-	for (Renderer::Entity e : environmentEnts)
 	{
 		ents.push_back(e);
 	}
@@ -303,24 +327,26 @@ void GameLoop::UpdateRenderer()
 		ents.push_back(e);
 	}
 
-	if (!aiList.empty())
+	if (focusedAgent)
 	{
+		if (focusedAgent)
+		{
+			std::string str1 = "Wood: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Wood));
+			std::string str2 = "Iron: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Iron));
+			std::string str3 = "Coal: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Coal));
+			std::string str4 = "Soldiers: " + std::to_string(focusedAgent->GetBrain()->GetMilitary()->GetSoldierCount());
+			std::string str5 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
 
-		std::string str1 = "Wood: " + std::to_string(aiList[0]->GetBrain()->GetResources()->Get(ResourceType::Wood));
-		std::string str2 = "Iron: " + std::to_string(aiList[0]->GetBrain()->GetResources()->Get(ResourceType::Iron));
-		std::string str3 = "Coal: " + std::to_string(aiList[0]->GetBrain()->GetResources()->Get(ResourceType::Coal));
-		std::string str4 = "Soldiers: " + std::to_string(aiList[0]->GetBrain()->GetMilitary()->GetSoldierCount());
-		std::string str5 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
+			std::vector<std::string> overlay = {
+				str1,
+				str2,
+				str3,
+				str4,
+				str5
+			};
 
-		std::vector<std::string> overlay = {
-			str1,
-			str2,
-			str3,
-			str4,
-			str5
-		};
-
-		renderer->SetOverlayLines(overlay);
+			renderer->SetOverlayLines(overlay);
+		}
 	}
 
 	if (renderer)
@@ -503,6 +529,11 @@ void GameLoop::AddDebugEntity(Vec2 pos, uint32_t color, int radius, bool filled,
 {
 	Renderer::Entity te = Renderer::Entity::MakeCircle(pos.x, pos.y, radius, color, filled, name);
 	debugEnts.push_back(te);
+}
+
+void GameLoop::AddDebugEntity(Renderer::Entity e)
+{
+	debugEnts.push_back(e);
 }
 
 void GameLoop::AddDebugLine(Vec2 a, Vec2 b, uint32_t color, float thickness)

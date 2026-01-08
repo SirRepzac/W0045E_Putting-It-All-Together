@@ -4,12 +4,33 @@
 #include <cmath>
 #include <algorithm>
 #include "GameLoop.h"
+#include "AIBrain.h"
 
 static const wchar_t WINDOW_CLASS_NAME[] = L"AI_Viewer_Class";
 static const UINT WM_REFRESH_ENTITIES = WM_USER + 1;
 
 // Helper to convert void* to HWND safely within this translation unit
 inline HWND ToHWND(void* p) { return reinterpret_cast<HWND>(p); }
+
+void Renderer::UpdateDirtyNodes(const AIBrain* brain)
+{
+    Grid& grid = GameLoop::Instance().GetGrid();
+
+    for (size_t i = 0; i < nodeCache.size(); ++i)
+    {
+        if (!nodeNeedsUpdate[i]) continue;
+
+        DrawNode& node = nodeCache[i];
+        auto indexPair = grid.TwoDIndex(i);
+        PathNode& gridNode = grid.GetNodes()[indexPair.first][indexPair.second];
+
+        node.color = brain->IsDiscovered(i)
+            ? gridNode.color
+            : DarkGray;
+
+        nodeNeedsUpdate[i] = false;
+    }
+}
 
 Renderer::Renderer(int width, int height)
     : width_(width), height_(height), running_(false), hwnd_(nullptr)
@@ -374,6 +395,38 @@ void Renderer::OnPaint(void* hdcPtr)
     const float scaleY = (float)clientH / worldH;
     const float scale = std::min<float>(scaleX, scaleY);
 
+    // Draw nodes
+    for (const auto& node : nodeCache)
+    {
+        float left = node.left;
+        float bottom = node.bottom;
+        float right = node.right;
+        float top = node.top;
+
+        int pleft = int(left * scale);
+        int pbottom = int(bottom * scale);
+        int pright = int(right * scale);
+        int ptop = int(top * scale);
+
+        uint32_t col = node.color;
+        BYTE r = (col >> 16) & 0xFF;
+        BYTE g = (col >> 8) & 0xFF;
+        BYTE b = col & 0xFF;
+
+        HPEN pen = CreatePen(PS_SOLID, 1, RGB(r, g, b));
+        HPEN oldPen = (HPEN)SelectObject(memDC, pen);
+        HBRUSH brush = CreateSolidBrush(RGB(r, g, b));
+        HBRUSH oldBrush = (HBRUSH)SelectObject(memDC, brush);
+
+        Rectangle(memDC, pleft, ptop, pright, pbottom);
+
+        SelectObject(memDC, oldPen);
+        SelectObject(memDC, oldBrush);
+
+        DeleteObject(pen);
+        DeleteObject(brush);
+    }
+
     for (const Entity& ent : localEntities)
     {
         if (ent.type == Entity::Type::Line)
@@ -400,8 +453,6 @@ void Renderer::OnPaint(void* hdcPtr)
 
             SelectObject(memDC, old);
             DeleteObject(pen);
-
-            continue;
         }
         if (ent.type == Entity::Type::Circle)
         {
@@ -538,29 +589,29 @@ void Renderer::OnPaint(void* hdcPtr)
             {
                 // set transparent background for text
                 int oldBkMode = SetBkMode(memDC, TRANSPARENT);
-                COLORREF oldColor = SetTextColor(memDC, RGB(0,0,0));
+                COLORREF oldColor = SetTextColor(memDC, RGB(0, 0, 0));
 
                 const std::string& s = ent.name;
 
-                int len = MultiByteToWideChar(CP_UTF8,0, s.c_str(), -1, nullptr,0);
-                if (len <=0) continue;
+                int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+                if (len <= 0) return;
 
                 std::wstring w;
-                w.resize(len -1);
-                MultiByteToWideChar(CP_UTF8,0, s.c_str(), -1, &w[0], len);
+                w.resize(len - 1);
+                MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &w[0], len);
 
                 // compute rectangle center in pixel coordinates
-                float centerX = (left + right) *0.5f;
-                float centerY = (top + bottom) *0.5f;
-                int centerPx = static_cast<int>(centerX * scale +0.5f);
-                int centerPy = static_cast<int>(centerY * scale +0.5f);
+                float centerX = (left + right) * 0.5f;
+                float centerY = (top + bottom) * 0.5f;
+                int centerPx = static_cast<int>(centerX * scale + 0.5f);
+                int centerPy = static_cast<int>(centerY * scale + 0.5f);
 
                 // measure text in pixels to center it
                 SIZE ext;
                 GetTextExtentPoint32W(memDC, w.c_str(), (int)w.size(), &ext);
 
-                int textX = centerPx - (ext.cx /2);
-                int textY = centerPy - (ext.cy /2);
+                int textX = centerPx - (ext.cx / 2);
+                int textY = centerPy - (ext.cy / 2);
 
                 TextOutW(memDC, textX, textY, w.c_str(), (int)w.size());
 
@@ -569,6 +620,7 @@ void Renderer::OnPaint(void* hdcPtr)
             }
         }
     }
+
 
     {
         std::vector<std::string> overlay;
