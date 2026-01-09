@@ -11,7 +11,7 @@ class AIBrain; // forward
 
 // High-level enums and data structures used by the managers and AIBrain
 enum class ResourceType { Wood, Coal, Iron, None };
-enum class TaskType { None, Discover, FellTrees, Transport, Build, MineCoal, MineIron, TrainSoldiers, Manafacture };
+enum class TaskType { None, Discover, Gather, Transport, Build, TrainSoldiers, Manafacture };
 
 static PathNode::Type ResourceToNode(ResourceType resourceType)
 {
@@ -51,16 +51,12 @@ static std::string ToString(TaskType type)
 		return "nothing";
 	case (TaskType::Discover):
 		return "exploring";
-	case (TaskType::FellTrees):
-		return "chop wood";
+	case (TaskType::Gather):
+		return "gathering resources";
 	case (TaskType::Transport):
 		return "transport";
 	case (TaskType::Build):
 		return "build";
-	case (TaskType::MineCoal):
-		return "mine coal";
-	case (TaskType::MineIron):
-		return "mine iron";
 	case (TaskType::TrainSoldiers):
 		return "train soldiers";
 	case (TaskType::Manafacture):
@@ -88,7 +84,7 @@ struct Task
 {
 	int id = -1;
 	TaskType type = TaskType::None;
-	ResourceType resource = ResourceType::None;
+	std::vector<std::pair<ResourceType, float>> resources;
 	Vec2 destination = Vec2();
 	float priority = 0.0f;
 	bool assigned = false;
@@ -159,28 +155,34 @@ static std::string ToString(BuildingType type)
 class Costable
 {
 public:
-	bool CanAfford(Cost availableResources, ResourceType& lackingResource, float& lackingAmount)
+	bool CanAfford(Cost availableResources, std::vector<std::pair<ResourceType, float>>& lackingResources)
 	{
+		bool canAfford = true;
 		if (availableResources.coal < cost.coal)
 		{
-			lackingResource = ResourceType::Coal;
-			lackingAmount = cost.coal;
-			return false;
+			std::pair<ResourceType, float> r;
+			r.first = ResourceType::Coal;
+			r.second = cost.coal;
+			lackingResources.push_back(r);
+			canAfford = false;
 		}
 		if (availableResources.iron < cost.iron)
 		{
-			lackingResource = ResourceType::Iron;
-			lackingAmount = cost.iron;
-			return false;
+			std::pair<ResourceType, float> r;
+			r.first = ResourceType::Iron;
+			r.second = cost.iron;
+			lackingResources.push_back(r);
+			canAfford = false;
 		}
 		if (availableResources.wood < cost.wood)
 		{
-			lackingResource = ResourceType::Wood;
-			lackingAmount = cost.wood;
-			return false;
+			std::pair<ResourceType, float> r;
+			r.first = ResourceType::Wood;
+			r.second = cost.wood;
+			lackingResources.push_back(r);
+			canAfford = false;
 		}
-		lackingResource = ResourceType::None;
-		return true;
+		return canAfford;
 	}
 
 	bool RemoveResources(std::unique_ptr<ResourceManager>& resourceManager)

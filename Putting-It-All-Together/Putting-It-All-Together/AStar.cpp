@@ -114,7 +114,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 	return std::vector<PathNode*>();
 }
 
-std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, PathNode::Type endType, float& outDist, float agentRadius, const NodeFilter& canTraverse)
+std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<PathNode::Type> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
 	std::unordered_map<PathNode*, NodeRecord> records;
 
@@ -143,10 +143,22 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, PathNode::Typ
 			continue;
 
 		// Found goal
-		if (current->type == endType && current->hitpoints > 0)
+		if (current->hitpoints > 0)
 		{
-			outDist = records.at(current).gCost;
-			return ReconstructPath(records, current);
+			bool found = false;
+			for (auto t : endTypes)
+			{
+				if (current->type == t)
+				{
+					found = true;
+					break;
+				}
+			}
+			if (found)
+			{
+				outDist = records.at(current).gCost;
+				return ReconstructPath(records, current);
+			}
 		}
 
 		closed.insert(current);
@@ -221,7 +233,7 @@ std::vector<PathNode*> AStar::RequestPath(PathNode* startNode, PathNode* endNode
 	return FindPath(startNode, endNode, outDist, agentRadius, canTraverse);
 }
 
-std::vector<PathNode*> AStar::RequestClosestPath(PathNode* startNode, PathNode::Type endType, float& outDist, float agentRadius, const NodeFilter& canTraverse)
+std::vector<PathNode*> AStar::RequestClosestPath(PathNode* startNode, std::vector<PathNode::Type> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
-	return FindClosestPath(startNode, endType, outDist, agentRadius, canTraverse);
+	return FindClosestPath(startNode, endTypes, outDist, agentRadius, canTraverse);
 }

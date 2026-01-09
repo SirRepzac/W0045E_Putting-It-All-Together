@@ -44,6 +44,8 @@ public:
 
 	void GoToClosest(PathNode::Type destinationType, bool& isPathValid);
 
+	void GoToClosest(std::vector<PathNode::Type> destinationTypes, bool& isPathValid);
+
 	void SetTarget(Vec2 target) { targetPos = target; }
 	void SetTarget(Movable* target) { targetMovable = target; }
 	Vec2 GetTarget() { return targetPos; }

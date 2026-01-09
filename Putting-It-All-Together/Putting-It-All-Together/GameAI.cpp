@@ -136,6 +136,12 @@ void GameAI::GoTo(PathNode* destination, bool &isPathValid, bool ignoreFog)
 
 void GameAI::GoToClosest(PathNode::Type destinationType, bool& isPathValid)
 {
+	GoToClosest(std::vector<PathNode::Type>(destinationType), isPathValid);
+}
+void GameAI::GoToClosest(std::vector<PathNode::Type> destinationTypes, bool& isPathValid)
+{
+	if (destinationTypes.empty())
+		return;
 
 	GameLoop& game = GameLoop::Instance();
 	Pathfinder* pathfinder = game.pathfinder;
@@ -143,7 +149,7 @@ void GameAI::GoToClosest(PathNode::Type destinationType, bool& isPathValid)
 	std::vector<PathNode*> path;
 	float dist = 0;
 
-	path = pathfinder->RequestClosestPath(currNode, destinationType, dist, radius, [this](const PathNode* node) { return CanUseNode(node); });
+	path = pathfinder->RequestClosestPath(currNode, destinationTypes, dist, radius, [this](const PathNode* node) { return CanUseNode(node); });
 
 	if (path.empty())
 	{

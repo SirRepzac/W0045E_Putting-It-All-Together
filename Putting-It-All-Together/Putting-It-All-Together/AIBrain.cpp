@@ -145,19 +145,34 @@ void AIBrain::Decay(float deltaTime)
 	constructionPriority = std::max(0.1f, constructionPriority - deltaTime * 0.007f);
 }
 
-void AIBrain::GatherResource(ResourceType resourceType, Task& t, float deltaTime)
+void AIBrain::GatherResources(Task& t, float deltaTime)
 {
-
-	if (resources->Get(resourceType) > t.amount)
+	auto res = t.resources;
+	std::vector<std::pair<ResourceType, float>> resTypes;
+	bool endTask = true;
+	for (auto p : res)
+	{
+		if (resources->Get(p.first) > p.second)
+			continue;
+		resTypes.push_back(p);
+		endTask = false;
+	}
+	if (endTask)
 	{
 		allocator->RemoveTask(t.id);
+	}
+
+	std::vector<PathNode::Type> types;
+	for (auto p : resTypes)
+	{
+		types.push_back(ResourceToNode(p.first));
 	}
 
 	Grid& grid = GameLoop::Instance().GetGrid();
 	std::vector<PathNode*> nodes;
 	std::vector<PathNode*> healthynodes;
 
-	grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, ResourceToNode(resourceType));
+	grid.QueryNodes(ownerAI->GetPosition(), ownerAI->GetRadius(), nodes, types);
 
 	for (PathNode* node : nodes)
 	{
@@ -170,7 +185,7 @@ void AIBrain::GatherResource(ResourceType resourceType, Task& t, float deltaTime
 		PathNode* healthyNode = healthynodes[0];
 		// is close
 		healthyNode->hitpoints -= 20 * deltaTime;
-		resources->Add(resourceType, 20 * deltaTime);
+		resources->Add(NodeToResource(healthyNode->type), 20 * deltaTime);
 
 		if (healthyNode->hitpoints <= 0)
 		{
@@ -185,46 +200,26 @@ void AIBrain::GatherResource(ResourceType resourceType, Task& t, float deltaTime
 	{
 		bool valid = true;
 		// is not close, go to closest
-		ownerAI->GoToClosest(ResourceToNode(resourceType), valid);
+		ownerAI->GoToClosest(types, valid);
 
 		if (!valid)
 		{
 			Task tt;
 			tt.type = TaskType::Discover;
 			tt.priority = t.priority + 1;
-			tt.resource = resourceType;
+			tt.resources = res;
 			allocator->AddTask(tt);
 		}
 	}
 }
 
-void AIBrain::AddGatherTask(ResourceType lackingResource, float amount, float priority)
+void AIBrain::AddGatherTask(std::vector<std::pair<ResourceType, float>> lackingResources, float priority)
 {
 	Task t;
-	if (lackingResource == ResourceType::Wood)
-	{
-		t.type = TaskType::FellTrees;
-		t.resource = ResourceType::Wood;
-		t.priority = priority;
-		t.amount = amount;
-		allocator->AddTask(t);
-	}
-	else if (lackingResource == ResourceType::Iron)
-	{
-		t.type = TaskType::MineIron;
-		t.resource = ResourceType::Iron;
-		t.priority = priority;
-		t.amount = amount;
-		allocator->AddTask(t);
-	}
-	else if (lackingResource == ResourceType::Coal)
-	{
-		t.type = TaskType::MineCoal;
-		t.resource = ResourceType::Coal;
-		t.priority = priority;
-		t.amount = amount;
-		allocator->AddTask(t);
-	}
+	t.type = TaskType::Gather;
+	t.resources = lackingResources;
+	t.priority = priority;
+	allocator->AddTask(t);
 }
 
 void AIBrain::FSM(float deltaTime)
@@ -245,6 +240,7 @@ void AIBrain::FSM(float deltaTime)
 	Task bTask;
 	Vec2 barrackLoc = Vec2(990.000000, 670.000000);
 	PathNode* frontier;
+	std::vector<std::pair<ResourceType, float>> lackingResources;
 
 	Task* tt = allocator->GetNext();
 	if (tt == nullptr)
@@ -256,17 +252,9 @@ void AIBrain::FSM(float deltaTime)
 
 	switch (t.type)
 	{
-	case TaskType::FellTrees:
+	case TaskType::Gather:
 
-		GatherResource(ResourceType::Wood, t, deltaTime);
-		break;
-	case TaskType::MineCoal:
-
-		GatherResource(ResourceType::Coal, t, deltaTime);
-		break;
-	case TaskType::MineIron:
-
-		GatherResource(ResourceType::Iron, t, deltaTime);
+		GatherResources(t, deltaTime);
 		break;
 	case TaskType::Transport:
 		ownerAI->SetState(GameAI::State::STATE_FOLLOW_PATH);
@@ -318,10 +306,8 @@ void AIBrain::FSM(float deltaTime)
 		else
 		{
 			Soldier* s = military->GetTemplate(SoldierType::Infantry);
-			ResourceType lackingResource;
-			float lackingAmount;
 
-			if (s->CanAfford(resources->Get(), lackingResource, lackingAmount))
+			if (s->CanAfford(resources->Get(), lackingResources))
 			{
 				s->RemoveResources(resources);
 				military->TrainSoldiers(s->type, 1);
@@ -331,7 +317,12 @@ void AIBrain::FSM(float deltaTime)
 			{
 				Logger::Instance().Log(ownerAI->GetName() + " not enough resources to train soldier \n");
 
-				AddGatherTask(lackingResource, lackingAmount * t.amount, t.priority + 1);
+				for (std::pair<ResourceType, float>& l : lackingResources)
+				{
+					l.second *= t.amount;
+				}
+
+				AddGatherTask(lackingResources, t.priority + 1);
 			}
 		}
 		break;
@@ -342,10 +333,7 @@ void AIBrain::FSM(float deltaTime)
 
 		b = build->GetBuildingTemplate(t.buildingType);
 
-		ResourceType lackingResource;
-		float lackingAmount;
-
-		if (b->CanAfford(resources->Get(), lackingResource, lackingAmount))
+		if (b->CanAfford(resources->Get(), lackingResources))
 		{
 			if (DistanceBetween(ownerAI->GetPosition(), barrackLoc) > ownerAI->GetRadius() + 2)
 			{
@@ -372,7 +360,7 @@ void AIBrain::FSM(float deltaTime)
 			break;
 		}
 
-		AddGatherTask(lackingResource, lackingAmount, t.priority + 1);
+		AddGatherTask(lackingResources, t.priority + 1);
 
 		Logger::Instance().Log(ownerAI->GetName() + " cannot afford barrack \n");
 
@@ -385,7 +373,16 @@ void AIBrain::FSM(float deltaTime)
 			{
 				auto& k = knownNodes[row][col];
 
-				if (k.discovered && (k.resource == t.resource || t.resource == ResourceType::None))
+				bool kContainsResource = false;
+				for (auto r : t.resources)
+				{
+					if (r.first == k.resource && resources->Get(r.first) < r.second)
+					{
+						kContainsResource = true;
+					}
+				}
+
+				if ((k.discovered && kContainsResource) || t.resources.empty())
 				{
 					Logger::Instance().Log(ownerAI->GetName() + " discovered resource \n");
 					allocator->RemoveTask(t.id);
