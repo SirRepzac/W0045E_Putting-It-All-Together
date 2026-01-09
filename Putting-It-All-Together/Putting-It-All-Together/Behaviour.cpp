@@ -46,61 +46,98 @@ Behaviour::Info Behaviour::Seek()
 Behaviour::Info Behaviour::Arrive(float deltaTime, Vec2 t)
 {
 	Vec2 target = t;
-
-	Vec2 toTarget = target - ai->GetPosition();
+	Vec2 pos = ai->GetPosition();
+	Vec2 toTarget = target - pos;
 	float dist = toTarget.Length();
 
-	// quick outs
+	// Quick out
 	if (dist <= 0.001f)
 		return Info{ Vec2(0,0), 0.0f };
 
-	// If far, behave like Seek
+	Vec2 vel = ai->GetVelocity();
+	float currentSpeed = vel.Length();
+
+	const float finalRadius = std::max(ai->GetRadius() * 0.75f, 8.0f);
+	// --- Final precise approach ---
+	if (dist < finalRadius)
+	{
+		// Move directly toward target, capped by distance
+		Vec2 dir = toTarget.Normalized();
+
+		// Desired speed shrinks with distance
+		float desiredSpeed = std::min(dist / deltaTime, MAXIMUM_SPEED * 0.25f);
+
+		Vec2 desiredVel = dir * desiredSpeed;
+
+		// Critically damp velocity
+		Vec2 velDelta = desiredVel - vel;
+		float accel = std::min(MAXIMUM_ACCELERATION, velDelta.Length() / deltaTime);
+
+		if (velDelta.Length() > 1e-6f)
+			return Info{ velDelta.Normalized(), accel };
+		else
+			return Info{ Vec2(0,0), 0.0f };
+	}
+
+	// --- Overshoot detection ---
+	if (currentSpeed > 1e-6f)
+	{
+		Vec2 velNorm = vel.Normalized();
+		Vec2 toTargetNorm = toTarget.Normalized();
+
+		// If we're moving away from the target, we passed it
+		if (velNorm.Dot(toTargetNorm) < 0.0f)
+		{
+			ai->SetVelocity(Vec2(0, 0));
+			return Info{ Vec2(0,0), 0.0f };
+		}
+	}
+
 	const float arrivalRadius = 50.0f;
+
+	// --- Hard stop when close enough ---
+	if (dist < ai->GetRadius() * 0.5f)
+	{
+		ai->SetVelocity(Vec2(0, 0));
+		ai->SetPos(target); // snap exactly
+		return Info{ Vec2(0,0), 0.0f };
+	}
+
+
+	// --- If far away, behave like Seek ---
 	if (dist > arrivalRadius)
 	{
 		return Seek(target);
 	}
 
-	// If already very close, stop
-	if (dist < (arrivalRadius / 5.0f) || dist < ai->GetRadius() / 2)
+	// --- Predictive braking ---
+	const float maxDecel = MAXIMUM_ACCELERATION;
+
+	// Distance required to come to rest from current speed
+	float stoppingDist = (currentSpeed * currentSpeed) / (2.0f * maxDecel);
+
+	// If we must brake now to stop at the target
+	if (stoppingDist >= dist)
 	{
-		return Info{ Vec2(0,0), 0.0f };
+		if (currentSpeed > 1e-6f)
+		{
+			Vec2 brakeDir = vel.Normalized() * -1.0f;
+			return Info{ brakeDir, MAXIMUM_ACCELERATION };
+		}
+		else
+		{
+			return Info{ Vec2(0,0), 0.0f };
+		}
 	}
 
-	// Compute desired speed so we will come to rest at the target using
-	// v = sqrt(2 * a * d), where 'a' is the maximum deceleration we can apply.
-	// Cap desired speed by MAXIMUM_SPEED.
-	const float maxDecel = MAXIMUM_ACCELERATION;
+	// --- Otherwise, approach normally ---
 	float desiredSpeed = std::sqrt(2.0f * maxDecel * dist);
-	if (std::isnan(desiredSpeed) || desiredSpeed < 0.0f)
-		desiredSpeed = 0.0f;
 	desiredSpeed = std::min(desiredSpeed, MAXIMUM_SPEED);
 
-	float currentSpeed = ai->GetSpeed();
-
-	// Required acceleration (signed) to move speed -> desiredSpeed this frame:
-	// a_required = (desiredSpeed - currentSpeed) / deltaTime
 	float aRequired = (desiredSpeed - currentSpeed) / deltaTime;
-
-	// Clamp magnitude to allowed acceleration
 	float aMag = std::min(std::fabs(aRequired), MAXIMUM_ACCELERATION);
 
-	// Determine direction for acceleration:
-	// - If we need to slow down (aRequired < 0) accelerate opposite to current velocity.
-	// - Otherwise accelerate toward the target.
-	Vec2 accDir;
-	if (aRequired < 0.0f)
-	{
-		Vec2 vel = ai->GetVelocity();
-		if (vel.Length() > 1e-6f)
-			accDir = vel.Normalized() * -1.0f; // brake opposite current movement
-		else
-			accDir = toTarget.Normalized(); // fallback
-	}
-	else
-	{
-		accDir = toTarget.Normalized();
-	}
+	Vec2 accDir = toTarget.Normalized();
 
 	return Info{ accDir, aMag };
 }
