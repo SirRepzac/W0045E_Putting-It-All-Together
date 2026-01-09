@@ -40,6 +40,7 @@ Renderer::Renderer(int width, int height)
 
 Renderer::~Renderer()
 {
+    overlays.clear();
     Stop();
 }
 

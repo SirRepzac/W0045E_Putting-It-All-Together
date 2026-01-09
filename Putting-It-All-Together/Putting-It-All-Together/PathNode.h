@@ -22,7 +22,7 @@ enum Type
 
 
 	// Constructor
-	PathNode() : position(Vec2(0, 0)) {}
+	PathNode() : position(Vec2()) {}
 
 	int id = -1; // Id of the node
 	Vec2 position; // Position of the node
@@ -51,14 +51,6 @@ enum Type
 	bool operator==(const PathNode& other) const
 	{
 		return id == other.id;
-	}
-
-	// Draw the cell of this node
-	Renderer::Entity Draw()
-	{
-		Vec2 bottomLeft = position - Vec2(size, size);
-		Vec2 topRight = position + Vec2(size, size);
-		return Renderer::Entity::MakeRect(bottomLeft.x, bottomLeft.y, topRight.x, topRight.y, color, true, 0, displayLetter);
 	}
 };
 

@@ -2,6 +2,7 @@
 #include "AIBrain.h"
 #include "Logger.h"
 #include <algorithm>
+#include <iostream>
 #include "GameLoop.h"
 
 // ResourceManager
@@ -16,6 +17,14 @@ int ResourceManager::Get(ResourceType r) const
 	if (it == inventory.end())
 		return 0;
 	return it->second;
+}
+Cost ResourceManager::Get()
+{
+	Cost c;
+	c.coal = Get(ResourceType::Coal);
+	c.iron = Get(ResourceType::Iron);
+	c.wood = Get(ResourceType::Wood);
+	return c;
 }
 void ResourceManager::Add(ResourceType r, float amount)
 {
@@ -47,41 +56,59 @@ void TransportManager::ScheduleTransport(ResourceType r, int amount, const Vec2&
 }
 
 // BuildManager
-BuildManager::BuildManager(AIBrain* owner) : owner(owner) {}
+BuildManager::BuildManager(AIBrain* owner) : owner(owner) 
+{
+	for (int a = 0; a < (int)BuildingType::End; a++)
+	{
+		buildingTemplates[BuildingType(a)] = new Building(BuildingType(a), Vec2());
+	}
+}
 void BuildManager::Update(float dt)
 {
 	(void)dt;
 	if (queue.empty()) return;
-	Building building = queue.front();
-
-	builtBuildings.push_back(building);
-
-	if (building.name == "Barrack")
-	{
-		Grid& grid = GameLoop::Instance().GetGrid();
-		Vec2 baseBarrackLoc = building.position;
-
-		PathNode* node1 = grid.GetNodeAt(baseBarrackLoc);
-		PathNode* node2 = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, 0));
-		PathNode* node3 = grid.GetNodeAt(baseBarrackLoc + Vec2(0, DEFAULT_CELL_SIZE));
-		PathNode* node4 = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, DEFAULT_CELL_SIZE));
-
-		grid.SetNode(node1, PathNode::Special, Renderer::Purple);
-		grid.SetNode(node2, PathNode::Special, Renderer::Purple);
-		grid.SetNode(node3, PathNode::Special, Renderer::Purple);
-		grid.SetNode(node4, PathNode::Special, Renderer::Purple);
-	}
-
+	Building* building = queue.front();
 	queue.erase(queue.begin());
-	Logger::Instance().Log(std::string("Built: ") + building.name + "\n");
+
+	builtBuildings[building->type] = building;
+	building->PlaceBuilding();
+
+	Logger::Instance().Log(std::string("Built: ") + ToString(building->type) + "\n");
 }
 
-bool BuildManager::HasBuilding(const std::string& name) const
+bool BuildManager::HasBuilding(const BuildingType type) const
+{
+	if (builtBuildings.count(type) > 0)
+		return true;
+	return false;
+}
+
+Building* BuildManager::GetBuilding(const BuildingType type) const
+{
+	if (builtBuildings.count(type) > 0)
+		return builtBuildings.at(type);
+	// building not found
+	Logger::Instance().Log("Failed to get building \n");
+	std::cout << "failed to get building" << std::endl;
+	return nullptr;
+}
+
+Building* BuildManager::GetBuildingTemplate(const BuildingType type) const
+{
+	if (buildingTemplates.count(type) > 0)
+		return buildingTemplates.at(type);
+	// building not found
+	Logger::Instance().Log("Failed to get building template \n");
+	std::cout << "failed to get building template" << std::endl;
+	return nullptr;
+}
+
+bool BuildManager::IsInQueue(const BuildingType type) const
 {
 	bool found = false;
-	for (Building b : builtBuildings)
+	for (auto b : queue)
 	{
-		if (b.name == name)
+		if (b->type == type)
 		{
 			found = true;
 			break;
@@ -89,33 +116,10 @@ bool BuildManager::HasBuilding(const std::string& name) const
 	}
 	return found;
 }
-bool BuildManager::IsInQueue(const std::string& name) const
+void BuildManager::QueueBuilding(BuildingType type, const Vec2& pos)
 {
-	bool found = false;
-	for (Building b : queue)
-	{
-		if (b.name == name)
-		{
-			found = true;
-			break;
-		}
-	}
-	return found;
-}
-Vec2 BuildManager::GetBuildingLocation(const std::string& name)
-{
-	for (Building b : builtBuildings)
-	{
-		if (b.name == name)
-			return b.position;
-	}
-
-	Logger::Instance().Log("No building position\n");
-	return Vec2();
-}
-void BuildManager::QueueBuilding(const std::string& name, const Vec2& pos)
-{
-	queue.push_back(Building(name, pos));
+	Building* building = new Building(type, pos);
+	queue.push_back(building);
 }
 
 // ManufacturingManager
@@ -137,18 +141,65 @@ void ManufacturingManager::QueueManufacture(const std::string& item, int amount)
 }
 
 // MilitaryManager
-MilitaryManager::MilitaryManager(AIBrain* owner) : owner(owner) {}
+MilitaryManager::MilitaryManager(AIBrain* owner) : owner(owner) 
+{
+	for (int a = 0; a < (int)SoldierType::End; a++)
+	{
+		soldierTemplates[SoldierType(a)] = new Soldier(SoldierType(a));
+	}
+}
 void MilitaryManager::Update(float dt)
 {
 	(void)dt;
-	if (trainingQueue > 0)
+	if (GetTrainingQueue() > 0)
 	{
-		trainingQueue = std::max(0, trainingQueue - 1);
-		soldiers += 1;
-		Logger::Instance().Log(std::string("Trained soldier. Total now: ") + std::to_string(soldiers) + "\n");
+		for (auto s : trainingQueue)
+		{
+			if (s.second > 0)
+			{
+				trainingQueue[s.first] -= 1;
+				soldierCounts[s.first] += 1;
+				break;
+			}
+		}
+
+		Logger::Instance().Log(std::string("Trained soldier. Total now: ") + std::to_string(GetSoldierCount()) + "\n");
 	}
 }
-void MilitaryManager::TrainSoldiers(int count) { trainingQueue += count; }
+void MilitaryManager::TrainSoldiers(SoldierType type, int count) 
+{
+	trainingQueue[type] += count;
+}
+
+Soldier* MilitaryManager::GetTemplate(SoldierType type)
+{
+	if (soldierTemplates.count(type) > 0)
+		return soldierTemplates.at(type);
+	// building not found
+	Logger::Instance().Log("Failed to get soldier template \n");
+	std::cout << "failed to get soldier template" << std::endl;
+	return nullptr;
+}
+
+int MilitaryManager::GetSoldierCount()
+{
+	int total = 0;
+	for (auto a : soldierCounts)
+	{
+		total += a.second;
+	}
+	return total;
+}
+
+int MilitaryManager::GetTrainingQueue()
+{
+	int total = 0;
+	for (auto a : trainingQueue)
+	{
+		total += a.second;
+	}
+	return total;
+}
 
 // TaskAllocator
 TaskAllocator::TaskAllocator(AIBrain* owner) : owner(owner) {}
@@ -197,4 +248,56 @@ Task* TaskAllocator::GetNext()
 void TaskAllocator::RemoveTask(int id)
 {
 	tasks.erase(std::remove_if(tasks.begin(), tasks.end(), [id](const Task& t) { return t.id == id; }), tasks.end());
+}
+
+void Building::PlaceBuilding()
+{
+	if (targetNodes.size() == 0)
+		GetTargetNodes();
+
+	Grid& grid = GameLoop::Instance().GetGrid();
+
+	for (PathNode* node : targetNodes)
+	{
+		grid.SetNode(node, PathNode::Special, color);
+	}
+}
+
+void Building::RemoveBuilding()
+{
+	if (targetNodes.size() == 0)
+		return;
+
+	Grid& grid = GameLoop::Instance().GetGrid();
+
+	for (PathNode* node : targetNodes)
+	{
+		grid.SetNode(node, PathNode::Nothing, Renderer::White);
+	}
+}
+
+void Building::GetTargetNodes()
+{
+	if (targetNodes.size() > 0)
+		return;
+
+	Grid& grid = GameLoop::Instance().GetGrid();
+	Vec2 baseBarrackLoc = position;
+
+	for (int x = 0; x < size.x; x++)
+	{
+		PathNode* nodeX = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, 0) * x);
+		targetNodes.push_back(nodeX);
+	}
+
+	int s = targetNodes.size();
+
+	for (int e = 0; e < s; e++)
+	{
+		for (int y = 1; y < size.y; y++)
+		{
+			PathNode* nodeY = grid.GetNodeAt(targetNodes[e]->position + Vec2(0, DEFAULT_CELL_SIZE) * y);
+			targetNodes.push_back(nodeY);
+		}
+	}
 }

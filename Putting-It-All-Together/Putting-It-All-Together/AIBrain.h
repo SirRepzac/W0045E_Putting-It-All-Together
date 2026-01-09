@@ -51,6 +51,7 @@ private:
 	void UpdateValues(float deltaTime);
 	void Decay(float deltaTime);
 	void GatherResource(ResourceType resourceType, Task& t, float deltaTime);
+	void AddGatherTask(ResourceType lackingResource, float amount, float priority);
 	void FSM(float deltaTime);
 	void CheckDeath();
 

@@ -5,16 +5,9 @@
 #include <algorithm>
 #include "Vec2.h"
 #include "PathNode.h"
+#include <memory>
 
 class AIBrain; // forward
-
-// Costs and constants
-static const int COST_WOOD_PER_SOLDIER = 2;
-static const int COST_IRON_PER_SOLDIER = 1;
-static const int COST_COAL_PER_SOLDIER = 0;
-
-static const int BARRACK_WOOD_COST = 50;
-static const int BARRACK_IRON_COST = 20;
 
 // High-level enums and data structures used by the managers and AIBrain
 enum class ResourceType { Wood, Coal, Iron, None };
@@ -77,7 +70,19 @@ static std::string ToString(TaskType type)
 	}
 }
 
+enum class SoldierType
+{
+	Infantry,
+	End
+};
 
+enum class BuildingType
+{
+	Barrack,
+	Forge,
+	Anvil,
+	End
+};
 
 struct Task
 {
@@ -87,8 +92,16 @@ struct Task
 	Vec2 destination = Vec2();
 	float priority = 0.0f;
 	bool assigned = false;
+	BuildingType buildingType;
 	std::string meta;
-	int amount = 0;
+	float amount = 0;
+};
+
+struct Cost
+{
+	float coal = 0;
+	float iron = 0;
+	float wood = 0;
 };
 
 struct Desire
@@ -107,6 +120,7 @@ public:
 	ResourceManager(AIBrain* owner);
 	void Update(float dt);
 	int Get(ResourceType r) const;
+	Cost Get();
 	void Add(ResourceType r, float amount);
 	bool Request(ResourceType r, float amount);
 
@@ -127,27 +141,129 @@ private:
 	int pendingTransports = 0;
 };
 
-struct Building
+static std::string ToString(BuildingType type)
 {
-	Building(std::string name, Vec2 pos) : name(name), position(pos) {}
-	Vec2 position = 0;
-	std::string name = "";
+	switch (type)
+	{
+	case (BuildingType::Barrack):
+		return "barrack";
+	case (BuildingType::Forge):
+		return "forge";
+	case (BuildingType::Anvil):
+		return "anvil";
+	default:
+		return "nothing";
+	}
+}
+
+class Costable
+{
+public:
+	bool CanAfford(Cost availableResources, ResourceType& lackingResource, float& lackingAmount)
+	{
+		if (availableResources.coal < cost.coal)
+		{
+			lackingResource = ResourceType::Coal;
+			lackingAmount = cost.coal;
+			return false;
+		}
+		if (availableResources.iron < cost.iron)
+		{
+			lackingResource = ResourceType::Iron;
+			lackingAmount = cost.iron;
+			return false;
+		}
+		if (availableResources.wood < cost.wood)
+		{
+			lackingResource = ResourceType::Wood;
+			lackingAmount = cost.wood;
+			return false;
+		}
+		lackingResource = ResourceType::None;
+		return true;
+	}
+
+	bool RemoveResources(std::unique_ptr<ResourceManager>& resourceManager)
+	{
+		bool affordCoal = resourceManager->Request(ResourceType::Coal, cost.coal);
+		bool affordIron = resourceManager->Request(ResourceType::Iron, cost.iron);
+		bool affordWood = resourceManager->Request(ResourceType::Wood, cost.wood);
+
+		if (affordCoal && affordIron && affordWood)
+			return true;
+		std::cout << "Failed to remove resources" << std::endl;
+		return false;
+	}
+
+protected:
+	Cost cost;
 };
+
+class Building : public Costable
+{
+public:
+	Building(BuildingType build, Vec2 pos) : type(build), position(pos)
+	{
+		if (build == BuildingType::Barrack)
+		{
+			Cost c;
+			c.iron = 20;
+			c.wood = 50;
+			cost = c;
+			size = Vec2(2, 2);
+			color = Renderer::Purple;
+		}
+	}
+
+	void PlaceBuilding();
+
+
+	void RemoveBuilding();
+
+
+	Vec2 position = 0;
+	BuildingType type;
+	Vec2 size;
+	std::vector<PathNode*> targetNodes;
+	uint32_t color;
+private:
+	void GetTargetNodes();
+
+};
+
 
 class BuildManager
 {
 public:
 	BuildManager(AIBrain* owner);
+	~BuildManager()
+	{
+		for (auto b : builtBuildings)
+		{
+			delete b.second;
+		}
+		for (auto b : queue)
+		{
+			delete b;
+		}
+		for (auto b : buildingTemplates)
+		{
+			delete b.second;
+		}
+	}
 	void Update(float dt);
-	void QueueBuilding(const std::string& name, const Vec2& pos);
-	bool HasBuilding(const std::string& name) const;
-	bool IsInQueue(const std::string& name) const;
-	Vec2 GetBuildingLocation(const std::string& name);
+	bool HasBuilding(const BuildingType type) const;
+	Building* GetBuilding(const BuildingType type) const;
+	Building* GetBuildingTemplate(const BuildingType type) const;
+	bool IsInQueue(const BuildingType type) const;
+	void QueueBuilding(BuildingType type, const Vec2& pos);
 
 private:
 	AIBrain* owner;
-	std::vector<Building> queue;
-	std::vector<Building> builtBuildings;
+	std::vector<Building*> queue;
+	std::map<BuildingType, Building*> builtBuildings;
+	std::map<BuildingType, Building*> buildingTemplates;
+
 };
 
 class ManufacturingManager
@@ -162,20 +278,49 @@ private:
 	std::map<std::string, int> orders;
 };
 
+
+
+class Soldier : public Costable
+{
+public:
+	Soldier(SoldierType type) : type(type)
+	{
+		if (type == SoldierType::Infantry)
+		{
+			Cost c;
+			c.iron = 1;
+			c.wood = 2;
+			cost = c;
+
+		}
+	}
+	SoldierType type;
+};
+
 class MilitaryManager
 {
 public:
 	MilitaryManager(AIBrain* owner);
+	~MilitaryManager()
+	{
+		for (auto s : soldierTemplates)
+		{
+			delete s.second;
+		}
+	}
 	void Update(float dt);
-	void TrainSoldiers(int count);
+	void TrainSoldiers(SoldierType type, int count);
 
-	int GetSoldierCount() const { return soldiers; }
-	int GetTrainingQueue() const { return trainingQueue; }
+	Soldier* GetTemplate(SoldierType type);
+
+	int GetSoldierCount();
+	int GetTrainingQueue();
 
 private:
 	AIBrain* owner;
-	int soldiers = 0;
-	int trainingQueue = 0;
+	std::map<SoldierType, Soldier*> soldierTemplates;
+	std::map<SoldierType, int> trainingQueue;
+	std::map<SoldierType, int> soldierCounts;
 };
 
 class TaskAllocator

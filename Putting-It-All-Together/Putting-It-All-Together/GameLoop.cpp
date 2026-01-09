@@ -50,8 +50,8 @@ GameLoop::~GameLoop()
 	if (renderer)
 	{
 		renderer->Stop();
+		delete renderer;
 	}
-	delete renderer;
 
 	DeleteAll();
 }
