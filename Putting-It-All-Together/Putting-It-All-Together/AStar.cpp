@@ -24,9 +24,47 @@ struct OpenEntryCompare
 	}
 };
 
+PathNode* ResolveGoalNode(PathNode* desired, float agentRadius)
+{
+	// If the goal itself is valid, use it
+	if (desired->clearance > agentRadius)
+		return desired;
+
+	PathNode* best = nullptr;
+	float bestDist = std::numeric_limits<float>::max();
+
+	for (PathNode* n : desired->neighbors)
+	{
+		if (n->IsObstacle())
+			continue;
+
+		if (n->clearance < agentRadius)
+			continue;
+
+		float d = DistanceBetween(n->position, desired->position);
+		if (d < bestDist)
+		{
+			bestDist = d;
+			best = n;
+		}
+	}
+
+	return best; // may be nullptr
+}
+
 #include "GameLoop.h"
 std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
+
+	PathNode* goalNode = ResolveGoalNode(endNode, agentRadius);
+	if (goalNode == nullptr)
+	{
+		std::cout << "Path not found!" << std::endl;
+		GameLoop::Instance().AddDebugEntity(endNode->position, Renderer::Lime, 10);
+		outDist = -1;
+		return std::vector<PathNode*>();
+	}
+
 	std::unordered_map<PathNode*, NodeRecord> records;
 
 	std::priority_queue<OpenEntry, std::vector<OpenEntry>, OpenEntryCompare> openQueue;
@@ -35,11 +73,11 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 	// Initialize start node costs
 	NodeRecord& startRec = records[startNode];
 	startRec.gCost = 0.0f;
-	startRec.hCost = Heuristic(startNode, endNode);
+	startRec.hCost = Heuristic(startNode, goalNode);
 	startRec.fCost = startRec.gCost + startRec.hCost;
 	startRec.parent = nullptr;
 
-	openQueue.push({startNode, startRec.fCost});
+	openQueue.push({ startNode, startRec.fCost });
 
 	while (!openQueue.empty())
 	{
@@ -54,10 +92,10 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 			continue;
 
 		// Found goal
-		if (current == endNode)
+		if (current == goalNode)
 		{
-			outDist = records.at(endNode).gCost;
-			return ReconstructPath(records, endNode);
+			outDist = records.at(goalNode).gCost;
+			return ReconstructPath(records, goalNode);
 		}
 
 		closed.insert(current);
@@ -71,7 +109,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 			if (!canTraverse(neighbor))
 				continue;
 
-			if (neighbor->clearance <= agentRadius)
+			if (neighbor->clearance < agentRadius)
 				continue;
 
 			float dx = current->position.x - neighbor->position.x;
@@ -101,7 +139,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 
 			rec.parent = current;
 			rec.gCost = tentativeG;
-			rec.hCost = Heuristic(neighbor, endNode);
+			rec.hCost = Heuristic(neighbor, goalNode);
 			rec.fCost = rec.gCost + rec.hCost;
 
 			openQueue.push({ neighbor, rec.fCost });
@@ -109,7 +147,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 	}
 
 	std::cout << "Path not found!" << std::endl;
-	GameLoop::Instance().AddDebugEntity(endNode->position, Renderer::Lime, 10);
+	GameLoop::Instance().AddDebugEntity(goalNode->position, Renderer::Lime, 10);
 	outDist = -1;
 	return std::vector<PathNode*>();
 }
@@ -142,24 +180,33 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 		if (records[current].fCost != entry.f)
 			continue;
 
-		// Found goal
-		if (current->hitpoints > 0)
+		auto isDesiredType = [&](PathNode* n)
+			{
+				for (auto t : endTypes)
+					if (n->type == t)
+						return true;
+				return false;
+			};
+
+		// Found goal OR acceptable neighbor of goal
+		// Case 1: current node itself is the goal and reachable
+		if (isDesiredType(current) && current->hitpoints > 0)
 		{
-			bool found = false;
-			for (auto t : endTypes)
-			{
-				if (current->type == t)
-				{
-					found = true;
-					break;
-				}
-			}
-			if (found)
-			{
-				outDist = records.at(current).gCost;
-				return ReconstructPath(records, current);
-			}
+			outDist = records.at(current).gCost;
+			return ReconstructPath(records, current);
 		}
+
+		// Case 2: current is a reachable proxy next to a goal
+		for (PathNode* n : current->neighbors)
+		{
+			if (!isDesiredType(n) || n->hitpoints <= 0)
+				continue;
+
+			// We intentionally DO NOT check clearance on the goal node
+			outDist = records.at(current).gCost;
+			return ReconstructPath(records, current);
+		}
+
 
 		closed.insert(current);
 
@@ -172,7 +219,7 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 			if (!canTraverse(neighbor))
 				continue;
 
-			if (neighbor->clearance <= agentRadius)
+			if (neighbor->clearance < agentRadius)
 				continue;
 
 			float dx = current->position.x - neighbor->position.x;

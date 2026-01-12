@@ -24,6 +24,8 @@ Cost ResourceManager::Get()
 	c.coal = Get(ResourceType::Coal);
 	c.iron = Get(ResourceType::Iron);
 	c.wood = Get(ResourceType::Wood);
+	c.steel = Get(ResourceType::Steel);
+	c.sword = Get(ResourceType::Sword);
 	return c;
 }
 void ResourceManager::Add(ResourceType r, float amount)
@@ -32,6 +34,8 @@ void ResourceManager::Add(ResourceType r, float amount)
 }
 bool ResourceManager::Request(ResourceType r, float amount)
 {
+	if (amount <= 0)
+		return true;
 	auto it = inventory.find(r);
 	if (it == inventory.end())
 		return false;
@@ -58,7 +62,7 @@ void TransportManager::ScheduleTransport(ResourceType r, int amount, const Vec2&
 // BuildManager
 BuildManager::BuildManager(AIBrain* owner) : owner(owner) 
 {
-	for (int a = 0; a < (int)BuildingType::End; a++)
+	for (int a = (int)BuildingType::Start + 1; a < (int)BuildingType::End; a++)
 	{
 		buildingTemplates[BuildingType(a)] = new Building(BuildingType(a), Vec2());
 	}
@@ -123,7 +127,12 @@ void BuildManager::QueueBuilding(BuildingType type, const Vec2& pos)
 }
 
 // ManufacturingManager
-ManufacturingManager::ManufacturingManager(AIBrain* owner) : owner(owner) {}
+ManufacturingManager::ManufacturingManager(AIBrain* owner) : owner(owner) 
+{
+	productTemplate[ResourceType::Steel] = new Product(ResourceType::Steel);
+	productTemplate[ResourceType::Sword] = new Product(ResourceType::Sword);
+
+}
 void ManufacturingManager::Update(float dt)
 {
 	(void)dt;
@@ -135,9 +144,24 @@ void ManufacturingManager::Update(float dt)
 		else ++it;
 	}
 }
-void ManufacturingManager::QueueManufacture(const std::string& item, int amount)
+void ManufacturingManager::QueueManufacture(const ResourceType item, int amount)
 {
 	orders[item] += amount;
+}
+
+BuildingType ManufacturingManager::GetBuildingForType(ResourceType type)
+{
+	if (type == ResourceType::Steel)
+		return BuildingType::Forge;
+	else if (type == ResourceType::Sword)
+		return BuildingType::Anvil;
+	else
+		return BuildingType::None;
+}
+
+Product* ManufacturingManager::GetProductTemplate(ResourceType type)
+{
+	return productTemplate[type];
 }
 
 // MilitaryManager
@@ -259,6 +283,9 @@ void Building::PlaceBuilding()
 
 	for (PathNode* node : targetNodes)
 	{
+		if (!node)
+			continue;
+
 		grid.SetNode(node, PathNode::Special, color);
 	}
 }
@@ -284,7 +311,7 @@ void Building::GetTargetNodes()
 	Grid& grid = GameLoop::Instance().GetGrid();
 	Vec2 baseBarrackLoc = position;
 
-	for (int x = 0; x < size.x; x++)
+	for (int x = 0; x < size.y; x++)
 	{
 		PathNode* nodeX = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, 0) * x);
 		targetNodes.push_back(nodeX);
@@ -294,10 +321,12 @@ void Building::GetTargetNodes()
 
 	for (int e = 0; e < s; e++)
 	{
-		for (int y = 1; y < size.y; y++)
+		for (int y = 1; y < size.x; y++)
 		{
 			PathNode* nodeY = grid.GetNodeAt(targetNodes[e]->position + Vec2(0, DEFAULT_CELL_SIZE) * y);
 			targetNodes.push_back(nodeY);
 		}
 	}
+
+	position = baseBarrackLoc + Vec2((size.y - 1) * DEFAULT_CELL_SIZE, (size.x - 1) * DEFAULT_CELL_SIZE);
 }

@@ -113,7 +113,7 @@ void GameLoop::InitializeGame()
 
 	LoadGameData();
 
-	grid.SetClearence();
+	grid.SetClearance();
 	resourceOverlay.position = (Vec2(WORLD_WIDTH, 0));
 	renderer->AddOverlay(&resourceOverlay);
 }
@@ -334,15 +334,19 @@ void GameLoop::UpdateRenderer()
 			std::string str1 = "Wood: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Wood));
 			std::string str2 = "Iron: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Iron));
 			std::string str3 = "Coal: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Coal));
-			std::string str4 = "Soldiers: " + std::to_string(focusedAgent->GetBrain()->GetMilitary()->GetSoldierCount());
-			std::string str5 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
+			std::string str4 = "Steel: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Steel));
+			std::string str5 = "Swords: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Sword));
+			std::string str6 = "Soldiers: " + std::to_string(focusedAgent->GetBrain()->GetMilitary()->GetSoldierCount());
+			std::string str7 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
 
 			std::vector<std::string> overlay = {
 				str1,
 				str2,
 				str3,
 				str4,
-				str5
+				str5,
+				str6,
+				str7
 			};
 
 			renderer->SetOverlayLines(resourceOverlay, overlay);

@@ -51,7 +51,9 @@ private:
 	void UpdateValues(float deltaTime);
 	void Decay(float deltaTime);
 	void GatherResources(Task& t, float deltaTime);
-	void AddGatherTask(std::vector<std::pair<ResourceType, float>> lackingResources, float priority);
+	void ManufactureProducts(Task& t, float deltaTime);
+	void AddAcquisitionTask(std::vector<std::pair<ResourceType, float>> lackingResources, float priority);
+	void LogCurrentTaskList();
 	void FSM(float deltaTime);
 	void CheckDeath();
 
@@ -82,4 +84,6 @@ private:
 	PathNode* GetBuildingLocation(BuildingType type);
 
 	std::map<BuildingType, PathNode*> buildingLoc;
+
+	int frames = 0;
 };

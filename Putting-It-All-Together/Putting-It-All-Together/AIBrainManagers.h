@@ -10,8 +10,8 @@
 class AIBrain; // forward
 
 // High-level enums and data structures used by the managers and AIBrain
-enum class ResourceType { Wood, Coal, Iron, None };
-enum class TaskType { None, Discover, Gather, Transport, Build, TrainSoldiers, Manafacture };
+enum class ResourceType { Wood, Coal, Iron, Steel, Sword, None };
+enum class TaskType { None, Discover, Gather, Build, TrainSoldiers, Manufacture };
 
 static PathNode::Type ResourceToNode(ResourceType resourceType)
 {
@@ -50,19 +50,57 @@ static std::string ToString(TaskType type)
 	case (TaskType::None):
 		return "nothing";
 	case (TaskType::Discover):
-		return "exploring";
+		return "explore";
 	case (TaskType::Gather):
-		return "gathering resources";
-	case (TaskType::Transport):
-		return "transport";
+		return "gather resources";
 	case (TaskType::Build):
 		return "build";
 	case (TaskType::TrainSoldiers):
 		return "train soldiers";
-	case (TaskType::Manafacture):
-		return "manafacture";
+	case (TaskType::Manufacture):
+		return "manufacture";
 	default:
 		return "nothing";
+	}
+}
+
+static std::string ToString(ResourceType type)
+{
+	switch (type)
+	{
+	case (ResourceType::None):
+		return "nothing";
+	case (ResourceType::Iron):
+		return "iron";
+	case (ResourceType::Wood):
+		return "wood";
+	case (ResourceType::Coal):
+		return "coal";
+	case (ResourceType::Steel):
+		return "steel";
+	case (ResourceType::Sword):
+		return "sword";
+	default:
+		return "nothing";
+	}
+}
+
+static void ResourceProductionType(const std::vector<std::pair<ResourceType, float>>& lackingResources, 
+	std::vector<std::pair<ResourceType, float>>& gatherResources,
+	std::vector<std::pair<ResourceType, float>>& manufactureResources)
+{
+	for (std::pair<ResourceType, float> resource : lackingResources)
+	{
+		if (resource.first == ResourceType::Wood)
+			gatherResources.push_back(resource);
+		else if (resource.first == ResourceType::Iron)
+			gatherResources.push_back(resource);
+		else if (resource.first == ResourceType::Coal)
+			gatherResources.push_back(resource);
+		else if (resource.first == ResourceType::Steel)
+			manufactureResources.push_back(resource);
+		else if (resource.first == ResourceType::Sword)
+			manufactureResources.push_back(resource);
 	}
 }
 
@@ -74,6 +112,8 @@ enum class SoldierType
 
 enum class BuildingType
 {
+	None,
+	Start,
 	Barrack,
 	Forge,
 	Anvil,
@@ -98,6 +138,8 @@ struct Cost
 	float coal = 0;
 	float iron = 0;
 	float wood = 0;
+	float steel = 0;
+	float sword = 0;
 };
 
 struct Desire
@@ -120,9 +162,9 @@ public:
 	void Add(ResourceType r, float amount);
 	bool Request(ResourceType r, float amount);
 
+	std::map<ResourceType, float> inventory;
 private:
 	AIBrain* owner;
-	std::map<ResourceType, float> inventory;
 };
 
 class TransportManager
@@ -155,45 +197,75 @@ static std::string ToString(BuildingType type)
 class Costable
 {
 public:
-	bool CanAfford(Cost availableResources, std::vector<std::pair<ResourceType, float>>& lackingResources)
+	bool CanAfford(Cost availableResources, std::vector<std::pair<ResourceType, float>>& lackingResources, int amountToAfford = 1)
 	{
 		bool canAfford = true;
-		if (availableResources.coal < cost.coal)
+		if (availableResources.coal < cost.coal * amountToAfford)
 		{
 			std::pair<ResourceType, float> r;
 			r.first = ResourceType::Coal;
-			r.second = cost.coal;
+			r.second = cost.coal * amountToAfford;
 			lackingResources.push_back(r);
 			canAfford = false;
 		}
-		if (availableResources.iron < cost.iron)
+		if (availableResources.iron < cost.iron * amountToAfford)
 		{
 			std::pair<ResourceType, float> r;
 			r.first = ResourceType::Iron;
-			r.second = cost.iron;
+			r.second = cost.iron * amountToAfford;
 			lackingResources.push_back(r);
 			canAfford = false;
 		}
-		if (availableResources.wood < cost.wood)
+		if (availableResources.wood < cost.wood * amountToAfford)
 		{
 			std::pair<ResourceType, float> r;
 			r.first = ResourceType::Wood;
-			r.second = cost.wood;
+			r.second = cost.wood * amountToAfford;
+			lackingResources.push_back(r);
+			canAfford = false;
+		}
+		if (availableResources.steel < cost.steel * amountToAfford)
+		{
+			std::pair<ResourceType, float> r;
+			r.first = ResourceType::Steel;
+			r.second = cost.steel * amountToAfford;
+			lackingResources.push_back(r);
+			canAfford = false;
+		}
+		if (availableResources.sword < cost.sword * amountToAfford)
+		{
+			std::pair<ResourceType, float> r;
+			r.first = ResourceType::Sword;
+			r.second = cost.sword * amountToAfford;
 			lackingResources.push_back(r);
 			canAfford = false;
 		}
 		return canAfford;
 	}
 
-	bool RemoveResources(std::unique_ptr<ResourceManager>& resourceManager)
+	bool RemoveResources(std::unique_ptr<ResourceManager>& resourceManager, int amount = 1)
 	{
-		bool affordCoal = resourceManager->Request(ResourceType::Coal, cost.coal);
-		bool affordIron = resourceManager->Request(ResourceType::Iron, cost.iron);
-		bool affordWood = resourceManager->Request(ResourceType::Wood, cost.wood);
+		bool affordCoal = resourceManager->Request(ResourceType::Coal, cost.coal * amount);
+		bool affordIron = resourceManager->Request(ResourceType::Iron, cost.iron * amount);
+		bool affordWood = resourceManager->Request(ResourceType::Wood, cost.wood * amount);
+		bool affordSteel = resourceManager->Request(ResourceType::Steel, cost.steel * amount);
+		bool affordSword = resourceManager->Request(ResourceType::Sword, cost.sword * amount);
 
-		if (affordCoal && affordIron && affordWood)
+		if (affordCoal && affordIron && affordWood && affordSteel && affordSword)
 			return true;
-		std::cout << "Failed to remove resources" << std::endl;
+		std::string s;
+		if (!affordCoal)
+			s += "coal, ";
+		if (!affordIron)
+			s += "iron, ";
+		if (!affordWood)
+			s += "wood, ";
+		if (!affordSteel)
+			s += "steel, ";
+		if (!affordSword)
+			s += "sword, ";
+			
+		std::cout << "Failed to remove resources: " << s << std::endl;
 		return false;
 	}
 
@@ -201,10 +273,12 @@ protected:
 	Cost cost;
 };
 
+
+
 class Building : public Costable
 {
 public:
-	Building(BuildingType build, Vec2 pos) : type(build), position(pos)
+	Building(BuildingType build, Vec2 pos) : type(build), position(pos), color(Renderer::White)
 	{
 		if (build == BuildingType::Barrack)
 		{
@@ -215,6 +289,24 @@ public:
 			size = Vec2(2, 2);
 			color = Renderer::Purple;
 		}
+		else if (build == BuildingType::Forge)
+		{
+			Cost c;
+			c.iron = 20;
+			c.wood = 10;
+			cost = c;
+			size = Vec2(3, 4);
+			color = Renderer::Olive;
+		}
+		else if (build == BuildingType::Anvil)
+		{
+			Cost c;
+			c.steel = 10;
+			c.wood = 20;
+			cost = c;
+			size = Vec2(1, 2);
+			color = Renderer::Maroon;
+		}
 	}
 
 	void PlaceBuilding();
@@ -223,7 +315,7 @@ public:
 	void RemoveBuilding();
 
 
-	Vec2 position = 0;
+	Vec2 position = Vec2();
 	BuildingType type;
 	Vec2 size;
 	std::vector<PathNode*> targetNodes;
@@ -232,7 +324,6 @@ private:
 	void GetTargetNodes();
 
 };
-
 
 class BuildManager
 {
@@ -268,16 +359,51 @@ private:
 
 };
 
+
+
+class Product : public Costable
+{
+public:
+
+	Product(ResourceType type) : type(type)
+	{
+		if (type == ResourceType::Steel)
+		{
+			Cost steel;
+			steel.coal = 1;
+			steel.iron = 2;
+			cost = steel;
+		}
+		else if (type == ResourceType::Sword)
+		{
+			Cost sword;
+			sword.steel = 2;
+			sword.wood = 1;
+			cost = sword;
+		}
+	}
+private:
+	ResourceType type;
+};
+
 class ManufacturingManager
 {
 public:
 	ManufacturingManager(AIBrain* owner);
+	~ManufacturingManager()
+	{
+		for (auto p : productTemplate)
+			delete p.second;
+	}
 	void Update(float dt);
-	void QueueManufacture(const std::string& item, int amount);
+	void QueueManufacture(const ResourceType item, int amount);
+	BuildingType GetBuildingForType(ResourceType type);
+	Product* GetProductTemplate(ResourceType type);
 
 private:
 	AIBrain* owner;
-	std::map<std::string, int> orders;
+	std::map<ResourceType, int> orders;
+	std::map<ResourceType, Product*> productTemplate;
 };
 
 
@@ -290,7 +416,7 @@ public:
 		if (type == SoldierType::Infantry)
 		{
 			Cost c;
-			c.iron = 1;
+			c.sword = 1;
 			c.wood = 2;
 			cost = c;
 
@@ -336,8 +462,8 @@ public:
 	void RemoveTask(int id);
 	void Clear() { tasks.clear(); }
 
+	std::vector<Task> tasks; 
 private:
 	AIBrain* owner;
-	std::vector<Task> tasks;
 	int nextId = 1;
 };

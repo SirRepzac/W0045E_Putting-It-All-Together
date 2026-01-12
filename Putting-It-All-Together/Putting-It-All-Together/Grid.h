@@ -59,7 +59,7 @@ public:
 	// returns vector of the rows containing all the nodes in the grid
 	std::vector<std::vector<PathNode>>& GetNodes() { return nodes; }
 
-	void SetClearence();
+	void SetClearance();
 
 	void QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out);
 	void QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, std::vector<PathNode::Type> types = std::vector<PathNode::Type>());

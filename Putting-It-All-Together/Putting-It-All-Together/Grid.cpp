@@ -29,43 +29,66 @@ Grid::Grid(int width, int height, int cellSize)
 	}
 
 	SetNeighbors(rows, cols);
-	SetClearence();
+	SetClearance();
 }
 
-void Grid::SetClearence()
+void Grid::SetClearance()
 {
+	std::queue<PathNode*> q;
+
 	for (int r = 0; r < rows; r++)
 	{
 		for (int c = 0; c < cols; c++)
 		{
 			PathNode& node = nodes[r][c];
+
 			if (node.IsObstacle())
 			{
-				node.clearance = 0;
-				continue;
+				node.clearance = 0.0f;
+				q.push(&node);
 			}
-
-			// edge nodes
-			if (node.neighbors.size() < 8)
+			else
 			{
-				node.clearance = DEFAULT_CELL_SIZE;
+				node.clearance = std::numeric_limits<float>::infinity();
+			}
+		}
+	}
+	while (!q.empty())
+	{
+		PathNode* current = q.front();
+		q.pop();
+
+		for (PathNode* n : current->neighbors)
+		{
+			if (!n)
 				continue;
-			}
 
-			float shortest = INT_MAX;
-			for (PathNode* n : nodeLocations)
+			float step;
+			if (abs(n->position.x - current->position.x) + abs(n->position.y - current->position.y) == 2)
+				step = DEFAULT_CELL_SIZE * 1.41421356f;
+			else
+				step = DEFAULT_CELL_SIZE;
+
+			float newClearance = current->clearance + step;
+
+			if (newClearance < n->clearance)
 			{
-				if (n == nullptr)
-					continue;
-				if (!n->IsObstacle())
-					continue;
-
-				float distBetw = DistanceBetween(n->position, node.position);
-				if (distBetw < shortest)
-					shortest = distBetw;
+				n->clearance = newClearance;
+				q.push(n);
 			}
+		}
+	}
+	for (int r = 0; r < rows; r++)
+	{
+		for (int c = 0; c < cols; c++)
+		{
+			PathNode& node = nodes[r][c];
 
-			node.clearance = shortest - (DEFAULT_CELL_SIZE / 2);
+			// subtract half cell size so radius doesn't overlap
+			node.clearance -= DEFAULT_CELL_SIZE * 0.5f;
+
+			if (node.clearance < 0.0f)
+				node.clearance = 0.0f;
 		}
 	}
 }
