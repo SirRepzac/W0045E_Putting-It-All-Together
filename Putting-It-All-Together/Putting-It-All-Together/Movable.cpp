@@ -15,149 +15,130 @@ void Movable::Push(Vec2 dir, float force)
 
 void Movable::Move(Vec2 dir, float acc, float deltaTime)
 {
-	Vec2 acceleration = (dir + direction) / 2 * acc;
+    // 1. Desired velocity from input
+    Vec2 desiredVelocity = Vec2(0, 0);
+    if (!dir.IsZero())
+        desiredVelocity = dir.Normalized() * MAXIMUM_SPEED;
 
-	velocity += acceleration * deltaTime;
+    // 2. Steering = desired - current
+    Vec2 steering = desiredVelocity - velocity;
 
-	position += velocity * deltaTime;
+    float maxAccel = acc;
+    if (steering.Length() > maxAccel)
+        steering = steering.Normalized() * maxAccel;
 
-	if (!dir)
-	{
-		float damping = 0.05f; // per-second damping factor
-		// apply damping scaled to the current timestep
-		velocity = velocity * std::pow(damping, deltaTime);
-	}
+    velocity += steering * deltaTime;
 
-	if (velocity.Length() > MAXIMUM_SPEED)
-	{
-		velocity = velocity.Normalized() * MAXIMUM_SPEED;
-	}
+    // 3. Damping when no input
+    if (dir.IsZero())
+    {
+        float damping = 0.15f;
+        velocity *= std::pow(damping, deltaTime);
+    }
 
-	if (velocity.Length() < 5.0f && !dir)
-	{
-		velocity = Vec2(0.0f, 0.0f);
-	}
+    // 4. Clamp speed
+    if (velocity.Length() > MAXIMUM_SPEED)
+        velocity = velocity.Normalized() * MAXIMUM_SPEED;
 
-	float speed = velocity.Length();
+    if (velocity.Length() < 5.0f && dir.IsZero())
+        velocity = Vec2(0.0f, 0.0f);
 
-	if (velocity.Length() > 1e-6f)
-	{
-		Vec2 desired = (velocity + dir * (MAXIMUM_SPEED / 4)).Normalized();
+    // ---- COLLISIONS ----
+    Grid& grid = GameLoop::Instance().GetGrid();
 
-		if (direction.IsZero())
-		{
-			direction = desired;
-		}
-		else
-		{
-			// convert angles
-			float currentAng = std::atan2(this->direction.y, this->direction.x);
-			float targetAng = std::atan2(desired.y, desired.x);
+    // Agent collisions
+    std::vector<Movable*> movables;
+    grid.QueryEnt(position, radius * 2, movables);
 
-			// shortest angular difference in [-PI, PI]
-			float diff = targetAng - currentAng;
-			while (diff > PI) diff -= 2.0f * PI;
-			while (diff < -PI) diff += 2.0f * PI;
+    if (shouldCollideWithAgents)
+    {
+        for (Movable* m : movables)
+        {
+            if (m == this) continue;
 
-			// turn rate in radians per second (tweakable)
-			const float TURN_RATE = 8.0f;
-			float maxTurn = TURN_RATE * deltaTime;
+            float dist = DistanceBetween(position, m->position);
+            float minDist = radius + m->radius;
 
-			float newAng;
-			if (std::fabs(diff) <= maxTurn)
-				newAng = targetAng;
-			else
-				newAng = currentAng + (diff > 0 ? maxTurn : -maxTurn);
+            if (dist < minDist)
+            {
+                Vec2 normal = (position - m->position).Normalized();
+                float penetration = minDist - dist;
 
-			this->direction = Vec2(std::cos(newAng), std::sin(newAng));
-		}
+                position += normal * penetration;
 
-		velocity = direction * speed;
-	}
+                float vn = velocity.Dot(normal);
+                if (vn < 0.0f)
+                    velocity -= normal * vn;
+            }
+        }
+    }
 
-	Grid& grid = GameLoop::Instance().GetGrid();
+    // Wall collisions
+    std::vector<PathNode*> obstacles;
+    grid.QueryNodes(position, radius * 2, obstacles);
 
-	std::vector<Movable*> movables;
-	grid.QueryEnt(position, radius * 2, movables);
+    Vec2 combinedNormal(0, 0);
+    float maxPenetration = 0.0f;
 
-	if (shouldCollideWithAgents)
-		for (Movable* m : movables)
-		{
+    for (const PathNode* o : obstacles)
+    {
+        if (!o->IsObstacle())
+            continue;
 
-			if (m == this)
-				continue;
+        Vec2 closest = ClosestPointOnSquare(position, o->position, o->size);
+        float dist = DistanceBetween(position, closest);
 
-			float dist = DistanceBetween(position, m->position);
-			float minDist = (radius + m->radius);
-			if (dist < minDist)
-			{
-				const float eps = 1e-5f;
+        if (dist < radius)
+        {
+            Vec2 n = (dist > 1e-5f)
+                ? (position - closest).Normalized()
+                : Vec2(0, -1);
 
-				// compute collision normal (from other to this)
-				Vec2 normal;
-				if (dist > eps)
-				{
-					normal = (position - m->position).Normalized();
-				}
+            float penetration = radius - dist;
 
-				float penetration = radius + m->radius - dist;
-				// push outside
-				position += normal * penetration;
+            combinedNormal += n * penetration;
+            maxPenetration = std::max(maxPenetration, penetration);
+        }
+    }
 
-				Vec2 dir = (m->position - position).Normalized();
-				m->Push(dir, penetration * speed * 0.15f * weight);
-			}
-		}
+    if (!combinedNormal.IsZero())
+    {
+        Vec2 normal = combinedNormal.Normalized();
 
-	position += pushforce * deltaTime;
+        // push out once
+        position += normal * maxPenetration;
 
-	std::vector<PathNode*> obstacles;
-	grid.QueryNodes(position, radius * 2, obstacles);
+        // remove inward velocity
+        float vn = velocity.Dot(normal);
+        if (vn < 0.0f)
+            velocity -= normal * vn;
+    }
 
-	for (const PathNode* o : obstacles)
-	{
-		if (!o->IsObstacle())
-			continue;
+    // 5. Move AFTER velocity & collisions
+    position += velocity * deltaTime;
 
-		Vec2 closestPos = ClosestPointOnSquare(position, o->position, o->size);
+    // 6. Facing follows velocity
+    if (velocity.Length() > 1e-6f)
+    {
+        Vec2 desiredDir = velocity.Normalized();
 
-		float dist = DistanceBetween(position, closestPos);
+        float currentAng = std::atan2(direction.y, direction.x);
+        float targetAng = std::atan2(desiredDir.y, desiredDir.x);
 
-		// If inside wall, push out
-		if (dist < radius)
-		{
-			// compute a safe normal
-			Vec2 normal;
-			const float eps = 1e-5f;
-			if (dist > eps)
-			{
-				normal = (position - closestPos).Normalized();
-			}
-			else
-			{
-				// rare case: exactly on edge/center -> pick a normal away from rect center
-				Vec2 rectCenter = o->position;
-				normal = (position - rectCenter).Normalized();
-				if (normal.IsZero())
-					normal = Vec2(0.0f, -1.0f);
-			}
+        float diff = targetAng - currentAng;
+        while (diff > PI) diff -= 2 * PI;
+        while (diff < -PI) diff += 2 * PI;
 
-			float penetration = radius - dist;
-			// push outside
-			position += normal * penetration;
-		}
-	}
+        float maxTurn = 8.0f * deltaTime;
+        float newAng = currentAng + std::clamp(diff, -maxTurn, maxTurn);
 
-	if (position.x - radius < 0)
-		position.x = radius;
-	else if (position.x + radius > WORLD_WIDTH)
-		position.x = WORLD_WIDTH - radius;
-	if (position.y - radius < 0)
-		position.y = radius;
-	else if (position.y + radius > WORLD_HEIGHT)
-		position.y = WORLD_HEIGHT - radius;
+        direction = Vec2(std::cos(newAng), std::sin(newAng));
+    }
 
-	SetPos(position);
+    // World bounds
+    position.x = std::clamp(position.x, radius, WORLD_WIDTH - radius);
+    position.y = std::clamp(position.y, radius, WORLD_HEIGHT - radius);
 
-	pushforce = Vec2(0, 0);
+    SetPos(position);
+    pushforce = Vec2(0, 0);
 }
