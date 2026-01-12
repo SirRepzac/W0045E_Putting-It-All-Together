@@ -238,7 +238,6 @@ void AIBrain::FSM(float deltaTime)
 
 	Building* b;
 	Task bTask;
-	Vec2 barrackLoc = Vec2(990.000000, 670.000000);
 	PathNode* frontier;
 	std::vector<std::pair<ResourceType, float>> lackingResources;
 
@@ -284,11 +283,9 @@ void AIBrain::FSM(float deltaTime)
 			break;
 		}
 
-		barrackLoc = build->GetBuilding(BuildingType::Barrack)->position;
-
-		if (DistanceBetween(ownerAI->GetPosition(), barrackLoc) > ownerAI->GetRadius() + 2)
+		if (DistanceBetween(ownerAI->GetPosition(), GetBuildingLocation(BuildingType::Barrack)->position) > ownerAI->GetRadius() + 2)
 		{
-			PathNode* barrackNode = grid.GetNodeAt(barrackLoc);
+			PathNode* barrackNode = GetBuildingLocation(BuildingType::Barrack);
 
 			bool valid = true;
 			ownerAI->GoTo(barrackNode, valid, true);
@@ -299,7 +296,7 @@ void AIBrain::FSM(float deltaTime)
 				Task tt;
 				tt.type = TaskType::Discover;
 				tt.priority = t.priority + 1;
-				tt.destination = barrackLoc;
+				tt.time = 5.0f;
 				allocator->AddTask(tt);
 			}
 		}
@@ -335,11 +332,11 @@ void AIBrain::FSM(float deltaTime)
 
 		if (b->CanAfford(resources->Get(), lackingResources))
 		{
-			if (DistanceBetween(ownerAI->GetPosition(), barrackLoc) > ownerAI->GetRadius() + 2)
+			if (DistanceBetween(ownerAI->GetPosition(), GetBuildingLocation(t.buildingType)->position) > ownerAI->GetRadius() + 2)
 			{
 
 				bool valid = true;
-				ownerAI->GoTo(grid.GetNodeAt(barrackLoc), valid, true);
+				ownerAI->GoTo(GetBuildingLocation(t.buildingType), valid, true);
 
 				// if not valid, explore
 				if (!valid)
@@ -347,7 +344,7 @@ void AIBrain::FSM(float deltaTime)
 					Task tt;
 					tt.type = TaskType::Discover;
 					tt.priority = t.priority + 1;
-					tt.destination = barrackLoc;
+					tt.time = 5.0f;
 					allocator->AddTask(tt);
 				}
 
@@ -355,7 +352,7 @@ void AIBrain::FSM(float deltaTime)
 			}
 
 			b->RemoveResources(resources);
-			build->QueueBuilding(t.buildingType, barrackLoc);
+			build->QueueBuilding(t.buildingType, GetBuildingLocation(t.buildingType)->position);
 			allocator->RemoveTask(t.id);
 			break;
 		}
@@ -367,6 +364,17 @@ void AIBrain::FSM(float deltaTime)
 
 		break;
 	case TaskType::Discover:
+		if (t.resources.empty())
+		{
+			if (t.time <= 0)
+			{
+				Logger::Instance().Log(ownerAI->GetName() + " explored for time duration \n");
+				allocator->RemoveTask(t.id);
+				break;
+			}
+			t.time -= deltaTime;
+		}
+
 		for (int row = 0; row < grid.GetRows(); ++row)
 		{
 			for (int col = 0; col < grid.GetCols(); ++col)
@@ -430,7 +438,7 @@ bool AIBrain::IsFrontierNode(const PathNode* node)
 	if (!k.discovered)
 		return false;
 
-	if (node->clearance < ownerAI->GetRadius())
+	if (node->clearance <= ownerAI->GetRadius())
 		return false;
 
 	for (PathNode* n : node->neighbors)
@@ -463,6 +471,7 @@ PathNode* AIBrain::FindClosestFrontier()
 		knownNodes[sr][sc].walkable = !start->IsObstacle();
 	}
 
+	// Dijstras algorithm
 	std::queue<PathNode*> q;
 	std::unordered_set<PathNode*> visited;
 
@@ -492,4 +501,81 @@ PathNode* AIBrain::FindClosestFrontier()
 	}
 
 	return nullptr;
+}
+
+PathNode* AIBrain::FindClosestOpenArea(Vec2 areaSize)
+{
+	GameLoop& game = GameLoop::Instance();
+	Grid& grid = game.GetGrid();
+
+	PathNode* start = grid.GetNodeAt(ownerAI->GetPosition());
+
+	int sr, sc;
+	grid.WorldToGrid(start->position, sr, sc);
+
+	if (!knownNodes[sr][sc].discovered)
+	{
+		// ensure at least current node is known
+		knownNodes[sr][sc].discovered = true;
+		knownNodes[sr][sc].walkable = !start->IsObstacle();
+	}
+
+	// Dijstras algorithm
+	std::queue<PathNode*> q;
+	std::unordered_set<PathNode*> visited;
+
+	q.push(start);
+	visited.insert(start);
+
+	while (!q.empty())
+	{
+		PathNode* current = q.front();
+		q.pop();
+
+		if (current->clearance > ownerAI->GetRadius())
+		{
+			int row;
+			int col;
+			grid.WorldToGrid(current->position, row, col);
+
+			bool valid = true;
+			for (int r = row; r < row + areaSize.x; r++)
+			{
+				for (int c = col; c < col + areaSize.y; c++)
+				{
+					if (grid.GetNodes()[r][c].type != PathNode::Type::Nothing)
+						valid = false;
+				}
+			}
+
+			if (valid)
+				return current;
+		}
+
+		for (PathNode* n : current->neighbors)
+		{
+			int r = -1;
+			int c = -1;
+			grid.WorldToGrid(n->position, r, c);
+
+			if (!visited.contains(n) && knownNodes[r][c].discovered && knownNodes[r][c].walkable)
+			{
+				visited.insert(n);
+				q.push(n);
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+PathNode* AIBrain::GetBuildingLocation(BuildingType type)
+{
+	if (buildingLoc.contains(type))
+		return buildingLoc.at(type);
+	
+	Building* b = build->GetBuildingTemplate(type);
+	PathNode* location = FindClosestOpenArea(b->size);
+	buildingLoc[type] = location;
+	return location;
 }

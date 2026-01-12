@@ -85,7 +85,7 @@ struct Task
 	int id = -1;
 	TaskType type = TaskType::None;
 	std::vector<std::pair<ResourceType, float>> resources;
-	Vec2 destination = Vec2();
+	float time;
 	float priority = 0.0f;
 	bool assigned = false;
 	BuildingType buildingType;

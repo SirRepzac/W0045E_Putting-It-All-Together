@@ -59,6 +59,8 @@ private:
 
 	PathNode* FindClosestFrontier();
 
+	PathNode* FindClosestOpenArea(Vec2 areaSize);
+
 	GameAI* ownerAI = nullptr;
 
 	float materialPriority = 1.0f;
@@ -76,4 +78,8 @@ private:
 
 
 	int prevTaskId = -1;
+
+	PathNode* GetBuildingLocation(BuildingType type);
+
+	std::map<BuildingType, PathNode*> buildingLoc;
 };

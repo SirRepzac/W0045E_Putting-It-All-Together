@@ -45,6 +45,13 @@ void Grid::SetClearence()
 				continue;
 			}
 
+			// edge nodes
+			if (node.neighbors.size() < 8)
+			{
+				node.clearance = DEFAULT_CELL_SIZE;
+				continue;
+			}
+
 			float shortest = INT_MAX;
 			for (PathNode* n : nodeLocations)
 			{
