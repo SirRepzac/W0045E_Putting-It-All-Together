@@ -49,7 +49,7 @@ public:
     bool AtTarget();
     bool GetDebugTarget(Vec2& out) { (void)out; return false; }
 
-    void SetPath(std::vector<PathNode*> path) { this->path = path; }
+    void SetPath(std::vector<PathNode*> path) { this->path = path; pathIndex = path.size() - 1; }
 
     PathNode* GetDestinationNode()
     {
@@ -64,6 +64,7 @@ private:
     void UpdateLoggerWithDiscrepancies(GameAI::State state);
 
     std::vector<PathNode*> path;
+    int pathIndex = -1;
 
     GameAI* ai = nullptr;
     GameAI::State previousState = GameAI::State::STATE_IDLE;

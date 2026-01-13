@@ -8,7 +8,7 @@
 Behaviour::Behaviour(GameAI* parentAI)
 {
 	ai = parentAI;
-	
+
 }
 
 Behaviour::~Behaviour()
@@ -237,72 +237,62 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 {
 	GameAI* ai = dynamic_cast<GameAI*>(this->ai);
 
-	if (path.empty())
+	if (path.empty() || pathIndex <= 0)
 	{
 		ai->SetState(GameAI::State::STATE_IDLE);
 		return Info{ Vec2(0,0), 0.0f };
 	}
 
 	GameLoop& game = GameLoop::Instance();
+	Grid& grid = game.GetGrid();
+
+	// debug draw
 	if (game.DEBUG_MODE)
 	{
 		game.AddDebugEntity(path.front()->position, Renderer::Red, path.front()->size * 0.5f);
-		for (int i = 0; i <= path.size(); i++)
+
+		if (grid.HasLineOfSight(ai->GetPosition(), path[0]->position, ai->GetRadius()))
 		{
-			int j = i;
-			Vec2 prev;
-			if (i == path.size())
-			{
-				prev = ai->GetPosition();
-				j -= 1;
-			}
-			else if (i != 0)
-				prev = path[i - 1]->position;
-			if (prev)
-				game.AddDebugLine(path[j]->position, prev, Renderer::Blue);
-		}
-	}
-
-	if (DistanceBetween(ai->GetPosition(), path.back()->position) < ai->GetRadius())
-	{
-		path.pop_back();
-	}
-
-	if (path.empty())
-	{
-		return Info{ Vec2(0,0), 0.0f };
-	}
-
-	Grid& grid = game.GetGrid();
-
-	// If the AI has lost the path
-	if (!grid.HasLineOfSight(ai->GetPosition(), path.back()->position, ai->GetRadius()))
-	{
-		PathNode* dest = path.front();
-		path.clear();
-		bool valid = true;
-		ai->GoTo(dest, valid);
-	}
-
-	// LOS smoothing
-	bool foundObstructed = false;
-	while (!foundObstructed && path.size() > 1)
-	{
-		if (grid.HasLineOfSight(ai->GetPosition(), path.at(path.size() - 2)->position, ai->GetRadius()))
-		{
-			path.pop_back();
+			game.AddDebugLine(path[0]->position, ai->GetPosition(), Renderer::Blue);
 		}
 		else
 		{
-			foundObstructed = true;
+			for (int i = 0; i <= pathIndex; i++)
+			{
+				int j = i;
+				Vec2 prev;
+				if (i == pathIndex)
+				{
+					prev = ai->GetPosition();
+					j -= 1;
+				}
+				else if (i != 0)
+					prev = path[i - 1]->position;
+				if (prev)
+					game.AddDebugLine(path[j]->position, prev, Renderer::Blue);
+			}
 		}
 	}
 
-	if (path.size() == 1)
-		return Arrive(deltaTime, path.back()->position);
-	if (!path.empty())
-		return Seek(path.back()->position);
-	return Info();
+	// Advance path index if we reached current node
+	if (DistanceBetween(ai->GetPosition(), path[pathIndex]->position) < ai->GetRadius())
+	{
+		pathIndex--;
+		if (pathIndex < 0)
+			return { Vec2(0, 0), 0.0f };
+	}
+
+	// ---- LOS SMOOTHING ----
+	if (grid.HasLineOfSight(ai->GetPosition(), path[0]->position, ai->GetRadius()))
+		return Arrive(deltaTime, path[0]->position);
+
+	// ---- MOVEMENT ----
+	Vec2 target = path[pathIndex]->position;
+
+	if (pathIndex == 0)
+		return Arrive(deltaTime, target);
+
+	return Seek(target);
 }
 
 Behaviour::Info Behaviour::AgentAvoidance(float deltaTime, GameAI::State state)
@@ -356,7 +346,7 @@ Behaviour::Info Behaviour::AgentAvoidance(float deltaTime, GameAI::State state)
 
 			// strength scales with proximity (closer -> stronger)
 			float strength = (detectionRadius - dist) / detectionRadius; // 0..1
-			
+
 			steering += diff.Normalized() * strength;
 		}
 	}
@@ -462,37 +452,37 @@ Behaviour::Info Behaviour::Separation(float deltaTime, GameAI::State state)
 }
 
 Behaviour::Info Behaviour::Update(float deltaTime, GameAI::State state)
-{	
+{
 	//UpdateLoggerWithDiscrepancies(state);
 	previousState = state;
 
 	GameAI::State currentState = state;
 	switch (currentState)
 	{
-		case GameAI::State::STATE_IDLE:
-			return Info{ Vec2(0,0), 0.0f };
-		case GameAI::State::STATE_SEEK:
-			DrawDebugTarget();
-			return Seek();
-		case GameAI::State::STATE_FLEE:
-			DrawDebugTarget();
-			return Flee();
-		case GameAI::State::STATE_ARRIVE:
-			DrawDebugTarget();
-			return Arrive(deltaTime);
-		case GameAI::State::STATE_WANDER:
-			DrawDebugTarget();
-			return Wander();
-		case GameAI::State::STATE_EVADE:
-			DrawDebugTarget();
-			return Evade(deltaTime);
-		case GameAI::State::STATE_PURSUE:
-			DrawDebugTarget();
-			return Persue(deltaTime);
-		case GameAI::State::STATE_FOLLOW_PATH:
-			return FollowPath(deltaTime);
-		default:
-			return Info{ Vec2(0,0), 0.0f };
+	case GameAI::State::STATE_IDLE:
+		return Info{ Vec2(0,0), 0.0f };
+	case GameAI::State::STATE_SEEK:
+		DrawDebugTarget();
+		return Seek();
+	case GameAI::State::STATE_FLEE:
+		DrawDebugTarget();
+		return Flee();
+	case GameAI::State::STATE_ARRIVE:
+		DrawDebugTarget();
+		return Arrive(deltaTime);
+	case GameAI::State::STATE_WANDER:
+		DrawDebugTarget();
+		return Wander();
+	case GameAI::State::STATE_EVADE:
+		DrawDebugTarget();
+		return Evade(deltaTime);
+	case GameAI::State::STATE_PURSUE:
+		DrawDebugTarget();
+		return Persue(deltaTime);
+	case GameAI::State::STATE_FOLLOW_PATH:
+		return FollowPath(deltaTime);
+	default:
+		return Info{ Vec2(0,0), 0.0f };
 	}
 }
 
@@ -568,5 +558,5 @@ void Behaviour::UpdateLoggerWithDiscrepancies(GameAI::State state)
 
 bool Behaviour::AtTarget()
 {
-	 return (DistanceBetween(ai->GetPosition(), ai->GetTarget()) < 20.0f);
+	return (DistanceBetween(ai->GetPosition(), ai->GetTarget()) < 20.0f);
 }
