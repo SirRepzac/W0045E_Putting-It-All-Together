@@ -42,9 +42,16 @@ void Grid::SetClearance()
 		{
 			PathNode& node = nodes[r][c];
 
+			bool isEdge = (r == 0 || r == rows - 1 || c == 0 || c == cols - 1);
+
 			if (node.IsObstacle())
 			{
 				node.clearance = 0.0f;
+				q.push(&node);
+			}
+			else if (isEdge)
+			{
+				node.clearance = DEFAULT_CELL_SIZE;
 				q.push(&node);
 			}
 			else
