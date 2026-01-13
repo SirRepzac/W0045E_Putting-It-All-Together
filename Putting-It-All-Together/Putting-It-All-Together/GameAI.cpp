@@ -100,27 +100,52 @@ bool GameAI::CanUseNode(const PathNode* node) const
 	return k.walkable;
 }
 
+bool GameAI::CanGoTo(PathNode* destination)
+{
+	if (!destination)
+		return false;
+
+	GameLoop& game = GameLoop::Instance();
+	Pathfinder* pathfinder = game.pathfinder;
+	PathNode* currNode = game.GetGrid().GetNodeAt(position);
+	float pathDist = 0;
+	std::vector<PathNode*> path;
+
+	auto filter = [this](const PathNode* node) { return CanUseNode(node); };
+
+	path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter);
+
+	if (path.empty())
+	{
+		return false;
+	}
+
+	return true;
+}
+
 void GameAI::GoTo(PathNode* destination, bool &isPathValid, bool ignoreFog)
 {
 	if (!destination)
 		return;
 
+	// Update intent
+	desiredDestination = destination;
+
 	GameLoop& game = GameLoop::Instance();
 	Pathfinder* pathfinder = game.pathfinder;
 	PathNode* currNode = game.GetGrid().GetNodeAt(position);
-	PathNode* dest = destination;
 	float pathDist = 0;
 	std::vector<PathNode*> path;
+
+	auto filter = [this](const PathNode* node) { return !node->IsObstacle(); };
+	auto filter2 = [this](const PathNode* node) { return CanUseNode(node); };
+
+	//auto filter = ignoreFog ? [this](const PathNode* node) { return !node->IsObstacle(); } : [this](const PathNode* node) { return CanUseNode(node); };
+
 	if (ignoreFog)
-		path = pathfinder->RequestPath(currNode, dest, pathDist, radius, [this](const PathNode* node)
-			{
-				return !node->IsObstacle();
-			});
+		path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter);
 	else
-		path = pathfinder->RequestPath(currNode, dest, pathDist, radius, [this](const PathNode* node) 
-			{ 
-				return CanUseNode(node); 
-			});
+		path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter2);
 
 	if (path.empty())
 	{
@@ -131,7 +156,6 @@ void GameAI::GoTo(PathNode* destination, bool &isPathValid, bool ignoreFog)
 	SetState(State::STATE_FOLLOW_PATH);
 	behaviour->SetPath(path);
 	isPathValid = true;
-	return;
 }
 
 void GameAI::GoToClosest(PathNode::Type destinationType, bool& isPathValid)
@@ -160,7 +184,6 @@ void GameAI::GoToClosest(std::vector<PathNode::Type> destinationTypes, bool& isP
 	SetState(State::STATE_FOLLOW_PATH);
 	behaviour->SetPath(path);
 	isPathValid = true;
-	return;
 }
 
 PathNode* GameAI::GetPathDestination()
