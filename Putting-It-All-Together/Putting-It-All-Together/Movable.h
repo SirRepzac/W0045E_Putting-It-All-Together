@@ -38,7 +38,4 @@ protected:
 	std::string name;
 
 	Vec2 pushforce;
-
-	bool shouldCollideWithAgents = false;
-
 };
