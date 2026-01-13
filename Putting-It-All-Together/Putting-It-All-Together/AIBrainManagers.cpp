@@ -11,7 +11,7 @@ void ResourceManager::Update(float dt)
 {
 	(void)dt;
 }
-int ResourceManager::Get(ResourceType r) const
+float ResourceManager::Get(ResourceType r) const
 {
 	auto it = inventory.find(r);
 	if (it == inventory.end())

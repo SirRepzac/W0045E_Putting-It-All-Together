@@ -125,7 +125,7 @@ struct Task
 	int id = -1;
 	TaskType type = TaskType::None;
 	std::vector<std::pair<ResourceType, float>> resources;
-	float time;
+	float time = 0;
 	float priority = 0.0f;
 	bool assigned = false;
 	BuildingType buildingType;
@@ -157,7 +157,7 @@ class ResourceManager
 public:
 	ResourceManager(AIBrain* owner);
 	void Update(float dt);
-	int Get(ResourceType r) const;
+	float Get(ResourceType r) const;
 	Cost Get();
 	void Add(ResourceType r, float amount);
 	bool Request(ResourceType r, float amount);
@@ -301,7 +301,7 @@ public:
 		else if (build == BuildingType::Anvil)
 		{
 			Cost c;
-			c.steel = 10;
+			c.iron = 10;
 			c.wood = 20;
 			cost = c;
 			size = Vec2(1, 2);

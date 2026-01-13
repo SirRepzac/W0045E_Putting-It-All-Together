@@ -77,13 +77,16 @@ void AIBrain::UpdateDiscovered()
 	std::vector<PathNode*> visible;
 	float visionRadius = ownerAI->GetRadius() * 5;
 
+	if (grid.GetNodeAt(ownerAI->GetPosition())->IsObstacle())
+		return;
+
 	grid.QueryNodes(ownerAI->GetPosition(), visionRadius, visible);
 
 	for (PathNode* node : visible)
 	{
 		if (!grid.HasLineOfSight(ownerAI->GetPosition(), node->position, 1) && !node->IsObstacle())
 			continue;
-		
+
 		Discover(node, grid, gameTime);
 	}
 }
@@ -159,7 +162,15 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 	}
 	if (endTask)
 	{
+		std::string ss;
+		for (auto l : t.resources)
+		{
+			ss += std::to_string(resources->Get(l.first)) + "/" + std::to_string(l.second) + " " + ToString(l.first) + ", ";
+		}
+		Logger::Instance().Log(ownerAI->GetName() + " quit gathering with: " + ss + "\n");
+
 		allocator->RemoveTask(t.id);
+		return;
 	}
 
 	std::vector<PathNode::Type> types;
@@ -209,6 +220,7 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 			tt.type = TaskType::Discover;
 			tt.priority = t.priority + 1;
 			tt.time = 5.0f;
+			tt.resources = res;
 			allocator->AddTask(tt);
 		}
 	}
@@ -221,7 +233,7 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 	bool endTask = true;
 	for (std::pair<ResourceType, float> p : resourcePairs)
 	{
-		if (resources->Get(p.first) > p.second)
+		if (resources->Get(p.first) >= p.second)
 			continue;
 		res.push_back(p);
 		endTask = false;
@@ -229,6 +241,7 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 	if (endTask)
 	{
 		allocator->RemoveTask(t.id);
+		return;
 	}
 
 	for (std::pair<ResourceType, float> r : res)
@@ -255,7 +268,7 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 
 				continue;
 			}
-				
+
 			PathNode* buildingNode = GetBuildingLocation(bType);
 
 			if (DistanceBetween(ownerAI->GetPosition(), buildingNode->position) > ownerAI->GetRadius())
@@ -264,7 +277,7 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 				ownerAI->GoTo(buildingNode, valid, true);
 				continue;
 			}
-
+			
 			p->RemoveResources(resources, amount);
 			resources->Add(r.first, amount);
 		}
@@ -272,7 +285,7 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 		{
 			std::string s;
 			Logger::Instance().Log(ownerAI->GetName() + " not enough resources to manufacture " + ToString(r.first));
-			for (auto l : t.resources)
+			for (auto l : res)
 			{
 				s += std::to_string(resources->Get(l.first)) + "/" + std::to_string(l.second) + " " + ToString(l.first) + ", ";
 			}
@@ -294,7 +307,7 @@ void AIBrain::AddAcquisitionTask(std::vector<std::pair<ResourceType, float>> lac
 		Task t;
 		t.type = TaskType::Gather;
 		t.resources = gatherResources;
-		t.priority = priority + 1;
+		t.priority = priority;
 		allocator->AddTask(t);
 	}
 
@@ -358,10 +371,10 @@ void AIBrain::LogCurrentTaskList()
 void AIBrain::FSM(float deltaTime)
 {
 	frames++;
-	if (frames % 600 == 0)
+	if (frames % 300 == 0)
 		LogCurrentTaskList();
 
-	if (!ownerAI) 
+	if (!ownerAI)
 		return;
 
 	if (!allocator->HasPending() && ownerAI->GetCurrentState() != GameAI::State::STATE_IDLE)
@@ -384,7 +397,19 @@ void AIBrain::FSM(float deltaTime)
 		return;
 	Task& t = *tt;
 	if (t.id != prevTaskId)
+	{
 		Logger::Instance().Log(ownerAI->GetName() + " assigned to " + ToString(t.type) + "(task id : " + std::to_string(t.id) + " priority = " + std::to_string(t.priority) + ")");
+		if (t.type == TaskType::Gather)
+		{
+			std::string ss;
+			for (auto l : t.resources)
+			{
+				ss += std::to_string(l.second) + " " + ToString(l.first) + ", ";
+			}
+			Logger::Instance().Log(ownerAI->GetName() + " --- requires: " + ss + "\n");
+		}
+
+	}
 
 	switch (t.type)
 	{
@@ -506,16 +531,14 @@ void AIBrain::FSM(float deltaTime)
 				++it;
 		}
 
-		if (t.resources.empty())
+		if (t.time <= 0)
 		{
-			if (t.time <= 0)
-			{
-				Logger::Instance().Log(ownerAI->GetName() + " explored for time duration \n");
-				allocator->RemoveTask(t.id);
-				break;
-			}
-			t.time -= deltaTime;
+			Logger::Instance().Log(ownerAI->GetName() + " explored for time duration \n");
+			allocator->RemoveTask(t.id);
+			break;
 		}
+		t.time -= deltaTime;
+		t.time = std::max(0.0f, t.time);
 
 		removed = false;
 		for (int row = 0; row < grid.GetRows(); ++row)
@@ -532,7 +555,10 @@ void AIBrain::FSM(float deltaTime)
 				{
 					if (r.first == k.resource)
 					{
-						kContainsResource = true;
+						bool valid = true;
+						ownerAI->GoTo(&grid.GetNodes()[row][col], valid);
+						if (valid)
+							kContainsResource = true;
 					}
 				}
 
@@ -634,7 +660,10 @@ PathNode* AIBrain::FindClosestFrontier()
 		q.pop();
 
 		if (IsFrontierNode(current))
-			return current;
+		{
+			if (ownerAI->CanGoTo(current))
+				return current;
+		}
 
 		for (PathNode* n : current->neighbors)
 		{
@@ -726,7 +755,7 @@ PathNode* AIBrain::GetBuildingLocation(BuildingType type)
 {
 	if (buildingLoc.contains(type))
 		return buildingLoc.at(type);
-	
+
 	Building* b = build->GetBuildingTemplate(type);
 	PathNode* location = FindClosestOpenArea(b->size);
 	buildingLoc[type] = location;
