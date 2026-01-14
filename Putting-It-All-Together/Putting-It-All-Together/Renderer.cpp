@@ -14,7 +14,8 @@ inline HWND ToHWND(void* p) { return reinterpret_cast<HWND>(p); }
 
 void Renderer::UpdateDirtyNodes(const AIBrain* brain)
 {
-    Grid& grid = GameLoop::Instance().GetGrid();
+    GameLoop& game = GameLoop::Instance();
+    Grid& grid = game.GetGrid();
 
     for (size_t i = 0; i < nodeCache.size(); ++i)
     {
@@ -24,9 +25,14 @@ void Renderer::UpdateDirtyNodes(const AIBrain* brain)
         auto indexPair = grid.TwoDIndex(i);
         PathNode& gridNode = grid.GetNodes()[indexPair.first][indexPair.second];
 
-        node.color = brain->IsDiscovered(i)
-            ? gridNode.color
-            : DarkGray;
+        if (game.USE_FOG_OF_WAR)
+        {
+            node.color = brain->IsDiscovered(i)
+                ? gridNode.color
+                : DarkGray;
+        }
+        else
+            node.color = gridNode.color;
 
         nodeNeedsUpdate[i] = false;
     }

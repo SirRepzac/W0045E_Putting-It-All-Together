@@ -44,12 +44,15 @@ public:
 	Grid& GetGrid() { return grid; }
 	double GetGameTime() { return gameTime; }
 
-	bool DEBUG_MODE = true;
+	bool DEBUG_MODE = false;
+	bool USE_FOG_OF_WAR = true;
 
 	Pathfinder* pathfinder;
 	Renderer* renderer;
 
 	void ScheduleDeath(GameAI* ai) { deathRow.push_back(ai); }
+
+	void RefreshScreen();
 
 	GameAI* focusedAgent = nullptr;
 private:

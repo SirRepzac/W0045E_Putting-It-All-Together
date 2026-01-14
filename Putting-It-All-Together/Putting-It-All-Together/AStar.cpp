@@ -146,7 +146,6 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 		}
 	}
 
-	std::cout << "Path not found!" << std::endl;
 	GameLoop::Instance().AddDebugEntity(goalNode->position, Renderer::Lime, 10);
 	outDist = -1;
 	return std::vector<PathNode*>();
@@ -256,7 +255,6 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 		}
 	}
 
-	std::cout << "Path not found!" << std::endl;
 	outDist = -1;
 	return std::vector<PathNode*>();
 }

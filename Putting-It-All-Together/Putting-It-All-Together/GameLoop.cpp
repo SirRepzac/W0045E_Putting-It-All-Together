@@ -41,6 +41,17 @@ static std::vector<DataPoint> LoadDataFile(const std::string& filename)
 	return result;
 }
 
+void GameLoop::RefreshScreen()
+{
+	for (int r = 0; r < grid.GetRows(); r++)
+	{
+		for (int c = 0; c < grid.GetCols(); c++)
+		{
+			renderer->MarkNodeDirty(grid.Index(c, r));
+		}
+	}
+}
+
 GameLoop::GameLoop() : grid(WORLD_WIDTH, WORLD_HEIGHT, DEFAULT_CELL_SIZE)
 {
 }
@@ -401,6 +412,15 @@ void GameLoop::HandleInput(float delta)
 		DEBUG_MODE = !DEBUG_MODE;
 		keyPressCooldown = 0.2f;
 		Logger::Instance().Log(std::string("Debug mode: ") + (DEBUG_MODE ? "ON\n" : "OFF\n"));
+	}
+
+	if (renderer->IsKeyDown('H'))
+	{
+		USE_FOG_OF_WAR = !USE_FOG_OF_WAR;
+		keyPressCooldown = 0.2f;
+		RefreshScreen();
+
+		Logger::Instance().Log(std::string("Fog of war mode: ") + (DEBUG_MODE ? "ON\n" : "OFF\n"));
 	}
 
 	if (renderer->IsKeyDown(VK_SPACE))
