@@ -1,23 +1,30 @@
 #pragma once
+
 #include "Constants.h"
 #include "Vec2.h"
 #include <vector>
 #include <string>
 #include <mutex>
 #include <thread>
-#include <utility>
 #include <atomic>
-#include <condition_variable>
 #include <array>
-#include <limits>
-#include <algorithm>
+
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 class AIBrain;
 
 class Renderer
 {
 public:
-    // Simple entity description used for drawing
+
+    enum MouseClick
+    {
+        Right,
+        Middle,
+        Left
+    };
+
     struct Entity
     {
         enum class Type { Circle, Line, Rectangle };
@@ -26,23 +33,21 @@ public:
 
         bool filled = true;
 
-        // circle fields
         float x = 0.0f;
-        float y = 0.0f;
-        int radius = 8;
-
-        // line fields
         float x2 = 0.0f;
+
+        int radius = 8;
+        int thickness = 2;
+
+        float y = 0.0f;
         float y2 = 0.0f;
-        float thickness = 2.0f;
 
         uint32_t color = 0x0078C8;
-        std::string name;
 
         float dirX = 0.0f;
         float dirY = 0.0f;
 
-        static Entity MakeCircle(float x, float y, int r, uint32_t col, bool filled = true, std::string name = "")
+        static Entity MakeCircle(float x, float y, int r, uint32_t col, bool filled = true)
         {
             Entity e;
             e.filled = filled;
@@ -50,7 +55,6 @@ public:
             e.x = x; e.y = y;
             e.radius = r;
             e.color = col;
-            e.name = name;
             return e;
         }
 
@@ -65,7 +69,7 @@ public:
             return e;
         }
 
-        static Entity MakeRect(float left, float bottom, float right, float top, uint32_t col, bool filled = true, float thick = 2.0f, char displayedLetter = ' ')
+        static Entity MakeRect(float left, float bottom, float right, float top, uint32_t col, bool filled = true, int thick = 2)
         {
             Entity e;
             e.filled = filled;
@@ -74,7 +78,6 @@ public:
             e.x2 = right; e.y2 = top;
             e.thickness = thick;
             e.color = col;
-			e.name = (displayedLetter != ' ') ? std::string(1, displayedLetter) : "";
             return e;
         }
     };
@@ -86,14 +89,10 @@ public:
         Vec2 position;
     };
 
-    std::vector<Overlay*> overlays;
-
     void AddOverlay(Overlay* o)
     {
         overlays.push_back(o);
     }
-
-
 
     struct DrawNode
     {
@@ -103,8 +102,6 @@ public:
         float bottom;
 
         uint32_t color;
-
-        //DrawNode(float left, float right, float top, float bottom, uint32_t col) : left(left), right(right), top(top), bottom(bottom), color(col) {}
     };
 
     std::vector<DrawNode> nodeCache;
@@ -147,33 +144,27 @@ public:
 
     // Start window thread
     void Start();
-
     // Stop thread and destroy window
     void Stop();
 
-    // Provide entities to draw (preferred)
+    // Provide entities to draw
     void SetEntities(const std::vector<Entity>& entities);
 
     // Overlay text
     void SetOverlayLines(Overlay& overlay, const std::vector<std::string>& lines);
     void ClearOverlayLines(Overlay& overlay);
 
-    void OnPaint(void* hdc);
-
     bool IsRunning() const;
 
-    void SetKeyState(unsigned int vk, bool down); // called from window thread
     bool IsKeyDown(unsigned int vk) const;       // called from game thread
 
-    // Called from window thread when mouse is clicked (screen/client coords)
-    void OnRMouseClickScreen(int sx, int sy);
+    bool IfMouseClickScreen(MouseClick click, int& x, int& y);
 
-    void OnLMouseClickScreen(int sx, int sy);
-
-    // Called from game thread to fetch the last click (returns true and clears if present)
+    //// Called from game thread to fetch the last click (returns true and clears if present)
+    bool FetchRClick(Vec2& out);
     bool FetchLClick(Vec2& out);
 
-    bool FetchRClick(Vec2& out);
+    bool needsUpdate = true;
 
 private:
     // non-copyable
@@ -181,8 +172,11 @@ private:
     Renderer& operator=(const Renderer&) = delete;
 
     void ThreadMain();
-    void RegisterClassAndCreateWindow();
-    void DestroyWindowInternal();
+    void RenderFrame(SDL_Window* window, SDL_Renderer* renderer);
+
+    SDL_Window* window_ = nullptr;
+    SDL_Renderer* renderer_ = nullptr;
+    TTF_Font* font_ = nullptr;
 
     int width_;
     int height_;
@@ -190,12 +184,10 @@ private:
 
     // shared state
     std::atomic<bool> running_;
-    std::mutex mtx_;
+    std::mutex entityMtx_;
     std::vector<Entity> entities_;         // store entities (positions + color + name)
 
-    // input state
-    mutable std::mutex inputMtx_;
-    std::array<char, 256> keyState_; // virtual-key states (0/1)
+    std::vector<Overlay*> overlays;
 
     // LMB click state
     std::mutex clickLMtx_;
@@ -208,13 +200,4 @@ private:
     bool hasRClick_ = false;
     float clickRWorldX_ = 0.0f;
     float clickRWorldY_ = 0.0f;
-
-    // synchronization to let Start() wait until the window is created
-    std::condition_variable cv_;
-    std::mutex cv_mtx_;
-
-    // Win32 handles stored in the thread owning them
-    void* hwnd_; // HWND, but keep as void* to avoid windows.h in header
-
-	bool shouldDrawNames_ = false;
 };

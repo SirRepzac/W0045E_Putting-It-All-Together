@@ -27,7 +27,7 @@ int main()
     Logger::Instance().Log("Program started!");
 
     // run 10 seconds at 60 FPS for demo; use -1.0 to run until closed
-    GameLoop::Instance().RunGameLoop(-10.0, 120);
+    GameLoop::Instance().RunGameLoop(-10.0, 60);
 
     return 0;
 }

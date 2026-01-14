@@ -12,6 +12,7 @@
 #include "Pathfinder.h"
 #include "AIBrain.h"
 
+#include <SDL3/SDL.h>
 
 class GameLoop
 {
@@ -35,11 +36,13 @@ public:
 	void LoadGameData();
 	void UpdateGameLoop(float delta, double timePassed);
 
-	void AddDebugEntity(Vec2 pos, uint32_t color = Renderer::Color(200, 0, 0)/*red*/, int radius = 1, bool filled = true, std::string name = "");
+	void AddDebugEntity(Vec2 pos, uint32_t color = Renderer::Color(200, 0, 0)/*red*/, int radius = 1, bool filled = true);
 	void AddDebugEntity(Renderer::Entity e);
 	void AddDebugLine(Vec2 a, Vec2 b, uint32_t color, float thickness = 2.0f);
 
 	std::vector<Movable*> GetMovables();
+	void MouseClickAction();
+	void KeyPressed();
 	std::vector<Renderer::Entity>& GetDebugEntities() { return debugEnts; }
 	Grid& GetGrid() { return grid; }
 	double GetGameTime() { return gameTime; }
@@ -55,11 +58,11 @@ public:
 	void RefreshScreen();
 
 	GameAI* focusedAgent = nullptr;
+
 private:
 	GameLoop();
 	void ClearDebugEntities() { debugEnts.clear(); }
 	void UpdateRenderer();
-	void HandleInput(float delta);
 	void CreatePlayer(Vec2 pos = Vec2(WORLD_WIDTH / 2.0f, WORLD_HEIGHT - 100.0f));
 	void LMBMouseClickAction(Vec2 clickPos);
 	void RMBMouseClickAction(Vec2 clickPos);

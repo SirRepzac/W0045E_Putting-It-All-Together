@@ -1,212 +1,170 @@
 #include "Renderer.h"
-#include <windows.h>
-#include <sstream>
 #include <cmath>
 #include <algorithm>
+
 #include "GameLoop.h"
 #include "AIBrain.h"
 
-static const wchar_t WINDOW_CLASS_NAME[] = L"AI_Viewer_Class";
-static const UINT WM_REFRESH_ENTITIES = WM_USER + 1;
-
-// Helper to convert void* to HWND safely within this translation unit
-inline HWND ToHWND(void* p) { return reinterpret_cast<HWND>(p); }
-
-void Renderer::UpdateDirtyNodes(const AIBrain* brain)
+static SDL_Color ToSDLColor(uint32_t c)
 {
-    GameLoop& game = GameLoop::Instance();
-    Grid& grid = game.GetGrid();
-
-    for (size_t i = 0; i < nodeCache.size(); ++i)
-    {
-        if (!nodeNeedsUpdate[i]) continue;
-
-        DrawNode& node = nodeCache[i];
-        auto indexPair = grid.TwoDIndex(i);
-        PathNode& gridNode = grid.GetNodes()[indexPair.first][indexPair.second];
-
-        if (game.USE_FOG_OF_WAR)
-        {
-            node.color = brain->IsDiscovered(i)
-                ? gridNode.color
-                : DarkGray;
-        }
-        else
-            node.color = gridNode.color;
-
-        nodeNeedsUpdate[i] = false;
-    }
+	return {
+		(Uint8)((c >> 16) & 0xFF),
+		(Uint8)((c >> 8) & 0xFF),
+		(Uint8)(c & 0xFF),
+		255
+	};
 }
 
 Renderer::Renderer(int width, int height)
-    : width_(width), height_(height), running_(false), hwnd_(nullptr)
+	: width_(width), height_(height), running_(false)
 {
-    keyState_.fill(0);
 }
 
 Renderer::~Renderer()
 {
-    overlays.clear();
-    Stop();
+	Stop();
 }
 
 void Renderer::Start()
 {
-    bool expected = false;
-    if (!running_.compare_exchange_strong(expected, true))
-        return; // already running
-
-    thread_ = std::thread(&Renderer::ThreadMain, this);
-
-    // Wait until the window is created (or thread stops)
-    std::unique_lock<std::mutex> lk(cv_mtx_);
-    cv_.wait(lk, [this]() { return hwnd_ != nullptr || !running_.load(); });
+	if (running_) return;
+	running_ = true;
+	thread_ = std::thread(&Renderer::ThreadMain, this);
 }
 
 void Renderer::Stop()
 {
-    // Idempotent stop
-    bool wasRunning = running_.exchange(false);
-    if (!wasRunning)
-        return;
-
-    // Post WM_QUIT to the window thread if window exists
-    if (hwnd_)
-    {
-        PostMessage(ToHWND(hwnd_), WM_QUIT, 0, 0);
-    }
-
-    // join the thread if we started one
-    if (thread_.joinable())
-        thread_.join();
-
-    // ensure hwnd_ is cleared
-    hwnd_ = nullptr;
+	running_ = false;
+	if (thread_.joinable())
+		thread_.join();
 }
 
-void Renderer::SetEntities(const std::vector<Entity>& entities)
+bool Renderer::IsRunning() const
 {
-    if (!running_.load())
-        return;
+	return running_;
+}
 
-    {
-        std::lock_guard<std::mutex> lk(mtx_);
-        entities_ = entities;
-    }
-    if (hwnd_)
-    {
-        PostMessage(ToHWND(hwnd_), WM_REFRESH_ENTITIES, 0, 0);
-    }
+void Renderer::SetEntities(const std::vector<Entity>& ents)
+{
+	std::lock_guard<std::mutex> lk(entityMtx_);
+	entities_ = ents;
 }
 
 void Renderer::SetOverlayLines(Overlay& overlay, const std::vector<std::string>& lines)
 {
-    if (!running_.load())
-        return;
-    {
-        std::lock_guard<std::mutex> lk(overlay.overlayMtx_);
-        overlay.overlayLines_ = lines;
-    }
-    if (hwnd_)
-    {
-        PostMessage(ToHWND(hwnd_), WM_REFRESH_ENTITIES, 0, 0);
-    }
+	std::lock_guard<std::mutex> lk(overlay.overlayMtx_);
+	overlay.overlayLines_ = lines;
 }
+
 
 void Renderer::ClearOverlayLines(Overlay& overlay)
 {
-    if (!running_.load())
-        return;
-    {
-        std::lock_guard<std::mutex> lk(overlay.overlayMtx_);
-        overlay.overlayLines_.clear();
-    }
-    if (hwnd_)
-    {
-        PostMessage(ToHWND(hwnd_), WM_REFRESH_ENTITIES, 0, 0);
-    }
+	std::lock_guard<std::mutex> lk(overlay.overlayMtx_);
+	overlay.overlayLines_.clear();
 }
 
-void Renderer::SetKeyState(unsigned int vk, bool down)
+void Renderer::ThreadMain()
 {
-    if (vk >= keyState_.size()) return;
-    std::lock_guard<std::mutex> lk(inputMtx_);
-    keyState_[vk] = down ? 1 : 0;
+	SDL_Init(SDL_INIT_VIDEO);
+	TTF_Init();
+
+	SDL_Window* window;
+	//SDL_PropertiesID props = SDL_CreateProperties();
+	//SDL_SetBooleanProperty(props, SDL_PROP_RENDERER_CREATE_PRESENT_VSYNC_NUMBER, true);
+	//SDL_Renderer* renderer = SDL_CreateRendererWithProperties(props);
+	SDL_Renderer* renderer;
+	SDL_WindowFlags flags = SDL_WINDOW_MOUSE_CAPTURE;
+
+
+	if (!SDL_CreateWindowAndRenderer("Putting it all together", width_, height_, flags, &window, &renderer))
+	{
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create window and renderer: %s", SDL_GetError());
+		return;
+	}
+
+	SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+
+	window_ = window;
+	renderer_ = renderer;
+
+	font_ = TTF_OpenFont("font.ttf", 24);
+
+	if (!font_)
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create font: %s", SDL_GetError());
+
+	GameLoop& game = GameLoop::Instance();
+
+	while (running_)
+	{
+		SDL_Event e;
+		while (SDL_PollEvent(&e))
+		{
+			if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+				game.MouseClickAction();
+			if (e.type == SDL_EVENT_KEY_DOWN)
+				game.KeyPressed();
+			if (e.type == SDL_EVENT_QUIT)
+				running_ = false;
+		}
+		if (needsUpdate)
+		{
+			RenderFrame(window, renderer);
+			needsUpdate = false;
+		}
+		SDL_Delay(1);
+	}
+
+	TTF_CloseFont(font_);
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	TTF_Quit();
+	SDL_Quit();
 }
 
 bool Renderer::IsKeyDown(unsigned int vk) const
 {
-    if (vk >= keyState_.size()) return false;
-    std::lock_guard<std::mutex> lk(inputMtx_);
-    return keyState_[vk] != 0;
+	int arraySize = 0;
+	const bool* keyBoardState = SDL_GetKeyboardState(&arraySize);
+
+	return keyBoardState[vk];
 }
 
-void Renderer::OnRMouseClickScreen(int sx, int sy)
+bool Renderer::IfMouseClickScreen(MouseClick click, int& x, int& y)
 {
-    // Convert client px -> world coords using same scale as OnPaint
-    RECT rc;
-    HWND h = ToHWND(hwnd_);
-    if (!h) return;
-    GetClientRect(h, &rc);
-    int clientW = rc.right - rc.left;
-    int clientH = rc.bottom - rc.top;
+	float sx;
+	float sy;
 
-    const float worldW = WORLD_WIDTH;
-    const float worldH = WORLD_HEIGHT;
-    const float scaleX = (float)clientW / worldW;
-    const float scaleY = (float)clientH / worldH;
-    const float scale = std::min<float>(scaleX, scaleY);
+	Uint32 flags = SDL_GetMouseState(&sx, &sy);
 
-    // screen -> world
-    float wx = sx / scale;
-    float wy = sy / scale;
+	if (!(flags & SDL_BUTTON_LEFT) && click == MouseClick::Left)
+		return false;
+	if (!(flags & SDL_BUTTON_RIGHT) && click == MouseClick::Right)
+		return false;
 
-    // clamp to world bounds (safer than wrapping here)
-    if (wx < 0.0f) wx = 0.0f;
-    if (wx >= worldW) wx = worldW - 1.0f;
-    if (wy < 0.0f) wy = 0.0f;
-    if (wy >= worldH) wy = worldH - 1.0f;
+	// Convert client px -> world coords using same scale as OnPaint
+	int clientW;
+	int clientH;
 
-    {
-        std::lock_guard<std::mutex> lk(clickRMtx_);
-        clickRWorldX_ = wx;
-        clickRWorldY_ = wy;
-        hasRClick_ = true;
-    }
-}
+	SDL_GetWindowSize(window_, &clientW, &clientH);
 
-void Renderer::OnLMouseClickScreen(int sx, int sy)
-{
-    // Convert client px -> world coords using same scale as OnPaint
-    RECT rc;
-    HWND h = ToHWND(hwnd_);
-    if (!h) return;
-    GetClientRect(h, &rc);
-    int clientW = rc.right - rc.left;
-    int clientH = rc.bottom - rc.top;
+	const float scaleX = (float)width_ / clientW;
+	const float scaleY = (float)height_ / clientH;
+	const float scale = std::min(scaleX, scaleY);
 
-    const float worldW = WORLD_WIDTH;
-    const float worldH = WORLD_HEIGHT;
-    const float scaleX = (float)clientW / worldW;
-    const float scaleY = (float)clientH / worldH;
-    const float scale = std::min<float>(scaleX, scaleY);
+	// screen -> world
+	float wx = sx / scale;
+	float wy = sy / scale;
 
-    // screen -> world
-    float wx = sx / scale;
-    float wy = sy / scale;
+	// clamp to world bounds (safer than wrapping here)
+	if (wx < 0.0f) wx = 0.0f;
+	if (wx >= width_) wx = width_ - 1.0f;
+	if (wy < 0.0f) wy = 0.0f;
+	if (wy >= height_) wy = height_ - 1.0f;
 
-    // clamp to world bounds (safer than wrapping here)
-    if (wx < 0.0f) wx = 0.0f;
-    if (wx >= worldW) wx = worldW - 1.0f;
-    if (wy < 0.0f) wy = 0.0f;
-    if (wy >= worldH) wy = worldH - 1.0f;
+	x = wx;
+	y = wy;
 
-    {
-        std::lock_guard<std::mutex> lk(clickLMtx_);
-        clickLWorldX_ = wx;
-        clickLWorldY_ = wy;
-        hasLClick_ = true;
-    }
+	return true;
 }
 
 bool Renderer::FetchLClick(Vec2& out)
@@ -229,498 +187,210 @@ bool Renderer::FetchRClick(Vec2& out)
     return true;
 }
 
-LRESULT CALLBACK GlobalWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 {
-    if (msg == WM_CREATE)
-    {
-        // store pointer to Renderer instance in GWLP_USERDATA
-        auto create = reinterpret_cast<CREATESTRUCTW*>(lp);
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
-        return 0;
-    }
+	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+	SDL_RenderClear(renderer);
 
-    if (msg == WM_REFRESH_ENTITIES)
-    {
-        InvalidateRect(hwnd, nullptr, TRUE);
-        return 0;
-    }
+	const float scaleX = (float)width_ / WORLD_WIDTH;
+	const float scaleY = (float)height_ / WORLD_HEIGHT;
+	const float scale = std::min(scaleX, scaleY);
 
-    // retrieve renderer pointer
-    Renderer* renderer = reinterpret_cast<Renderer*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
-    if (!renderer)
-        return DefWindowProcW(hwnd, msg, wp, lp);
+	// Draw nodes
+	for (const auto& node : nodeCache)
+	{
+		SDL_Color c = ToSDLColor(node.color);
+		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
 
-    switch (msg)
-    {
-    case WM_KEYDOWN:
-    case WM_SYSKEYDOWN:
-        renderer->SetKeyState(static_cast<unsigned int>(wp), true);
-        return 0;
+		SDL_FRect r;
+		r.x = int(node.left * scale);
+		r.y = int(node.bottom * scale);
+		r.w = int((node.right - node.left) * scale);
+		r.h = int((node.top - node.bottom) * scale);
 
-    case WM_KEYUP:
-    case WM_SYSKEYUP:
-        renderer->SetKeyState(static_cast<unsigned int>(wp), false);
-        return 0;
+		SDL_RenderFillRect(renderer, &r);
+	}
 
-    case WM_LBUTTONDOWN:
-    {
-        int x = static_cast<int>(static_cast<short>(LOWORD(lp)));
-        int y = static_cast<int>(static_cast<short>(HIWORD(lp)));
-        renderer->OnLMouseClickScreen(x, y);
-        return 0;
-    }
-    case WM_RBUTTONDOWN:
-    {
-        int x = static_cast<int>(static_cast<short>(LOWORD(lp)));
-        int y = static_cast<int>(static_cast<short>(HIWORD(lp)));
-        renderer->OnRMouseClickScreen(x, y);
-        return 0;
-    }
-    case WM_PAINT:
-    {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
-        renderer->OnPaint(hdc);
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        return 0;
+	std::vector<Entity> ents;
+	{
+		std::lock_guard<std::mutex> lk(entityMtx_);
+		ents = entities_;
+	}
 
-    return 0;
-    default:
-        return DefWindowProcW(hwnd, msg, wp, lp);
-    }
+	for (const Entity& e : ents)
+	{
+		SDL_Color c = ToSDLColor(e.color);
+		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
+
+		if (e.type == Entity::Type::Line)
+		{
+			SDL_RenderLine(
+				renderer,
+				int(e.x * scale),
+				int(e.y * scale),
+				int(e.x2 * scale),
+				int(e.y2 * scale)
+			);
+		}
+		else if (e.type == Entity::Type::Rectangle)
+		{
+			SDL_FRect r;
+			r.x = int(e.x * scale);
+			r.y = int(e.y * scale);
+			r.w = int((e.x2 - e.x) * scale);
+			r.h = int((e.y2 - e.y) * scale);
+
+			if (e.filled)
+				SDL_RenderFillRect(renderer, &r);
+			else
+				SDL_RenderRect(renderer, &r);
+		}
+		else if (e.type == Entity::Type::Circle)
+		{
+			int cx = int(e.x * scale);
+			int cy = int(e.y * scale);
+			int r = int(e.radius * scale);
+
+			for (int w = -r; w <= r; w++)
+			{
+				for (int h = -r; h <= r; h++)
+				{
+					if (w * w + h * h <= r * r)
+						SDL_RenderPoint(renderer, cx + w, cy + h);
+				}
+			}
+
+			{
+				SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+
+				int x1 = e.x;
+				int y1 = e.y;
+				int x2 = x1 + sinf(e.dirX) * e.radius * 1.5f * scale;
+				int y2 = y1 + sinf(e.dirY) * e.radius * 1.5f * scale;
+
+				SDL_RenderLine(
+					renderer,
+					int(x1 * scale),
+					int(y1 * scale),
+					int(x2 * scale),
+					int(y2 * scale)
+				);
+			}
+		}
+		for (Overlay* overlayPtr : overlays)
+		{
+			if (!font_)
+				continue;
+
+			Overlay& overlay = *overlayPtr;
+
+			if (overlay.overlayLines_.empty())
+				continue;
+
+
+			int lineHeight = TTF_GetFontHeight(font_);
+			const int padding = 8;
+			const int lineSpacing = 2;
+
+			int lineCount = (int)overlay.overlayLines_.size();
+			int blockHeight =
+				padding * 2 +
+				lineCount * lineHeight +
+				(lineCount - 1) * lineSpacing;
+
+			int blockWidth = -1;
+
+			for (const std::string& s : overlay.overlayLines_)
+			{
+				int w;
+				int h;
+				const char* c = s.c_str();
+				if (s.empty()) continue;
+				TTF_GetStringSize(font_, c, s.size(), &w, &h);
+				if (w > blockWidth)
+					blockWidth = w;
+			}
+
+			blockWidth += padding * 2;
+
+			int blockX = overlay.position.x - padding;
+			int blockY = overlay.position.y - padding;
+
+			int clientW;
+			int clientH;
+			SDL_GetWindowSize(window, &clientW, &clientH);
+
+			if (blockX < 0)
+				blockX = 0;
+			else if (blockX + blockWidth > clientW)
+				blockX = clientW - blockWidth;
+
+			if (blockY < 0)
+				blockY = 0;
+			else if (blockY + blockHeight > clientH)
+				blockY = clientH - blockHeight;
+
+			// --- Render each line ---
+			for (int i = 0; i < overlay.overlayLines_.size(); ++i)
+			{
+				const std::string& s = overlay.overlayLines_[i];
+
+				if (s.empty())
+					continue;
+
+				int w;
+				int h;
+				int blockWidth = TTF_GetStringSize(font_, s.c_str(), s.size(), &w, &h);
+
+
+				int textX = blockX + padding;
+				int textY = blockY + (int)i * (lineHeight + lineSpacing);
+
+				SDL_FRect rect;
+				rect.x = textX;
+				rect.y = textY;
+				rect.h = h;
+				rect.w = w;
+
+				SDL_Color c;
+				c.r = 0; c.g = 0; c.b = 0; c.a = 255;
+				SDL_Surface* text = TTF_RenderText_Solid(font_, s.c_str(), s.length(), c);
+				SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, text);
+
+				SDL_RenderTexture(renderer, texture, NULL, &rect);
+
+				SDL_DestroySurface(text);
+				SDL_DestroyTexture(texture);
+			}
+		}
+	}
+
+	SDL_RenderPresent(renderer);
 }
 
-void Renderer::RegisterClassAndCreateWindow()
+
+void Renderer::UpdateDirtyNodes(const AIBrain* brain)
 {
-    HINSTANCE hInstance = GetModuleHandleW(nullptr);
-
-    WNDCLASSEXW wc = { sizeof(wc) };
-    wc.style = CS_HREDRAW | CS_VREDRAW;
-    wc.lpfnWndProc = GlobalWndProc;
-    wc.hInstance = hInstance;
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = nullptr; // we'll paint white
-    wc.lpszClassName = WINDOW_CLASS_NAME;
-
-    RegisterClassExW(&wc);
-
-    RECT wr = { 0, 0, width_, height_ };
-    AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
-
-    // create window and pass 'this' as lpParam so WM_CREATE can store pointer
-    HWND hwnd = CreateWindowExW(
-        0,
-        WINDOW_CLASS_NAME,
-        L"AI Viewer",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT,
-        wr.right - wr.left,
-        wr.bottom - wr.top,
-        nullptr,
-        nullptr,
-        hInstance,
-        this
-    );
-
-    // store hwnd_ while under cv mutex then notify Start()
-    {
-        std::lock_guard<std::mutex> lk(cv_mtx_);
-        hwnd_ = hwnd;
-    }
-    cv_.notify_one();
-
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
-}
-
-void Renderer::ThreadMain()
-{
-    RegisterClassAndCreateWindow();
-    HWND hwnd = ToHWND(hwnd_);
-    if (!hwnd)
-    {
-        running_ = false;
-        return;
-    }
-
-    // Message loop (runs on this thread)
-    MSG msg;
-    while (running_ && GetMessageW(&msg, nullptr, 0, 0) > 0)
-    {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-
-    DestroyWindowInternal();
-    running_.store(false);
-
-    // ensure Start() isn't left waiting
-    cv_.notify_one();
-}
-
-void Renderer::DestroyWindowInternal()
-{
-    if (hwnd_)
-    {
-        DestroyWindow(ToHWND(hwnd_));
-        hwnd_ = nullptr;
-    }
-}
-
-void Renderer::OnPaint(void* hdcPtr)
-{
-    HDC hdc = reinterpret_cast<HDC>(hdcPtr);
-
-    RECT rc;
-    GetClientRect(ToHWND(hwnd_), &rc);
-    int clientW = rc.right - rc.left;
-    int clientH = rc.bottom - rc.top;
-
-    // Create a compatible memory DC (offscreen buffer)
-    HDC memDC = CreateCompatibleDC(hdc);
-    HBITMAP backBuffer = CreateCompatibleBitmap(hdc, clientW, clientH);
-    HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, backBuffer);
-
-    // Fill white background
-    HBRUSH white = (HBRUSH)GetStockObject(WHITE_BRUSH);
-    FillRect(memDC, &rc, white);
-
-    // --- Draw everything to memDC instead of hdc ---
-    std::vector<Entity> localEntities;
-    {
-        std::lock_guard<std::mutex> lk(mtx_);
-        localEntities = entities_;
-    }
-
-    const float worldW = WORLD_WIDTH;
-    const float worldH = WORLD_HEIGHT;
-    const float scaleX = (float)clientW / worldW;
-    const float scaleY = (float)clientH / worldH;
-    const float scale = std::min<float>(scaleX, scaleY);
-
-    // Draw nodes
-    for (const auto& node : nodeCache)
-    {
-        float left = node.left;
-        float bottom = node.bottom;
-        float right = node.right;
-        float top = node.top;
-
-        int pleft = int(left * scale);
-        int pbottom = int(bottom * scale);
-        int pright = int(right * scale);
-        int ptop = int(top * scale);
-
-        uint32_t col = node.color;
-        BYTE r = (col >> 16) & 0xFF;
-        BYTE g = (col >> 8) & 0xFF;
-        BYTE b = col & 0xFF;
-
-        HPEN pen = CreatePen(PS_SOLID, 1, RGB(r, g, b));
-        HPEN oldPen = (HPEN)SelectObject(memDC, pen);
-        HBRUSH brush = CreateSolidBrush(RGB(r, g, b));
-        HBRUSH oldBrush = (HBRUSH)SelectObject(memDC, brush);
-
-        Rectangle(memDC, pleft, ptop, pright, pbottom);
-
-        SelectObject(memDC, oldPen);
-        SelectObject(memDC, oldBrush);
-
-        DeleteObject(pen);
-        DeleteObject(brush);
-    }
-
-    for (const Entity& ent : localEntities)
-    {
-        if (ent.type == Entity::Type::Line)
-        {
-            float wx1 = ent.x;
-            float wy1 = ent.y;
-            float wx2 = ent.x2;
-            float wy2 = ent.y2;
-
-            int px1 = int(wx1 * scale);
-            int py1 = int(wy1 * scale);
-            int px2 = int(wx2 * scale);
-            int py2 = int(wy2 * scale);
-
-            BYTE r = (ent.color >> 16) & 0xFF;
-            BYTE g = (ent.color >> 8) & 0xFF;
-            BYTE b = (ent.color) & 0xFF;
-
-            HPEN pen = CreatePen(PS_SOLID, (int)ent.thickness, RGB(r, g, b));
-            HPEN old = (HPEN)SelectObject(memDC, pen);
-
-            MoveToEx(memDC, px1, py1, nullptr);
-            LineTo(memDC, px2, py2);
-
-            SelectObject(memDC, old);
-            DeleteObject(pen);
-        }
-        if (ent.type == Entity::Type::Circle)
-        {
-            float wx = ent.x;
-            float wy = ent.y;
-            int px = static_cast<int>(wx * scale + 0.5f);
-            int py = static_cast<int>(wy * scale + 0.5f);
-
-
-            uint32_t col = ent.color;
-            BYTE r = (col >> 16) & 0xFF;
-            BYTE g = (col >> 8) & 0xFF;
-            BYTE b = col & 0xFF;
-
-            int radius = std::max<int>(1, static_cast<int>(ent.radius * scale));
-
-            HPEN pen;
-            if (!ent.filled)
-                pen = CreatePen(PS_SOLID, max(1, int(ent.thickness)), RGB(r, g, b));
-            else
-                pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
-
-            HPEN oldPen = (HPEN)SelectObject(memDC, pen);
-
-
-            HBRUSH brush;
-            if (ent.filled)
-                brush = CreateSolidBrush(RGB(r, g, b));
-            else
-                brush = (HBRUSH)GetStockObject(NULL_BRUSH);
-
-            HBRUSH oldBrush = (HBRUSH)SelectObject(memDC, brush);
-
-            Ellipse(memDC, px - radius, py - radius, px + radius, py + radius);
-
-            SelectObject(memDC, oldPen);
-            SelectObject(memDC, oldBrush);
-
-            DeleteObject(pen);
-            if (ent.filled) DeleteObject(brush);
-
-
-            // draw name if present
-            if (!ent.name.empty() && shouldDrawNames_)
-            {
-                std::wstring wname;
-                std::ostringstream oss;
-                oss << ent.name;
-                std::string s = oss.str();
-                int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
-                if (len > 0)
-                {
-                    wname.resize(len - 1);
-                    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &wname[0], len);
-                    TextOutW(memDC, px + radius + 2, py - radius, wname.c_str(), (int)wname.size());
-                }
-            }
-
-            // draw a small direction line if direction is non-zero
-            {
-                float dx = ent.dirX;
-                float dy = ent.dirY;
-                const float eps = 1e-6f;
-                if (std::fabs(dx) > eps || std::fabs(dy) > eps)
-                {
-                    // normalize direction
-                    float len = std::sqrt(dx * dx + dy * dy);
-                    if (len > eps)
-                    {
-                        float nx = dx / len;
-                        float ny = dy / len;
-
-                        // length of the indicator in world units (tweakable)
-                        const float indicatorWorldLen = 28.0f;
-                        int lineLenPx = static_cast<int>(indicatorWorldLen * scale + 0.5f);
-
-                        int px2 = px + static_cast<int>(nx * lineLenPx + 0.5f);
-                        int py2 = py + static_cast<int>(ny * lineLenPx + 0.5f);
-
-                        // Create a black pen
-                        HPEN pen = CreatePen(PS_SOLID, 3, RGB(0, 0, 0));
-                        HPEN oldPen = (HPEN)SelectObject(memDC, pen);
-                        MoveToEx(memDC, px, py, nullptr);
-                        LineTo(memDC, px2, py2);
-                        SelectObject(memDC, oldPen);
-                        DeleteObject(pen);
-                    }
-                }
-            }
-        }
-        if (ent.type == Entity::Type::Rectangle)
-        {
-            float left = ent.x;
-            float bottom = ent.y;
-            float right = ent.x2;
-            float top = ent.y2;
-
-            int pleft = int(left * scale);
-            int pbottom = int(bottom * scale);
-            int pright = int(right * scale);
-            int ptop = int(top * scale);
-
-
-            uint32_t col = ent.color;
-            BYTE r = (col >> 16) & 0xFF;
-            BYTE g = (col >> 8) & 0xFF;
-            BYTE b = col & 0xFF;
-
-            HPEN pen;
-            if (!ent.filled)
-                pen = CreatePen(PS_SOLID, max(1, int(ent.thickness)), RGB(r, g, b));
-            else
-                pen = CreatePen(PS_SOLID, 1, RGB(r, g, b));
-
-            HPEN oldPen = (HPEN)SelectObject(memDC, pen);
-
-            HBRUSH brush;
-            if (ent.filled)
-                brush = CreateSolidBrush(RGB(r, g, b));
-            else
-                brush = (HBRUSH)GetStockObject(NULL_BRUSH);
-
-            HBRUSH oldBrush = (HBRUSH)SelectObject(memDC, brush);
-
-            Rectangle(memDC, pleft, ptop, pright, pbottom);
-
-            SelectObject(memDC, oldPen);
-            SelectObject(memDC, oldBrush);
-
-            DeleteObject(pen);
-            if (ent.filled) DeleteObject(brush);
-
-            if (!ent.name.empty())
-            {
-                // set transparent background for text
-                int oldBkMode = SetBkMode(memDC, TRANSPARENT);
-                COLORREF oldColor = SetTextColor(memDC, RGB(0, 0, 0));
-
-                const std::string& s = ent.name;
-
-                int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
-                if (len <= 0) return;
-
-                std::wstring w;
-                w.resize(len - 1);
-                MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &w[0], len);
-
-                // compute rectangle center in pixel coordinates
-                float centerX = (left + right) * 0.5f;
-                float centerY = (top + bottom) * 0.5f;
-                int centerPx = static_cast<int>(centerX * scale + 0.5f);
-                int centerPy = static_cast<int>(centerY * scale + 0.5f);
-
-                // measure text in pixels to center it
-                SIZE ext;
-                GetTextExtentPoint32W(memDC, w.c_str(), (int)w.size(), &ext);
-
-                int textX = centerPx - (ext.cx / 2);
-                int textY = centerPy - (ext.cy / 2);
-
-                TextOutW(memDC, textX, textY, w.c_str(), (int)w.size());
-
-                SetTextColor(memDC, oldColor);
-                SetBkMode(memDC, oldBkMode);
-            }
-        }
-    }
-
-
-    {
-        for (Overlay* overlayPtr : overlays)
-        {
-            Overlay& overlay = *overlayPtr;
-
-            if (overlay.overlayLines_.empty())
-                continue;
-
-            std::lock_guard<std::mutex> lk(overlay.overlayMtx_);
-
-            // set transparent background for text
-            int oldBkMode = SetBkMode(memDC, TRANSPARENT);
-            COLORREF oldColor = SetTextColor(memDC, RGB(0, 0, 0));
-
-            // measure font height
-            TEXTMETRICW tm;
-            GetTextMetricsW(memDC, &tm);
-            int lineHeight = tm.tmHeight;
-            const int padding = 8;
-            const int lineSpacing = 2;
-
-            int lineCount = (int)overlay.overlayLines_.size();
-            int blockHeight =
-                padding * 2 +
-                lineCount * lineHeight +
-                (lineCount - 1) * lineSpacing;
-
-            int blockWidth = 0;
-
-            for (const std::string& s : overlay.overlayLines_)
-            {
-                if (s.empty()) continue;
-
-                int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
-                if (len <= 0) continue;
-
-                std::wstring w(len - 1, L'\0');
-                MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &w[0], len);
-
-                SIZE ext;
-                GetTextExtentPoint32W(memDC, w.c_str(), (int)w.size(), &ext);
-
-                blockWidth = std::max<int>(blockWidth, ext.cx);
-            }
-
-            blockWidth += padding * 2;
-
-            int blockX = overlay.position.x - padding - blockWidth;
-            int blockY = overlay.position.y + padding;
-
-            if (blockX < 0)
-                blockX = 0;
-            else if (blockX + blockWidth > clientW)
-                blockX = clientW - blockWidth;
-
-            if (blockY < 0)
-                blockY = 0;
-            else if (blockY + blockHeight > clientH)
-                blockY = clientH - blockHeight;
-
-            for (size_t i = 0; i < overlay.overlayLines_.size(); ++i)
-            {
-                const std::string& s = overlay.overlayLines_[i];
-                if (s.empty()) continue;
-
-                int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
-                if (len <= 0) continue;
-
-                std::wstring w(len - 1, L'\0');
-                MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &w[0], len);
-
-                int textX = blockX + padding;
-                int textY = blockY + (int)i * (lineHeight + lineSpacing);
-
-                TextOutW(memDC, textX, textY, w.c_str(), (int)w.size());
-            }
-
-            SetTextColor(memDC, oldColor);
-            SetBkMode(memDC, oldBkMode);
-        }
-    }
-
-    // --- Copy finished frame to window ---
-    BitBlt(hdc, 0, 0, clientW, clientH, memDC, 0, 0, SRCCOPY);
-
-    // Cleanup
-    SelectObject(memDC, oldBitmap);
-    DeleteObject(backBuffer);
-    DeleteDC(memDC);
-}
-
-bool Renderer::IsRunning() const
-{
-    return running_.load();
+	GameLoop& game = GameLoop::Instance();
+	Grid& grid = game.GetGrid();
+
+	for (size_t i = 0; i < nodeCache.size(); ++i)
+	{
+		if (!nodeNeedsUpdate[i]) continue;
+
+		DrawNode& node = nodeCache[i];
+		auto indexPair = grid.TwoDIndex(i);
+		PathNode& gridNode = grid.GetNodes()[indexPair.first][indexPair.second];
+
+		if (game.USE_FOG_OF_WAR)
+		{
+			node.color = brain->IsDiscovered(i)
+				? gridNode.color
+				: DarkGray;
+		}
+		else
+			node.color = gridNode.color;
+
+		nodeNeedsUpdate[i] = false;
+	}
 }

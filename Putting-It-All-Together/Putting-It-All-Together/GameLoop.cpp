@@ -2,7 +2,6 @@
 #include <chrono>
 #include <thread>
 #include <cstdlib>
-#include <Windows.h>
 #include "GameLoop.h"
 #include "Constants.h"
 #include "AStar.h"
@@ -21,8 +20,8 @@ struct DataPoint
 
 static std::vector<DataPoint> LoadDataFile(const std::string& filename)
 {
-	std::vector<DataPoint> result; 
-	std::ifstream file(filename); 
+	std::vector<DataPoint> result;
+	std::ifstream file(filename);
 	if (!file) return result;
 
 	std::string line;
@@ -130,7 +129,7 @@ void GameLoop::InitializeGame()
 }
 
 void GameLoop::SaveData()
-{ 
+{
 	// Ensure directory exists
 	std::error_code ec;
 	std::filesystem::create_directories(dataPath, ec);
@@ -246,7 +245,7 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 		}
 
 		// allow quitting with Escape (polled each frame)
-		if (renderer && renderer->IsKeyDown(VK_ESCAPE))
+		if (renderer && renderer->IsKeyDown(SDL_SCANCODE_ESCAPE))
 		{
 			Logger::Instance().Log("Escape pressed. Shutting down game loop.\n");
 			renderer->Stop();
@@ -269,7 +268,11 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 
 void GameLoop::UpdateGameLoop(float delta, double timePassed)
 {
-	HandleInput(delta);
+	if (keyPressCooldown > 0)
+	{
+		keyPressCooldown -= delta;
+		if (keyPressCooldown < 0.0f) keyPressCooldown = 0.0f;
+	}
 
 	delta *= gameSpeed;
 
@@ -317,7 +320,7 @@ void GameLoop::UpdateRenderer()
 		if (!ai) continue;
 
 		Vec2 p = ai->GetPosition();
-		Renderer::Entity e = Renderer::Entity::MakeCircle(p.x, p.y, ai->GetRadius(), ai->GetColor(), true, ai->GetName());
+		Renderer::Entity e = Renderer::Entity::MakeCircle(p.x, p.y, ai->GetRadius(), ai->GetColor(), true);
 
 		Vec2 dir = ai->GetDirection();
 		e.dirX = dir.x;
@@ -329,7 +332,7 @@ void GameLoop::UpdateRenderer()
 	if (player)
 	{
 		Vec2 p = player->GetPosition();
-		Renderer::Entity e = Renderer::Entity::MakeCircle(p.x, p.y, player->GetRadius(), player->GetColor(), true, player->GetName());
+		Renderer::Entity e = Renderer::Entity::MakeCircle(p.x, p.y, player->GetRadius(), player->GetColor(), true);
 
 		Vec2 dir = player->GetDirection();
 		e.dirX = dir.x;
@@ -368,6 +371,8 @@ void GameLoop::UpdateRenderer()
 	{
 		renderer->SetEntities(ents);
 	}
+
+	renderer->needsUpdate = true;
 }
 
 std::vector<Movable*> GameLoop::GetMovables()
@@ -382,39 +387,37 @@ std::vector<Movable*> GameLoop::GetMovables()
 	return allMovables;
 }
 
-void GameLoop::HandleInput(float delta)
+void GameLoop::MouseClickAction()
+{
+	int x;
+	int y;
+
+	if (renderer->IfMouseClickScreen(Renderer::MouseClick::Right, x, y))
+	{
+		RMBMouseClickAction(Vec2(x, y));
+	}
+	if (renderer->IfMouseClickScreen(Renderer::MouseClick::Left, x, y))
+	{
+		LMBMouseClickAction(Vec2(x, y));
+	}
+}
+
+void GameLoop::KeyPressed()
 {
 	if (!renderer)
 		return;
 
-	Vec2 clickLPos;
-	if (renderer->FetchLClick(clickLPos))
-	{
-		Logger::Instance().Log(std::string("LMB click at: ") + clickLPos.ToString() + " (Node: " + grid.GetNodeAt(clickLPos)->position.ToString() + ")\n");
-		LMBMouseClickAction(clickLPos);
-	}
-	Vec2 clickRPos;
-	if (renderer->FetchRClick(clickRPos))
-	{
-		Logger::Instance().Log(std::string("RMB click at: ") + clickRPos.ToString() + " (Node: " + grid.GetNodeAt(clickRPos)->position.ToString() + ")\n");
-		RMBMouseClickAction(clickRPos);
-	}
-
 	if (keyPressCooldown > 0)
-	{
-		keyPressCooldown -= delta;
-		if (keyPressCooldown < 0.0f) keyPressCooldown = 0.0f;
 		return;
-	}
 
-	if (renderer->IsKeyDown('G'))
+	if (renderer->IsKeyDown(SDL_SCANCODE_G))
 	{
 		DEBUG_MODE = !DEBUG_MODE;
 		keyPressCooldown = 0.2f;
 		Logger::Instance().Log(std::string("Debug mode: ") + (DEBUG_MODE ? "ON\n" : "OFF\n"));
 	}
 
-	if (renderer->IsKeyDown('H'))
+	if (renderer->IsKeyDown(SDL_SCANCODE_H))
 	{
 		USE_FOG_OF_WAR = !USE_FOG_OF_WAR;
 		keyPressCooldown = 0.2f;
@@ -423,20 +426,20 @@ void GameLoop::HandleInput(float delta)
 		Logger::Instance().Log(std::string("Fog of war mode: ") + (DEBUG_MODE ? "ON\n" : "OFF\n"));
 	}
 
-	if (renderer->IsKeyDown(VK_SPACE))
+	if (renderer->IsKeyDown(SDL_SCANCODE_SPACE))
 	{
 		gameSpeed = (gameSpeed == 0.0f ? 1.0f : 0.0f);
 		keyPressCooldown = 0.2f;
 		Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
 	}
 
-	if (renderer->IsKeyDown(VK_UP))
+	if (renderer->IsKeyDown(SDL_SCANCODE_UP))
 	{
 		gameSpeed += 1;
 		keyPressCooldown = 0.2f;
 		Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
 	}
-	if (renderer->IsKeyDown(VK_DOWN))
+	if (renderer->IsKeyDown(SDL_SCANCODE_DOWN))
 	{
 		gameSpeed -= 1;
 		if (gameSpeed < 0)
@@ -446,7 +449,7 @@ void GameLoop::HandleInput(float delta)
 		Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
 	}
 
-	if (renderer->IsKeyDown('1'))
+	if (renderer->IsKeyDown(SDL_SCANCODE_1))
 	{
 		if (currentPlacingType + 1 >= PathNode::End)
 			currentPlacingType = PathNode::Type(PathNode::Start);
@@ -457,7 +460,7 @@ void GameLoop::HandleInput(float delta)
 		Logger::Instance().Log(std::string("Upped placing type to " + std::to_string((int)currentPlacingType) + "\n"));
 	}
 
-	if (renderer->IsKeyDown('2'))
+	if (renderer->IsKeyDown(SDL_SCANCODE_2))
 	{
 		if (currentPlacingType - 1 <= PathNode::Start)
 			currentPlacingType = PathNode::Type(PathNode::End);
@@ -468,15 +471,6 @@ void GameLoop::HandleInput(float delta)
 		Logger::Instance().Log(std::string("Lowered placing type to " + std::to_string((int)currentPlacingType) + "\n"));
 	}
 
-}
-
-void GameLoop::CreatePlayer(Vec2 pos)
-{
-	if (player)
-		return;
-
-	Vec2 playerPos = pos;
-	player = new Player(playerPos);
 }
 
 void GameLoop::LMBMouseClickAction(Vec2 clickPos)
@@ -502,27 +496,36 @@ void GameLoop::RMBMouseClickAction(Vec2 clickPos)
 	}
 }
 
+void GameLoop::CreatePlayer(Vec2 pos)
+{
+	if (player)
+		return;
+
+	Vec2 playerPos = pos;
+	player = new Player(playerPos);
+}
+
 void GameLoop::HandlePlayerInput(float delta)
 {
 	if (!player || !renderer)
 		return;
 	Vec2 moveDir(0.0f, 0.0f);
-	if (renderer->IsKeyDown('W'))
-	{
-		moveDir.y -= 1.0f;
-	}
-	if (renderer->IsKeyDown('S'))
-	{
-		moveDir.y += 1.0f;
-	}
-	if (renderer->IsKeyDown('A'))
-	{
-		moveDir.x -= 1.0f;
-	}
-	if (renderer->IsKeyDown('D'))
-	{
-		moveDir.x += 1.0f;
-	}
+	//if (renderer->IsKeyDown('W'))
+	//{
+	//	moveDir.y -= 1.0f;
+	//}
+	//if (renderer->IsKeyDown('S'))
+	//{
+	//	moveDir.y += 1.0f;
+	//}
+	//if (renderer->IsKeyDown('A'))
+	//{
+	//	moveDir.x -= 1.0f;
+	//}
+	//if (renderer->IsKeyDown('D'))
+	//{
+	//	moveDir.x += 1.0f;
+	//}
 
 
 	player->SetDirection(moveDir);
@@ -537,8 +540,7 @@ void GameLoop::ExecuteDeathRow()
 		{
 
 			Renderer::Entity te = Renderer::Entity::MakeCircle(
-				ai->GetPosition().x, ai->GetPosition().y, ai->GetRadius(), ai->GetColor(), true, "DEAD " + ai->GetName()
-			);
+				ai->GetPosition().x, ai->GetPosition().y, ai->GetRadius(), ai->GetColor(), true);
 
 			persistentEnts.push_back(te);
 
@@ -549,9 +551,9 @@ void GameLoop::ExecuteDeathRow()
 	deathRow.clear();
 }
 
-void GameLoop::AddDebugEntity(Vec2 pos, uint32_t color, int radius, bool filled, std::string name)
+void GameLoop::AddDebugEntity(Vec2 pos, uint32_t color, int radius, bool filled)
 {
-	Renderer::Entity te = Renderer::Entity::MakeCircle(pos.x, pos.y, radius, color, filled, name);
+	Renderer::Entity te = Renderer::Entity::MakeCircle(pos.x, pos.y, radius, color, filled);
 	debugEnts.push_back(te);
 }
 

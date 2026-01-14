@@ -104,5 +104,8 @@
     <ClInclude Include="AIBrainManagers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Pathfinder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
