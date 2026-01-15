@@ -424,7 +424,7 @@ void Grid::UpdateMovable(Movable* m)
 
 	// Remove from old cell
 	auto& oldCell = movableLocations[Index(m->cellX, m->cellY)];
-	std::erase(oldCell, m);
+	oldCell.erase(std::remove(oldCell.begin(), oldCell.end(), m));
 
 	// Add to new cell
 	movableLocations[Index(newX, newY)].push_back(m);

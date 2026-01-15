@@ -671,7 +671,7 @@ PathNode* AIBrain::FindClosestFrontier()
 			int c = -1;
 			grid.WorldToGrid(n->position, r, c);
 
-			if (!visited.contains(n) && knownNodes[r][c].discovered && knownNodes[r][c].walkable)
+			if (visited.find(n) == visited.end() && knownNodes[r][c].discovered && knownNodes[r][c].walkable)
 			{
 				visited.insert(n);
 				q.push(n);
@@ -740,7 +740,7 @@ PathNode* AIBrain::FindClosestOpenArea(Vec2 areaSize)
 			int c = -1;
 			grid.WorldToGrid(n->position, r, c);
 
-			if (!visited.contains(n) && knownNodes[r][c].walkable)
+			if (visited.find(n) == visited.end() && knownNodes[r][c].walkable)
 			{
 				visited.insert(n);
 				q.push(n);
@@ -753,7 +753,7 @@ PathNode* AIBrain::FindClosestOpenArea(Vec2 areaSize)
 
 PathNode* AIBrain::GetBuildingLocation(BuildingType type)
 {
-	if (buildingLoc.contains(type))
+	if (buildingLoc.find(type) != buildingLoc.end())
 		return buildingLoc.at(type);
 
 	Building* b = build->GetBuildingTemplate(type);

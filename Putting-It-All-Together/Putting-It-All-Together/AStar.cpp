@@ -103,7 +103,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 		// Expand
 		for (PathNode* neighbor : current->neighbors)
 		{
-			if (closed.contains(neighbor))
+			if (closed.find(neighbor) != closed.end())
 				continue;
 
 			if (!canTraverse(neighbor))
@@ -212,7 +212,7 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 		// Expand
 		for (PathNode* neighbor : current->neighbors)
 		{
-			if (closed.contains(neighbor))
+			if (closed.find(neighbor) != closed.end())
 				continue;
 
 			if (!canTraverse(neighbor))

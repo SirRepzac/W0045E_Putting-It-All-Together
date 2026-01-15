@@ -5,7 +5,7 @@
 #include "GameLoop.h"
 #include "Constants.h"
 #include "AStar.h"
-#include <direct.h>
+#include <sstream>
 #include <filesystem>
 #include "AIBrainManagers.h"
 
@@ -28,7 +28,7 @@ static std::vector<DataPoint> LoadDataFile(const std::string& filename)
 	while (std::getline(file, line))
 	{
 		if (line.empty()) continue;
-		std::istringstream iss(line);
+		std::istringstream iss (line);
 		int typeInt;
 		float x, y;
 		if (iss >> typeInt >> x >> y)
