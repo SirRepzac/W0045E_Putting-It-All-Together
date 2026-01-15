@@ -370,9 +370,9 @@ void GameLoop::UpdateRenderer()
 	if (renderer)
 	{
 		renderer->SetEntities(ents);
+		renderer->needsUpdate = true;
 	}
 
-	renderer->needsUpdate = true;
 }
 
 std::vector<Movable*> GameLoop::GetMovables()
@@ -510,23 +510,22 @@ void GameLoop::HandlePlayerInput(float delta)
 	if (!player || !renderer)
 		return;
 	Vec2 moveDir(0.0f, 0.0f);
-	//if (renderer->IsKeyDown('W'))
-	//{
-	//	moveDir.y -= 1.0f;
-	//}
-	//if (renderer->IsKeyDown('S'))
-	//{
-	//	moveDir.y += 1.0f;
-	//}
-	//if (renderer->IsKeyDown('A'))
-	//{
-	//	moveDir.x -= 1.0f;
-	//}
-	//if (renderer->IsKeyDown('D'))
-	//{
-	//	moveDir.x += 1.0f;
-	//}
-
+	if (renderer->IsKeyDown(SDL_SCANCODE_W))
+	{
+		moveDir.y -= 1.0f;
+	}
+	if (renderer->IsKeyDown(SDL_SCANCODE_S))
+	{
+		moveDir.y += 1.0f;
+	}
+	if (renderer->IsKeyDown(SDL_SCANCODE_A))
+	{
+		moveDir.x -= 1.0f;
+	}
+	if (renderer->IsKeyDown(SDL_SCANCODE_D))
+	{
+		moveDir.x += 1.0f;
+	}
 
 	player->SetDirection(moveDir);
 }

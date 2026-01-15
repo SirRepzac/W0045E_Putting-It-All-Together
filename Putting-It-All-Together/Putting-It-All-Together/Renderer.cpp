@@ -69,9 +69,6 @@ void Renderer::ThreadMain()
 	TTF_Init();
 
 	SDL_Window* window;
-	//SDL_PropertiesID props = SDL_CreateProperties();
-	//SDL_SetBooleanProperty(props, SDL_PROP_RENDERER_CREATE_PRESENT_VSYNC_NUMBER, true);
-	//SDL_Renderer* renderer = SDL_CreateRendererWithProperties(props);
 	SDL_Renderer* renderer;
 	SDL_WindowFlags flags = SDL_WINDOW_MOUSE_CAPTURE;
 
@@ -352,8 +349,7 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 				rect.h = h;
 				rect.w = w;
 
-				SDL_Color c;
-				c.r = 0; c.g = 0; c.b = 0; c.a = 255;
+				SDL_Color c = ToSDLColor(Black);
 				SDL_Surface* text = TTF_RenderText_Solid(font_, s.c_str(), s.length(), c);
 				SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, text);
 
