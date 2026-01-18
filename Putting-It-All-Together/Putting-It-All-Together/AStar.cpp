@@ -117,6 +117,8 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 			float edgeCost = (dx == 0 || dy == 0) ? 1.0f : 1.41421356f;
 			bool diagonal = (dx == 0 || dy == 0) ? false : true;
 
+			float terrainPenalty = 1 / SurfaceSpeed(neighbor->type);
+
 			if (diagonal)
 			{
 				PathNode* sideA = grid->GetNodeAt(Vec2(current->position.x - dx, current->position.y));
@@ -129,7 +131,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 				}
 			}
 
-			float tentativeG = records[current].gCost + edgeCost;
+			float tentativeG = records[current].gCost + edgeCost * terrainPenalty;
 
 			NodeRecord& rec = records[neighbor];
 
@@ -226,6 +228,8 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 			float edgeCost = (dx == 0 || dy == 0) ? 1.0f : 1.41421356f;
 			bool diagonal = (dx == 0 || dy == 0) ? false : true;
 
+			float terrainPenalty = 1 / SurfaceSpeed(neighbor->type);
+
 			if (diagonal)
 			{
 				PathNode* sideA = grid->GetNodeAt(Vec2(current->position.x - dx, current->position.y));
@@ -238,7 +242,7 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 				}
 			}
 
-			float tentativeG = records[current].gCost + edgeCost;
+			float tentativeG = records[current].gCost + edgeCost * terrainPenalty;
 
 			NodeRecord& rec = records[neighbor];
 

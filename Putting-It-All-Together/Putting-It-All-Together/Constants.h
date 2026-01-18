@@ -4,8 +4,8 @@
 #include <cmath>
 #include <algorithm>
 
-static float const MAXIMUM_SPEED = 300.0f;
-static float const MAXIMUM_ACCELERATION = 260.0f;
+static float const MAXIMUM_SPEED = 10;
+static float const MAXIMUM_ACCELERATION = 8;
 
 static int const WINDOW_WIDTH = 1920;
 static int const WINDOW_HEIGHT = 1080;

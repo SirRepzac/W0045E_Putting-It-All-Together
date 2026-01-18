@@ -15,6 +15,8 @@ void Movable::Push(Vec2 dir, float force)
 
 void Movable::Move(Vec2 dir, float acc, float deltaTime)
 {
+	acc *= GameLoop::Instance().GetGrid().cellSize;
+	float maxSpeed = MAXIMUM_SPEED * GameLoop::Instance().GetGrid().cellSize;
 	// 3. Damping when no input
 	if (dir.IsZero())
 	{
@@ -25,7 +27,7 @@ void Movable::Move(Vec2 dir, float acc, float deltaTime)
 	// 1. Desired velocity from input
 	Vec2 desiredVelocity = Vec2(0, 0);
 	if (!dir.IsZero())
-		desiredVelocity = dir.Normalized() * MAXIMUM_SPEED;
+		desiredVelocity = dir.Normalized() * maxSpeed;
 
 	// 2. Steering = desired - current
 	Vec2 steering = desiredVelocity - velocity;
@@ -38,8 +40,8 @@ void Movable::Move(Vec2 dir, float acc, float deltaTime)
 
 
 	// 4. Clamp speed
-	if (velocity.Length() > MAXIMUM_SPEED)
-		velocity = velocity.Normalized() * MAXIMUM_SPEED;
+	if (velocity.Length() > maxSpeed)
+		velocity = velocity.Normalized() * maxSpeed;
 
 	if (velocity.Length() < 5.0f && dir.IsZero())
 		velocity = Vec2(0.0f, 0.0f);

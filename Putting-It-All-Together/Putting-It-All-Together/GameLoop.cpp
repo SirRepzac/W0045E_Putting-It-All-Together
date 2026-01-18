@@ -53,7 +53,7 @@ void GameLoop::RefreshScreen()
 
 GameLoop::GameLoop() : grid(WORLD_WIDTH, WORLD_HEIGHT, 0, Vec2(100, 100))
 {
-	Movable::baseRadius = grid.cellSize;
+	Movable::baseRadius = grid.cellSize / 5;
 
 	pathfinder = new AStar(&grid);
 
