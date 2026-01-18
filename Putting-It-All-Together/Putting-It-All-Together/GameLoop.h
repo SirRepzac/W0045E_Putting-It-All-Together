@@ -39,6 +39,7 @@ public:
 	void AddDebugEntity(Vec2 pos, uint32_t color = Renderer::Color(200, 0, 0)/*red*/, int radius = 1, bool filled = true);
 	void AddDebugEntity(Renderer::Entity e);
 	void AddDebugLine(Vec2 a, Vec2 b, uint32_t color, float thickness = 2.0f);
+	void AddPersistentLine(Vec2 a, Vec2 b, uint32_t color, float thickness = 2.0f);
 
 	std::vector<Movable*> GetMovables();
 	void MouseClickAction();
@@ -71,7 +72,7 @@ private:
 	void ExecuteDeathRow();
 
 	float keyPressCooldown = 0.0f;
-	PathNode::Type currentPlacingType = PathNode::Wall;
+	PathNode::Type currentPlacingType = PathNode::Rock;
 
 	float gameSpeed = 1.0f;
 

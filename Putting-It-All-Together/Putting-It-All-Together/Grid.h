@@ -13,7 +13,7 @@ public:
 	// width - how wide the grid is
 	// height - how high the grid is
 	// cellsize - the diameter of each cell
-	Grid(int width, int height, int cellSize);
+	Grid(int width, int height, int cellSize, Vec2 gridSize = {0, 0});
 
 	~Grid()
 	{
@@ -52,7 +52,7 @@ public:
 	// Get the position of the walls of the grid
 	// --------------------------
 	// returns the position of the grid walls in the order: left, bottom, right, top
-	std::vector<float> GetPosition();
+	std::vector<float> GetGlobalGridPosition();
 
 	// Get the nodes in the grid
 	// --------------------------
@@ -86,10 +86,11 @@ public:
 
 	bool HasLineOfSight(const Vec2& from, const Vec2& to, float agentRadius) const;
 
+	float cellSize = 20;
+
 private:
 	int width;
 	int height;
-	int cellSize;
 	int rows;
 	int cols;
 	std::vector<std::vector<PathNode>> nodes;

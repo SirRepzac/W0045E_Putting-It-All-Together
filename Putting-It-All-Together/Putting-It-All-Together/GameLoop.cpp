@@ -51,8 +51,15 @@ void GameLoop::RefreshScreen()
 	}
 }
 
-GameLoop::GameLoop() : grid(WORLD_WIDTH, WORLD_HEIGHT, DEFAULT_CELL_SIZE)
+GameLoop::GameLoop() : grid(WORLD_WIDTH, WORLD_HEIGHT, 0, Vec2(100, 100))
 {
+	Movable::baseRadius = grid.cellSize;
+
+	pathfinder = new AStar(&grid);
+
+	// create renderer and start window
+	renderer = new Renderer(WINDOW_WIDTH, WINDOW_HEIGHT);
+	renderer->Start();
 }
 
 GameLoop::~GameLoop()
@@ -88,14 +95,24 @@ void GameLoop::DeleteAll()
 
 void GameLoop::InitializeGame()
 {
-	pathfinder = new AStar(&grid);
+	// walls around grid
+	std::vector<float> walls = grid.GetGlobalGridPosition();
+	Vec2 crnr1 = Vec2(walls.at(0), walls.at(1));
+	Vec2 crnr2 = Vec2(walls.at(2), walls.at(1));
+	Vec2 crnr3 = Vec2(walls.at(2), walls.at(3));
+	Vec2 crnr4 = Vec2(walls.at(0), walls.at(3));
 
-	CreateAI(1);
+	AddPersistentLine(crnr1, crnr2, Renderer::Black);
+	AddPersistentLine(crnr2, crnr3, Renderer::Black);
+	AddPersistentLine(crnr3, crnr4, Renderer::Black);
+	AddPersistentLine(crnr4, crnr1, Renderer::Black);
+
+	CreateAI(0);
 
 	if (!aiList.empty())
 		focusedAgent = aiList[0];
 
-	//CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
+	CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
 
 	renderer->nodeCache.resize(grid.GetCols() * grid.GetRows());
 	renderer->nodeNeedsUpdate.resize(grid.GetCols() * grid.GetRows());
@@ -210,10 +227,6 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 	auto lastFrameStart = clock::now();
 	auto startTime = clock::now();
 
-	// create renderer and start window
-	renderer = new Renderer(WINDOW_WIDTH, WINDOW_HEIGHT);
-	renderer->Start();
-
 	// do initialization before entering loop
 	InitializeGame();
 
@@ -291,9 +304,16 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 		m->Update(delta);
 	}
 
-	//grid.DrawGridLines();
+	grid.DrawGridLines();
 
-	renderer->UpdateDirtyNodes(focusedAgent->GetBrain());
+	if (focusedAgent)
+	{
+		renderer->UpdateDirtyNodes(focusedAgent->GetBrain());
+	}
+	else
+	{
+		renderer->UpdateDirtyNodes(nullptr);
+	}
 }
 
 void GameLoop::UpdateRenderer()
@@ -477,6 +497,9 @@ void GameLoop::LMBMouseClickAction(Vec2 clickPos)
 {
 	PathNode* node = grid.GetNodeAt(clickPos);
 
+	if (node == nullptr)
+		return;
+
 	PathNode::Type placingType = currentPlacingType;
 	// if the same node is pressed twice, remove the type node instead
 	if (currentPlacingType == node->type)
@@ -565,4 +588,10 @@ void GameLoop::AddDebugLine(Vec2 a, Vec2 b, uint32_t color, float thickness)
 {
 	Renderer::Entity e = Renderer::Entity::MakeLine(a.x, a.y, b.x, b.y, thickness, color);
 	debugEnts.push_back(e);
+}
+
+void GameLoop::AddPersistentLine(Vec2 a, Vec2 b, uint32_t color, float thickness)
+{
+	Renderer::Entity e = Renderer::Entity::MakeLine(a.x, a.y, b.x, b.y, thickness, color);
+	persistentEnts.push_back(e);
 }

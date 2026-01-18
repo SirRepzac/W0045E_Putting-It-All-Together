@@ -138,6 +138,7 @@ public:
     static inline uint32_t Maroon = 0x800000;
     static inline uint32_t Yellow = 0xFFFF00;
     static inline uint32_t DarkGray = 0x575757;
+    static inline uint32_t Fog = 0x313030;
 
     Renderer(int width, int height);
     ~Renderer();

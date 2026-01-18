@@ -1,13 +1,30 @@
 #include "Grid.h"
 #include "GameLoop.h"
+#include <cmath>
 
-Grid::Grid(int width, int height, int cellSize)
+Grid::Grid(int width, int height, int inputCellSize, Vec2 gridSize)
 {
-	this->width = width;
-	this->height = height;
-	this->cellSize = cellSize;
-	rows = height / cellSize;
-	cols = width / cellSize;
+	if (gridSize == Vec2(0, 0) && cellSize == 0)
+		return;
+
+	if (gridSize == Vec2(0, 0))
+	{
+		this->width = width;
+		this->height = height;
+		this->cellSize = inputCellSize;
+		rows = height / cellSize;
+		cols = width / cellSize;
+	}
+	else
+	{
+		rows = gridSize.x;
+		cols = gridSize.y;
+
+		this->width = width;
+		this->height = height;
+
+		cellSize = std::min<float>((float)height / (float)rows, (float)width / (float)cols);
+	}
 
 	int nodeIds = 0;
 
@@ -51,7 +68,7 @@ void Grid::SetClearance()
 			}
 			else if (isEdge)
 			{
-				node.clearance = DEFAULT_CELL_SIZE;
+				node.clearance = cellSize;
 				q.push(&node);
 			}
 			else
@@ -72,9 +89,9 @@ void Grid::SetClearance()
 
 			float step;
 			if (abs(n->position.x - current->position.x) + abs(n->position.y - current->position.y) == 2)
-				step = DEFAULT_CELL_SIZE * 1.41421356f;
+				step = cellSize * 1.41421356f;
 			else
-				step = DEFAULT_CELL_SIZE;
+				step = cellSize;
 
 			float newClearance = current->clearance + step;
 
@@ -92,7 +109,7 @@ void Grid::SetClearance()
 			PathNode& node = nodes[r][c];
 
 			// subtract half cell size so radius doesn't overlap
-			node.clearance -= DEFAULT_CELL_SIZE * 0.5f;
+			node.clearance -= cellSize * 0.5f;
 
 			if (node.clearance < 0.0f)
 				node.clearance = 0.0f;
@@ -110,38 +127,31 @@ bool Grid::WorldToGrid(const Vec2& pos, int& row, int& col) const
 
 	Vec2 adjusted = pos - centering;
 
-	col = static_cast<int>(adjusted.x / cellSize);
-	row = static_cast<int>(adjusted.y / cellSize);
+	col = static_cast<int>(std::floor(adjusted.x / cellSize));
+	row = static_cast<int>(std::floor(adjusted.y / cellSize));
 
 	return row >= 0 && row < rows && col >= 0 && col < cols;
 }
 
 void Grid::SetNode(PathNode* node, PathNode::Type type, uint32_t specialColor)
 {
-	int row = static_cast<int>(node->position.y / cellSize);
-	int col = static_cast<int>(node->position.x / cellSize);
+	if (node == nullptr)
+		return;
+
+	int row;
+	int col;
+
+	WorldToGrid(node->position, row, col);
 
 	int index = Index(col, row);
 
 	PathNode* baseNode = nodeLocations[index];
 
-	// if caller wants Nothing, we're done
-	if (type == PathNode::Nothing)
-		node->color = 0xFFFFFF; // white
-	else if (type == PathNode::Wood)
-		node->color = 0x5E3500; // brown
-	else if (type == PathNode::Coal)
-		node->color = 0x000000; // black
-	else if (type == PathNode::Iron)
-		node->color = 0xC0C0C0; // silver
-	else if (type == PathNode::Wall)
-		node->color = 0xFF0000; // red
-	else if (type == PathNode::Start)
-		node->color = 0xFFFFFF; // white
-	else if (type == PathNode::End)
-		node->color = 0xFFFFFF; // white
-	else if (type == PathNode::Special)
+
+	if (type == PathNode::Special)
 		node->color = specialColor;
+	else
+		node->color = NodeColor(type);
 
 	node->type = type;
 	GameLoop::Instance().renderer->MarkNodeDirty(index);
@@ -298,34 +308,50 @@ void Grid::SetNeighbors(int rows, int cols)
 
 void Grid::DrawGridLines()
 {
+
 	if (!GameLoop::Instance().DEBUG_MODE)
 		return;
 
-	float realWidth = cols * cellSize;
-	float realHeight = rows * cellSize;
-
-	Vec2 centeringVec = Vec2((width - realWidth) / 2.0f, (height - realHeight) / 2.0f);
-
 	uint32_t lineColor = Renderer::Black;
-	for (int i = 0; i <= rows; i++)
-	{
-		Vec2 vec1 = Vec2(0.0f, static_cast<float>(i * cellSize)) + centeringVec;
-		Vec2 vec2 = Vec2(realWidth, static_cast<float>(i * cellSize)) + centeringVec;
 
-		auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
-		GameLoop::Instance().AddDebugEntity(e);
-	}
-	for (int j = 0; j <= cols; j++)
+	for (auto row : nodes)
 	{
-		Vec2 vec1 = Vec2(static_cast<float>(j * cellSize), 0.0f) + centeringVec;
-		Vec2 vec2 = Vec2(static_cast<float>(j * cellSize), realHeight) + centeringVec;
-
-		auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
-		GameLoop::Instance().AddDebugEntity(e);
+		for (auto node : row)
+		{
+			Vec2 pos = node.position;
+			float left = pos.x - cellSize / 2;
+			float bottom = pos.y + cellSize / 2;
+			float right = pos.x + cellSize / 2;
+			float top = pos.y - cellSize / 2;
+			auto e = Renderer::Entity::MakeRect(left, bottom, right, top, lineColor, false, 2);
+			GameLoop::Instance().AddDebugEntity(e);
+		}
 	}
+
+	//float realWidth = cols * cellSize;
+	//float realHeight = rows * cellSize;
+
+	//Vec2 centeringVec = Vec2((width - realWidth) / 2.0f, (height - realHeight) / 2.0f);
+
+	//for (int i = 0; i <= rows; i++)
+	//{
+	//	Vec2 vec1 = Vec2(0.0f, static_cast<float>(i * cellSize)) + centeringVec;
+	//	Vec2 vec2 = Vec2(realWidth, static_cast<float>(i * cellSize)) + centeringVec;
+
+	//	auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
+	//	GameLoop::Instance().AddDebugEntity(e);
+	//}
+	//for (int j = 0; j <= cols; j++)
+	//{
+	//	Vec2 vec1 = Vec2(static_cast<float>(j * cellSize), 0.0f) + centeringVec;
+	//	Vec2 vec2 = Vec2(static_cast<float>(j * cellSize), realHeight) + centeringVec;
+
+	//	auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
+	//	GameLoop::Instance().AddDebugEntity(e);
+	//}
 }
 
-std::vector<float> Grid::GetPosition()
+std::vector<float> Grid::GetGlobalGridPosition()
 {
 	float realWidth = cols * cellSize;
 	float realHeight = rows * cellSize;
@@ -342,11 +368,16 @@ std::vector<float> Grid::GetPosition()
 
 Vec2 Grid::GetCellCenter(int row, int col)
 {
-	float realWidth = cols * cellSize;
-	float realHeight = rows * cellSize;
-	Vec2 centeringVec = Vec2((width - realWidth) / 2, (height - realHeight) / 2);
+	float actualGridWidth = cols * cellSize;
+	float actualGridHeight = rows * cellSize;
 
-	return Vec2(static_cast<float>(col * cellSize + cellSize * 0.5f), static_cast<float>(row * cellSize + cellSize * 0.5f)) + centeringVec;
+	float offsetX = (width - actualGridWidth) * 0.5f;
+	float offsetY = (height - actualGridHeight) * 0.5f;
+
+	float x = offsetX + (col + 0.5f) * cellSize;
+	float y = offsetY + (row + 0.5f) * cellSize;
+
+	return Vec2(x, y);
 }
 
 void Grid::QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out)

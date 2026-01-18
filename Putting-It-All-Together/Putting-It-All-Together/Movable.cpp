@@ -45,7 +45,7 @@ void Movable::Move(Vec2 dir, float acc, float deltaTime)
 		velocity = Vec2(0.0f, 0.0f);
 
 	// 5. Move
-	position += velocity * deltaTime;
+	position += velocity * deltaTime * SurfaceSpeed(GameLoop::Instance().GetGrid().GetNodeAt(position)->type);
 
 	velocity += pushforce;
 
@@ -130,7 +130,7 @@ void Movable::Move(Vec2 dir, float acc, float deltaTime)
 	// 6. Facing follows velocity
 	if (dir.Length() > 1e-6f)
 	{
-		Vec2 desiredDir = velocity.Normalized();
+		Vec2 desiredDir = dir.Normalized();
 
 		float currentAng = std::atan2(direction.y, direction.x);
 		float targetAng = std::atan2(desiredDir.y, desiredDir.x);

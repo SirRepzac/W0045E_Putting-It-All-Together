@@ -200,10 +200,10 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
 
 		SDL_FRect r;
-		r.x = int(node.left * scale);
-		r.y = int(node.bottom * scale);
-		r.w = int((node.right - node.left) * scale);
-		r.h = int((node.top - node.bottom) * scale);
+		r.x = node.left * scale;
+		r.y = node.bottom * scale;
+		r.w = (node.right - node.left) * scale;
+		r.h = (node.top - node.bottom) * scale;
 
 		SDL_RenderFillRect(renderer, &r);
 	}
@@ -223,19 +223,19 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 		{
 			SDL_RenderLine(
 				renderer,
-				int(e.x * scale),
-				int(e.y * scale),
-				int(e.x2 * scale),
-				int(e.y2 * scale)
+				e.x * scale,
+				e.y * scale,
+				e.x2 * scale,
+				e.y2 * scale
 			);
 		}
 		else if (e.type == Entity::Type::Rectangle)
 		{
 			SDL_FRect r;
-			r.x = int(e.x * scale);
-			r.y = int(e.y * scale);
-			r.w = int((e.x2 - e.x) * scale);
-			r.h = int((e.y2 - e.y) * scale);
+			r.x = e.x * scale;
+			r.y = e.y * scale;
+			r.w = (e.x2 - e.x) * scale;
+			r.h = (e.y2 - e.y) * scale;
 
 			if (e.filled)
 				SDL_RenderFillRect(renderer, &r);
@@ -244,9 +244,9 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 		}
 		else if (e.type == Entity::Type::Circle)
 		{
-			int cx = int(e.x * scale);
-			int cy = int(e.y * scale);
-			int r = int(e.radius * scale);
+			float cx = e.x * scale;
+			float cy = e.y * scale;
+			float r = e.radius * scale;
 
 			for (int w = -r; w <= r; w++)
 			{
@@ -267,10 +267,10 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 
 				SDL_RenderLine(
 					renderer,
-					int(x1 * scale),
-					int(y1 * scale),
-					int(x2 * scale),
-					int(y2 * scale)
+					x1 * scale,
+					y1 * scale,
+					x2 * scale,
+					y2 * scale
 				);
 			}
 		}
@@ -378,11 +378,11 @@ void Renderer::UpdateDirtyNodes(const AIBrain* brain)
 		auto indexPair = grid.TwoDIndex(i);
 		PathNode& gridNode = grid.GetNodes()[indexPair.first][indexPair.second];
 
-		if (game.USE_FOG_OF_WAR)
+		if (game.USE_FOG_OF_WAR && brain != nullptr)
 		{
 			node.color = brain->IsDiscovered(i)
 				? gridNode.color
-				: DarkGray;
+				: Fog;
 		}
 		else
 			node.color = gridNode.color;

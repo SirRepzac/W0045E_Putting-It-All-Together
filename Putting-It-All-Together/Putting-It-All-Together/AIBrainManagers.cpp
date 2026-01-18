@@ -313,7 +313,7 @@ void Building::GetTargetNodes()
 
 	for (int x = 0; x < size.y; x++)
 	{
-		PathNode* nodeX = grid.GetNodeAt(baseBarrackLoc + Vec2(DEFAULT_CELL_SIZE, 0) * x);
+		PathNode* nodeX = grid.GetNodeAt(baseBarrackLoc + Vec2(grid.cellSize, 0) * x);
 		targetNodes.push_back(nodeX);
 	}
 
@@ -323,10 +323,10 @@ void Building::GetTargetNodes()
 	{
 		for (int y = 1; y < size.x; y++)
 		{
-			PathNode* nodeY = grid.GetNodeAt(targetNodes[e]->position + Vec2(0, DEFAULT_CELL_SIZE) * y);
+			PathNode* nodeY = grid.GetNodeAt(targetNodes[e]->position + Vec2(0, grid.cellSize) * y);
 			targetNodes.push_back(nodeY);
 		}
 	}
 
-	position = baseBarrackLoc + Vec2((size.y - 1) * DEFAULT_CELL_SIZE, (size.x - 1) * DEFAULT_CELL_SIZE);
+	position = baseBarrackLoc + Vec2((size.y - 1) * grid.cellSize, (size.x - 1) * grid.cellSize);
 }

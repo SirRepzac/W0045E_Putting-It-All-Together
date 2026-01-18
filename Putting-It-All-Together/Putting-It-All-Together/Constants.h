@@ -13,8 +13,6 @@ static int const WINDOW_HEIGHT = 1080;
 static int const WORLD_WIDTH = 1920;
 static int const WORLD_HEIGHT = 1080;
 
-static int const DEFAULT_CELL_SIZE = 20;
-
 static double const PI = 3.14159265358979323846;
 
 static float DegToRad(float deg)

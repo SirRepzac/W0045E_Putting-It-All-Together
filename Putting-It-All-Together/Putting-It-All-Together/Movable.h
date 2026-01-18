@@ -26,6 +26,8 @@ public:
 	int cellX = -1;
 	int cellY = -1;
 
+	inline static float baseRadius;
+
 protected:
 
 	void Move(Vec2 dir, float acc, float deltaTime);
@@ -33,7 +35,7 @@ protected:
 	Vec2 velocity;
 	Vec2 position;
 	Vec2 direction;
-	float radius = DEFAULT_CELL_SIZE;
+	float radius = Movable::baseRadius;
 	float weight = radius * radius * PI;
 	std::string name;
 
