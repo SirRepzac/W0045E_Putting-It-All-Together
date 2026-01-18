@@ -44,9 +44,9 @@ public:
 
 	void GoTo(PathNode* destination, bool& isPathValid, bool ignoreFog = false);
 
-	void GoToClosest(PathNode::Type destinationType, bool& isPathValid);
+	void GoToClosest(PathNode::ResourceType destinationType, bool& isPathValid);
 
-	void GoToClosest(std::vector<PathNode::Type> destinationTypes, bool& isPathValid);
+	void GoToClosest(std::vector<PathNode::ResourceType> destinationTypes, bool& isPathValid);
 
 	void SetTarget(Vec2 target) { targetPos = target; }
 	void SetTarget(Movable* target) { targetMovable = target; }

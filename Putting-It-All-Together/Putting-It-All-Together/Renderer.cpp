@@ -4,6 +4,7 @@
 
 #include "GameLoop.h"
 #include "AIBrain.h"
+#include "random.h"
 
 static SDL_Color ToSDLColor(uint32_t c)
 {
@@ -105,7 +106,7 @@ void Renderer::ThreadMain()
 		}
 		if (needsUpdate)
 		{
-			RenderFrame(window, renderer);
+			RenderFrame();
 			needsUpdate = false;
 		}
 		SDL_Delay(1);
@@ -166,46 +167,99 @@ bool Renderer::IfMouseClickScreen(MouseClick click, int& x, int& y)
 
 bool Renderer::FetchLClick(Vec2& out)
 {
-    std::lock_guard<std::mutex> lk(clickLMtx_);
-    if (!hasLClick_) return false;
-    out.x = clickLWorldX_;
-    out.y = clickLWorldY_;
-    hasLClick_ = false;
-    return true;
+	std::lock_guard<std::mutex> lk(clickLMtx_);
+	if (!hasLClick_) return false;
+	out.x = clickLWorldX_;
+	out.y = clickLWorldY_;
+	hasLClick_ = false;
+	return true;
 }
 
 bool Renderer::FetchRClick(Vec2& out)
 {
-    std::lock_guard<std::mutex> lk(clickRMtx_);
-    if (!hasRClick_) return false;
-    out.x = clickRWorldX_;
-    out.y = clickRWorldY_;
-    hasRClick_ = false;
-    return true;
+	std::lock_guard<std::mutex> lk(clickRMtx_);
+	if (!hasRClick_) return false;
+	out.x = clickRWorldX_;
+	out.y = clickRWorldY_;
+	hasRClick_ = false;
+	return true;
 }
 
-void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
+void Renderer::RenderRect(float xPos, float yPos, float width, float heigth, bool filled, float scale)
 {
-	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-	SDL_RenderClear(renderer);
+	SDL_FRect r;
+	r.x = xPos * scale;
+	r.y = yPos * scale;
+	r.w = width * scale;
+	r.h = heigth * scale;
+
+	if (filled)
+		SDL_RenderFillRect(renderer_, &r);
+	else
+		SDL_RenderRect(renderer_, &r);
+}
+
+void Renderer::RenderCircle(float xPos, float yPos, float radius, float scale)
+{
+	float cx = xPos * scale;
+	float cy = yPos * scale;
+	float r = radius * scale;
+
+	for (int w = -r; w <= r; w++)
+	{
+		for (int h = -r; h <= r; h++)
+		{
+			if (w * w + h * h <= r * r)
+				SDL_RenderPoint(renderer_, cx + w, cy + h);
+		}
+	}
+}
+
+void Renderer::RenderFrame()
+{
+	SDL_SetRenderDrawColor(renderer_, 255, 255, 255, 255);
+	SDL_RenderClear(renderer_);
 
 	const float scaleX = (float)width_ / WORLD_WIDTH;
 	const float scaleY = (float)height_ / WORLD_HEIGHT;
 	const float scale = std::min(scaleX, scaleY);
 
 	// Draw nodes
-	for (const auto& node : nodeCache)
+	for (int n = 0; n < nodeCache.size(); n++)
 	{
-		SDL_Color c = ToSDLColor(node.color);
-		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
+		const DrawNode& node = nodeCache[n];
+		SDL_Color c = ToSDLColor(NodeColor(node.type));
+		SDL_SetRenderDrawColor(renderer_, c.r, c.g, c.b, c.a);
 
-		SDL_FRect r;
-		r.x = node.left * scale;
-		r.y = node.bottom * scale;
-		r.w = (node.right - node.left) * scale;
-		r.h = (node.top - node.bottom) * scale;
+		RenderRect(node.xPos, node.yPos, node.width, node.height, true, scale);
 
-		SDL_RenderFillRect(renderer, &r);
+		if (node.resource != PathNode::ResourceType::None)
+		{
+			if (node.resource == PathNode::ResourceType::Wood)
+			{
+				RNG rng(SeedFromNode(n));
+
+				const int treeCount = 5;
+				const float radius = std::min(node.width, node.height) * 0.1f;
+
+				SDL_Color ct = ToSDLColor(ResourceColor(node.resource));
+				SDL_SetRenderDrawColor(renderer_, ct.r, ct.g, ct.b, ct.a);
+
+				for (int i = 0; i < treeCount; ++i)
+				{
+					float u = rng.NextFloat01();
+					float v = rng.NextFloat01();
+
+					float margin = radius * 1.2f;
+
+					float posX = node.xPos + margin + u * (node.width - margin * 2.0f);
+					float posY = node.yPos + margin + v * (node.height - margin * 2.0f);
+
+					float sizeJitter = 0.90f + rng.NextFloat01() * 0.3f;
+					RenderCircle(posX, posY, radius * sizeJitter, scale);
+				}
+			}
+		}
 	}
 
 	std::vector<Entity> ents;
@@ -217,12 +271,12 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 	for (const Entity& e : ents)
 	{
 		SDL_Color c = ToSDLColor(e.color);
-		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
+		SDL_SetRenderDrawColor(renderer_, c.r, c.g, c.b, c.a);
 
 		if (e.type == Entity::Type::Line)
 		{
 			SDL_RenderLine(
-				renderer,
+				renderer_,
 				e.x * scale,
 				e.y * scale,
 				e.x2 * scale,
@@ -231,34 +285,14 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 		}
 		else if (e.type == Entity::Type::Rectangle)
 		{
-			SDL_FRect r;
-			r.x = e.x * scale;
-			r.y = e.y * scale;
-			r.w = (e.x2 - e.x) * scale;
-			r.h = (e.y2 - e.y) * scale;
-
-			if (e.filled)
-				SDL_RenderFillRect(renderer, &r);
-			else
-				SDL_RenderRect(renderer, &r);
+			RenderRect(e.x, e.y, e.x2 - e.x, e.y2 - e.y, e.filled, scale);
 		}
 		else if (e.type == Entity::Type::Circle)
 		{
-			float cx = e.x * scale;
-			float cy = e.y * scale;
-			float r = e.radius * scale;
-
-			for (int w = -r; w <= r; w++)
-			{
-				for (int h = -r; h <= r; h++)
-				{
-					if (w * w + h * h <= r * r)
-						SDL_RenderPoint(renderer, cx + w, cy + h);
-				}
-			}
+			RenderCircle(e.x, e.y, e.radius, scale);
 
 			{
-				SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+				SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0);
 
 				int x1 = e.x;
 				int y1 = e.y;
@@ -266,7 +300,7 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 				int y2 = y1 + sinf(e.dirY) * e.radius * 1.5f * scale;
 
 				SDL_RenderLine(
-					renderer,
+					renderer_,
 					x1 * scale,
 					y1 * scale,
 					x2 * scale,
@@ -315,7 +349,7 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 
 			int clientW;
 			int clientH;
-			SDL_GetWindowSize(window, &clientW, &clientH);
+			SDL_GetWindowSize(window_, &clientW, &clientH);
 
 			if (blockX < 0)
 				blockX = 0;
@@ -351,9 +385,9 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 
 				SDL_Color c = ToSDLColor(Black);
 				SDL_Surface* text = TTF_RenderText_Solid(font_, s.c_str(), s.length(), c);
-				SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, text);
+				SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, text);
 
-				SDL_RenderTexture(renderer, texture, NULL, &rect);
+				SDL_RenderTexture(renderer_, texture, NULL, &rect);
 
 				SDL_DestroySurface(text);
 				SDL_DestroyTexture(texture);
@@ -361,7 +395,7 @@ void Renderer::RenderFrame(SDL_Window* window, SDL_Renderer* renderer)
 		}
 	}
 
-	SDL_RenderPresent(renderer);
+	SDL_RenderPresent(renderer_);
 }
 
 
@@ -378,14 +412,19 @@ void Renderer::UpdateDirtyNodes(const AIBrain* brain)
 		auto indexPair = grid.TwoDIndex(i);
 		PathNode& gridNode = grid.GetNodes()[indexPair.first][indexPair.second];
 
-		if (game.USE_FOG_OF_WAR && brain != nullptr)
+
+		if (brain == nullptr || (brain->IsDiscovered(i) && game.USE_FOG_OF_WAR))
 		{
-			node.color = brain->IsDiscovered(i)
-				? gridNode.color
-				: Fog;
+			node.type = gridNode.type;
+			node.resource = gridNode.resource;
+			node.resourceAmount = gridNode.resourceAmount;
 		}
 		else
-			node.color = gridNode.color;
+		{
+			node.type = PathNode::Type::Nothing;
+			node.resource = PathNode::ResourceType::None;
+			node.resourceAmount = 0;
+		}
 
 		nodeNeedsUpdate[i] = false;
 	}

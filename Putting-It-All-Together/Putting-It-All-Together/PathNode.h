@@ -1,8 +1,7 @@
 #pragma once
 #include "Vec2.h"
 #include "Constants.h"
-#include "Renderer.h"
-
+#include <vector>
 
 class PathNode
 {
@@ -11,16 +10,23 @@ public:
 enum Type
 {
 	Nothing = -1,
-	Start = 0,
+	TypeStart = 0,
 	Grass,
 	Rock,
 	Water,
 	Swamp,
+	TypeEnd,
+};
+
+enum ResourceType
+{
+	None = -1,
+	ResourceStart = 0,
 	Wood,
 	Coal,
 	Iron,
-	End,
-	Special
+	ResourceEnd,
+	Building
 };
 
 
@@ -30,17 +36,16 @@ enum Type
 	int id = -1; // Id of the node
 	Vec2 position; // Position of the node
 
-	float hitpoints = 10;
-
 	std::vector<PathNode*> neighbors; // Adjecent nodes
 
 	float size = 0; // radius of this node
 
-	Type type = Nothing;
+	Type type = Type::Nothing;
+
+	ResourceType resource = ResourceType::None;
+	float resourceAmount = 0;
 
 	char displayLetter = ' ';
-
-	uint32_t color = 0xFFFFFFFF; // default white
 
 	float clearance = 0;
 
@@ -68,22 +73,28 @@ struct NodeRecord
 static uint32_t NodeColor(PathNode::Type type)
 {
 	if (type == PathNode::Nothing)
-		return 0xFFFFFF; // white
+		return 0x313030; // fog
 	if (type == PathNode::Grass)
 		return 0x00BF00; // green
 	if (type == PathNode::Water)
 		return 0x0000FF; // blue
 	else if (type == PathNode::Swamp)
 		return 0x003917; // dark green
-	else if (type == PathNode::Wood)
+	else if (type == PathNode::Rock)
+		return 0x575757; // dark gray
+	else 
+		return 0xFFFFFF; // white
+}
+
+static uint32_t ResourceColor(PathNode::ResourceType type)
+{
+	if (type == PathNode::Wood)
 		return 0x5E3500; // brown
 	else if (type == PathNode::Coal)
 		return 0x000000; // black
 	else if (type == PathNode::Iron)
 		return 0xC0C0C0; // silver
-	else if (type == PathNode::Rock)
-		return 0x575757; // dark gray
-	else 
+	else
 		return 0xFFFFFF; // white
 }
 

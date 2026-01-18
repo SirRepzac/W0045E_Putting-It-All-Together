@@ -73,6 +73,7 @@ private:
 
 	float keyPressCooldown = 0.0f;
 	PathNode::Type currentPlacingType = PathNode::Rock;
+	PathNode::ResourceType currentPlacingResourceType = PathNode::None;
 
 	float gameSpeed = 1.0f;
 

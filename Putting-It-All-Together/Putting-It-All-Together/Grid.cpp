@@ -133,7 +133,7 @@ bool Grid::WorldToGrid(const Vec2& pos, int& row, int& col) const
 	return row >= 0 && row < rows && col >= 0 && col < cols;
 }
 
-void Grid::SetNode(PathNode* node, PathNode::Type type, uint32_t specialColor)
+void Grid::SetNode(PathNode* node, PathNode::Type type)
 {
 	if (node == nullptr)
 		return;
@@ -147,13 +147,27 @@ void Grid::SetNode(PathNode* node, PathNode::Type type, uint32_t specialColor)
 
 	PathNode* baseNode = nodeLocations[index];
 
-
-	if (type == PathNode::Special)
-		node->color = specialColor;
-	else
-		node->color = NodeColor(type);
-
 	node->type = type;
+	GameLoop::Instance().renderer->MarkNodeDirty(index);
+}
+
+void Grid::SetNode(PathNode* node, PathNode::ResourceType type, float resourceAmount)
+{
+	if (node == nullptr)
+		return;
+
+	int row;
+	int col;
+
+	WorldToGrid(node->position, row, col);
+
+	int index = Index(col, row);
+
+	PathNode* baseNode = nodeLocations[index];
+
+	node->resource = type;
+	node->resourceAmount = resourceAmount;
+
 	GameLoop::Instance().renderer->MarkNodeDirty(index);
 }
 
@@ -400,7 +414,7 @@ void Grid::QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out)
 
 // Query special nodes of a certain type within a radius
 // given an unspecified type, it will return all nodes
-void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, std::vector<PathNode::Type> types)
+void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, std::vector<PathNode::ResourceType> types)
 {
 	int minX = (int)((pos.x - radius) / cellSize);
 	int maxX = (int)((pos.x + radius) / cellSize);
@@ -420,7 +434,7 @@ void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out
 			if (!types.empty())
 			{
 				bool add = false;
-				for (PathNode::Type t : types)
+				for (PathNode::ResourceType t : types)
 				{
 					if (loc->type != t)
 						continue;

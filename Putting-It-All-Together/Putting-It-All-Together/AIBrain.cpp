@@ -14,12 +14,12 @@ AIBrain::AIBrain(GameAI* owner) : ownerAI(owner)
 	allocator = std::make_unique<TaskAllocator>(this);
 
 	// initialize some inventory
-	resources->Add(ResourceType::Wood, 0);
-	resources->Add(ResourceType::Coal, 0);
-	resources->Add(ResourceType::Iron, 0);
+	resources->Add(ItemType::Wood, 0);
+	resources->Add(ItemType::Coal, 0);
+	resources->Add(ItemType::Iron, 0);
 
 	// Desire: 20 soldiers
-	AddDesire("HaveSoldiers", TaskType::TrainSoldiers, ResourceType::None, 20, 1.0f);
+	AddDesire("HaveSoldiers", TaskType::TrainSoldiers, ItemType::None, 20, 1.0f);
 
 	Grid& grid = GameLoop::Instance().GetGrid();
 	int rows = grid.GetRows();
@@ -58,7 +58,7 @@ void AIBrain::SetMaterialPriority(float p) { materialPriority = p; }
 void AIBrain::SetLaborPriority(float p) { laborPriority = p; }
 void AIBrain::SetConstructionPriority(float p) { constructionPriority = p; }
 
-void AIBrain::AddDesire(const std::string& name, TaskType taskType, ResourceType primaryResource, int targetCount, float importance)
+void AIBrain::AddDesire(const std::string& name, TaskType taskType, ItemType primaryResource, int targetCount, float importance)
 {
 	Desire d;
 	d.name = name;
@@ -98,13 +98,18 @@ void AIBrain::Discover(PathNode* node, Grid& grid, double& gameTime)
 
 	KnownNode& kNode = knownNodes[r][c];
 
+	kNode.walkable = !node->IsObstacle();
+	kNode.lastSeenTime = gameTime;
+
 	if (kNode.discovered)
 		return;
 
 	kNode.discovered = true;
-	kNode.walkable = !node->IsObstacle();
-	kNode.lastSeenTime = gameTime;
-	kNode.resource = NodeToResource(node->type);
+
+	if (node->resource != PathNode::ResourceType::None && node->resourceAmount > 0)
+	{
+		knownResources[ResourceToItem(node->resource)].push_back(node);
+	}
 
 	GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
 }
@@ -150,10 +155,10 @@ void AIBrain::Decay(float deltaTime)
 
 void AIBrain::GatherResources(Task& t, float deltaTime)
 {
-	std::vector<std::pair<ResourceType, float>>& resourcePairs = t.resources;
-	std::vector<std::pair<ResourceType, float>> res;
+	std::vector<std::pair<ItemType, float>>& resourcePairs = t.resources;
+	std::vector<std::pair<ItemType, float>> res;
 	bool endTask = true;
-	for (std::pair<ResourceType, float> p : resourcePairs)
+	for (std::pair<ItemType, float> p : resourcePairs)
 	{
 		if (resources->Get(p.first) > p.second)
 			continue;
@@ -173,10 +178,10 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 		return;
 	}
 
-	std::vector<PathNode::Type> types;
+	std::vector<PathNode::ResourceType> types;
 	for (auto p : res)
 	{
-		types.push_back(ResourceToNode(p.first));
+		types.push_back(ItemToResource(p.first));
 	}
 
 	Grid& grid = GameLoop::Instance().GetGrid();
@@ -187,7 +192,7 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 
 	for (PathNode* node : nodes)
 	{
-		if (node->hitpoints > 0)
+		if (node->resourceAmount > 0)
 			healthynodes.push_back(node);
 	}
 
@@ -195,17 +200,29 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 	{
 		PathNode* healthyNode = healthynodes[0];
 		// is close
-		healthyNode->hitpoints -= 20 * deltaTime;
-		resources->Add(NodeToResource(healthyNode->type), 20 * deltaTime);
+		healthyNode->resourceAmount -= 20 * deltaTime;
+		ItemType itemType = ResourceToItem(healthyNode->resource);
+		resources->Add(itemType, 20 * deltaTime);
 
-		if (healthyNode->hitpoints <= 0)
+		if (healthyNode->resourceAmount <= 0)
 		{
 			int r;
 			int c;
 			grid.WorldToGrid(healthyNode->position, r, c);
-			healthyNode->color = Renderer::White;
-			knownNodes[r][c].resource = ResourceType::None;
 			GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
+
+			std::vector<PathNode*>& knownList = knownResources[itemType];
+
+			for (std::vector<PathNode*>::iterator it = knownList.begin(); it != knownList.end();)
+			{
+				if (*it == healthyNode)
+				{
+					it = knownList.erase(it);
+					break;
+				}
+				else
+					++it;
+			}
 		}
 	}
 	else
@@ -228,10 +245,10 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 
 void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 {
-	std::vector<std::pair<ResourceType, float>>& resourcePairs = t.resources;
-	std::vector<std::pair<ResourceType, float>> res;
+	std::vector<std::pair<ItemType, float>>& resourcePairs = t.resources;
+	std::vector<std::pair<ItemType, float>> res;
 	bool endTask = true;
-	for (std::pair<ResourceType, float> p : resourcePairs)
+	for (std::pair<ItemType, float> p : resourcePairs)
 	{
 		if (resources->Get(p.first) >= p.second)
 			continue;
@@ -244,10 +261,10 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 		return;
 	}
 
-	for (std::pair<ResourceType, float> r : res)
+	for (std::pair<ItemType, float> r : res)
 	{
 		Product* p = manufacturing->GetProductTemplate(r.first);
-		std::vector<std::pair<ResourceType, float>> lackingResources;
+		std::vector<std::pair<ItemType, float>> lackingResources;
 
 		float amount = r.second;
 
@@ -295,10 +312,10 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 	}
 }
 
-void AIBrain::AddAcquisitionTask(std::vector<std::pair<ResourceType, float>> lackingResources, float priority)
+void AIBrain::AddAcquisitionTask(std::vector<std::pair<ItemType, float>> lackingResources, float priority)
 {
-	std::vector<std::pair<ResourceType, float>> gatherResources;
-	std::vector<std::pair<ResourceType, float>> manufactureResources;
+	std::vector<std::pair<ItemType, float>> gatherResources;
+	std::vector<std::pair<ItemType, float>> manufactureResources;
 
 	ResourceProductionType(lackingResources, gatherResources, manufactureResources);
 
@@ -389,8 +406,8 @@ void AIBrain::FSM(float deltaTime)
 	Building* b;
 	Task bTask;
 	PathNode* frontier;
-	std::vector<std::pair<ResourceType, float>> lackingResources;
-	bool removed;
+	std::vector<std::pair<ItemType, float>> lackingResources;
+	bool foundResource;
 
 	Task* tt = allocator->GetNext();
 	if (tt == nullptr)
@@ -523,7 +540,7 @@ void AIBrain::FSM(float deltaTime)
 		break;
 	case TaskType::Discover:
 
-		for (std::vector<std::pair<ResourceType, float>>::iterator it = t.resources.begin(); it != t.resources.end();)
+		for (std::vector<std::pair<ItemType, float>>::iterator it = t.resources.begin(); it != t.resources.end();)
 		{
 			if (resources->Get(it->first) >= it->second)
 				it = t.resources.erase(it);
@@ -540,39 +557,22 @@ void AIBrain::FSM(float deltaTime)
 		t.time -= deltaTime;
 		t.time = std::max(0.0f, t.time);
 
-		removed = false;
-		for (int row = 0; row < grid.GetRows(); ++row)
+		foundResource = false;
+		for (auto resource : t.resources)
 		{
-			if (removed)
-				break;
-
-			for (int col = 0; col < grid.GetCols(); ++col)
+			for (PathNode* node : knownResources[resource.first])
 			{
-				auto& k = knownNodes[row][col];
-
-				bool kContainsResource = false;
-				for (auto r : t.resources)
+				if (ownerAI->CanGoTo(node))
 				{
-					if (r.first == k.resource)
-					{
-						bool valid = true;
-						ownerAI->GoTo(&grid.GetNodes()[row][col], valid);
-						if (valid)
-							kContainsResource = true;
-					}
-				}
-
-				if (kContainsResource)
-				{
-					Logger::Instance().Log(ownerAI->GetName() + " discovered resource \n");
+					Logger::Instance().Log(ownerAI->GetName() + " discovered resource " + ToString(resource.first) +  "\n");
 					allocator->RemoveTask(t.id);
-					removed = true;
+					foundResource = true;
 					break;
 				}
 			}
 		}
 
-		if (removed)
+		if (foundResource)
 			break;
 
 		frontier = FindClosestFrontier();
@@ -580,6 +580,7 @@ void AIBrain::FSM(float deltaTime)
 		{
 			bool valid = true;
 			ownerAI->GoTo(frontier, valid);
+			break;
 		}
 
 		break;

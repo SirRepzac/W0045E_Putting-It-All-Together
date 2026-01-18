@@ -11,7 +11,7 @@ void ResourceManager::Update(float dt)
 {
 	(void)dt;
 }
-float ResourceManager::Get(ResourceType r) const
+float ResourceManager::Get(ItemType r) const
 {
 	auto it = inventory.find(r);
 	if (it == inventory.end())
@@ -21,18 +21,18 @@ float ResourceManager::Get(ResourceType r) const
 Cost ResourceManager::Get()
 {
 	Cost c;
-	c.coal = Get(ResourceType::Coal);
-	c.iron = Get(ResourceType::Iron);
-	c.wood = Get(ResourceType::Wood);
-	c.steel = Get(ResourceType::Steel);
-	c.sword = Get(ResourceType::Sword);
+	c.coal = Get(ItemType::Coal);
+	c.iron = Get(ItemType::Iron);
+	c.wood = Get(ItemType::Wood);
+	c.steel = Get(ItemType::Steel);
+	c.sword = Get(ItemType::Sword);
 	return c;
 }
-void ResourceManager::Add(ResourceType r, float amount)
+void ResourceManager::Add(ItemType r, float amount)
 {
 	inventory[r] += amount;
 }
-bool ResourceManager::Request(ResourceType r, float amount)
+bool ResourceManager::Request(ItemType r, float amount)
 {
 	if (amount <= 0)
 		return true;
@@ -53,7 +53,7 @@ void TransportManager::Update(float dt)
 	if (pendingTransports > 0)
 		pendingTransports = std::max(0, pendingTransports - 1);
 }
-void TransportManager::ScheduleTransport(ResourceType r, int amount, const Vec2& from, const Vec2& to)
+void TransportManager::ScheduleTransport(ItemType r, int amount, const Vec2& from, const Vec2& to)
 {
 	(void)r; (void)amount; (void)from; (void)to;
 	pendingTransports++;
@@ -129,8 +129,8 @@ void BuildManager::QueueBuilding(BuildingType type, const Vec2& pos)
 // ManufacturingManager
 ManufacturingManager::ManufacturingManager(AIBrain* owner) : owner(owner) 
 {
-	productTemplate[ResourceType::Steel] = new Product(ResourceType::Steel);
-	productTemplate[ResourceType::Sword] = new Product(ResourceType::Sword);
+	productTemplate[ItemType::Steel] = new Product(ItemType::Steel);
+	productTemplate[ItemType::Sword] = new Product(ItemType::Sword);
 
 }
 void ManufacturingManager::Update(float dt)
@@ -144,22 +144,22 @@ void ManufacturingManager::Update(float dt)
 		else ++it;
 	}
 }
-void ManufacturingManager::QueueManufacture(const ResourceType item, int amount)
+void ManufacturingManager::QueueManufacture(const ItemType item, int amount)
 {
 	orders[item] += amount;
 }
 
-BuildingType ManufacturingManager::GetBuildingForType(ResourceType type)
+BuildingType ManufacturingManager::GetBuildingForType(ItemType type)
 {
-	if (type == ResourceType::Steel)
+	if (type == ItemType::Steel)
 		return BuildingType::Forge;
-	else if (type == ResourceType::Sword)
+	else if (type == ItemType::Sword)
 		return BuildingType::Anvil;
 	else
 		return BuildingType::None;
 }
 
-Product* ManufacturingManager::GetProductTemplate(ResourceType type)
+Product* ManufacturingManager::GetProductTemplate(ItemType type)
 {
 	return productTemplate[type];
 }
@@ -286,7 +286,7 @@ void Building::PlaceBuilding()
 		if (!node)
 			continue;
 
-		grid.SetNode(node, PathNode::Special, color);
+		grid.SetNode(node, PathNode::ResourceType::Building, 1);
 	}
 }
 
@@ -299,7 +299,7 @@ void Building::RemoveBuilding()
 
 	for (PathNode* node : targetNodes)
 	{
-		grid.SetNode(node, PathNode::Nothing, Renderer::White);
+		grid.SetNode(node, PathNode::ResourceType::None);
 	}
 }
 

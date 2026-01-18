@@ -12,11 +12,11 @@ public:
 
 	// Overrides base RequestPath
 	std::vector<PathNode*> RequestPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius, const NodeFilter& canTraverse) override;
-	std::vector<PathNode*> RequestClosestPath(PathNode* startNode, std::vector<PathNode::Type> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse) override;
+	std::vector<PathNode*> RequestClosestPath(PathNode* startNode, std::vector<PathNode::ResourceType> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse) override;
 
 	// Buffer between RequestPath and calculations
 	std::vector<PathNode*> FindPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius, const NodeFilter& canTraverse);
-	std::vector<PathNode*> FindClosestPath(PathNode* startNode, std::vector<PathNode::Type> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse);
+	std::vector<PathNode*> FindClosestPath(PathNode* startNode, std::vector<PathNode::ResourceType> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse);
 
 	// Get the heuristic between a and b
 	// --------------------------

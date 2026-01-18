@@ -2,6 +2,7 @@
 
 #include "Constants.h"
 #include "Vec2.h"
+#include "PathNode.h"
 #include <vector>
 #include <string>
 #include <mutex>
@@ -13,6 +14,15 @@
 #include <SDL3_ttf/SDL_ttf.h>
 
 class AIBrain;
+
+static uint32_t SeedFromNode(int nodeId)
+{
+    uint32_t x = (uint32_t)nodeId;
+    x ^= 0x9E3779B9;
+    x *= 0x85EBCA6B;
+    x ^= x >> 13;
+    return x;
+}
 
 class Renderer
 {
@@ -96,12 +106,14 @@ public:
 
     struct DrawNode
     {
-        float left;
-        float right;
-        float top;
-        float bottom;
+        float xPos;
+        float yPos;
+        float width;
+        float height;
 
-        uint32_t color;
+        PathNode::Type type;
+		PathNode::ResourceType resource;
+		float resourceAmount;
     };
 
     std::vector<DrawNode> nodeCache;
@@ -138,7 +150,6 @@ public:
     static inline uint32_t Maroon = 0x800000;
     static inline uint32_t Yellow = 0xFFFF00;
     static inline uint32_t DarkGray = 0x575757;
-    static inline uint32_t Fog = 0x313030;
 
     Renderer(int width, int height);
     ~Renderer();
@@ -167,13 +178,15 @@ public:
 
     bool needsUpdate = true;
 
+    void RenderRect(float xPos, float yPos, float width, float heigth, bool filled, float scale);
+    void RenderCircle(float xPos, float yPos, float radius, float scale);
 private:
     // non-copyable
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
 
     void ThreadMain();
-    void RenderFrame(SDL_Window* window, SDL_Renderer* renderer);
+    void RenderFrame();
 
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;

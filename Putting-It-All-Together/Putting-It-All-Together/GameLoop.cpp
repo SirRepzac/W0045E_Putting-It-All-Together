@@ -122,16 +122,16 @@ void GameLoop::InitializeGame()
 		for (int c = 0; c < grid.GetCols(); c++)
 		{
 			PathNode& pathNode = grid.GetNodes()[r][c];
-			float top = pathNode.position.y - pathNode.size;
-			float bottom = pathNode.position.y + pathNode.size;
-			float right = pathNode.position.x + pathNode.size;
-			float left = pathNode.position.x - pathNode.size;
+			float xPos = pathNode.position.x - pathNode.size;
+			float yPos = pathNode.position.y - pathNode.size;
+			float height = pathNode.size * 2;
+			float width = pathNode.size * 2;
 			Renderer::DrawNode drawNode;
-			drawNode.top = top;
-			drawNode.bottom = bottom;
-			drawNode.right = right;
-			drawNode.left = left;
-			drawNode.color = pathNode.color;
+			drawNode.xPos = xPos;
+			drawNode.yPos = yPos;
+			drawNode.height = height;
+			drawNode.width = width;
+			drawNode.type = pathNode.type;
 			int index = grid.Index(c, r);
 			renderer->nodeCache[index] = drawNode;
 			renderer->nodeNeedsUpdate[index] = true;
@@ -168,7 +168,7 @@ void GameLoop::SaveData()
 		for (int c = 0; c < cols; ++c)
 		{
 			PathNode& n = nodes[r][c];
-			if (n.type <= PathNode::Start || n.type >= PathNode::End) continue;
+			if (n.type <= PathNode::TypeStart || n.type >= PathNode::TypeEnd) continue;
 			s << static_cast<int>(n.type) << " " << n.position.x << " " << n.position.y << "\n";
 		}
 	}
@@ -365,11 +365,11 @@ void GameLoop::UpdateRenderer()
 	{
 		if (focusedAgent)
 		{
-			std::string str1 = "Wood: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Wood));
-			std::string str2 = "Iron: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Iron));
-			std::string str3 = "Coal: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Coal));
-			std::string str4 = "Steel: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Steel));
-			std::string str5 = "Swords: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ResourceType::Sword));
+			std::string str1 = "Wood: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Wood));
+			std::string str2 = "Iron: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Iron));
+			std::string str3 = "Coal: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Coal));
+			std::string str4 = "Steel: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Steel));
+			std::string str5 = "Swords: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Sword));
 			std::string str6 = "Soldiers: " + std::to_string(focusedAgent->GetBrain()->GetMilitary()->GetSoldierCount());
 			std::string str7 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
 
@@ -471,8 +471,8 @@ void GameLoop::KeyPressed()
 
 	if (renderer->IsKeyDown(SDL_SCANCODE_1))
 	{
-		if (currentPlacingType + 1 >= PathNode::End)
-			currentPlacingType = PathNode::Type(PathNode::Start);
+		if (currentPlacingType + 1 >= PathNode::TypeEnd)
+			currentPlacingType = PathNode::Type(PathNode::TypeStart);
 
 		currentPlacingType = PathNode::Type((int)currentPlacingType + 1);
 
@@ -482,13 +482,33 @@ void GameLoop::KeyPressed()
 
 	if (renderer->IsKeyDown(SDL_SCANCODE_2))
 	{
-		if (currentPlacingType - 1 <= PathNode::Start)
-			currentPlacingType = PathNode::Type(PathNode::End);
+		if (currentPlacingType - 1 <= PathNode::TypeStart)
+			currentPlacingType = PathNode::Type(PathNode::TypeEnd);
 
 		currentPlacingType = PathNode::Type((int)currentPlacingType - 1);
 
 		keyPressCooldown = 0.2f;
 		Logger::Instance().Log(std::string("Lowered placing type to " + std::to_string((int)currentPlacingType) + "\n"));
+	}
+	if (renderer->IsKeyDown(SDL_SCANCODE_3))
+	{
+		if (currentPlacingResourceType + 1 >= PathNode::ResourceEnd)
+			currentPlacingResourceType = PathNode::ResourceType(PathNode::ResourceStart);
+
+		currentPlacingResourceType = PathNode::ResourceType((int)currentPlacingResourceType + 1);
+
+		keyPressCooldown = 0.2f;
+		Logger::Instance().Log(std::string("Upped placing resource type to " + std::to_string((int)currentPlacingResourceType) + "\n"));
+	}
+	if (renderer->IsKeyDown(SDL_SCANCODE_4))
+	{
+		if (currentPlacingResourceType + 1 <= PathNode::ResourceStart)
+			currentPlacingResourceType = PathNode::ResourceType(PathNode::ResourceEnd);
+
+		currentPlacingResourceType = PathNode::ResourceType((int)currentPlacingResourceType - 1);
+
+		keyPressCooldown = 0.2f;
+		Logger::Instance().Log(std::string("Lowered placing resource type to " + std::to_string((int)currentPlacingResourceType) + "\n"));
 	}
 
 }
@@ -501,11 +521,20 @@ void GameLoop::LMBMouseClickAction(Vec2 clickPos)
 		return;
 
 	PathNode::Type placingType = currentPlacingType;
+	PathNode::ResourceType placingResourceType = currentPlacingResourceType;
 	// if the same node is pressed twice, remove the type node instead
 	if (currentPlacingType == node->type)
 		placingType = PathNode::Nothing;
 
+	float resourceAmount = 100.0f;
+	if (currentPlacingResourceType == node->resource)
+	{
+		resourceAmount = 0;
+		placingResourceType = PathNode::None;
+	}
+
 	grid.SetNode(node, placingType);
+	grid.SetNode(node, placingResourceType, resourceAmount);
 }
 
 void GameLoop::RMBMouseClickAction(Vec2 clickPos)

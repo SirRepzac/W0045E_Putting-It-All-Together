@@ -13,7 +13,6 @@ struct KnownNode
 	bool discovered = false;
 	bool walkable = false;   // belief
 	float lastSeenTime = 0;  // optional
-	ResourceType resource = ResourceType::None;
 };
 
 class AIBrain
@@ -30,7 +29,7 @@ public:
 	void SetConstructionPriority(float p);
 
 	// Desires
-	void AddDesire(const std::string& name, TaskType taskType, ResourceType primaryResource, int targetCount, float importance = 1.0f);
+	void AddDesire(const std::string& name, TaskType taskType, ItemType primaryResource, int targetCount, float importance = 1.0f);
 
 	// Expose managers for now (could switch to accessor methods)
 	ResourceManager* GetResources() { return resources.get(); }
@@ -52,7 +51,7 @@ private:
 	void Decay(float deltaTime);
 	void GatherResources(Task& t, float deltaTime);
 	void ManufactureProducts(Task& t, float deltaTime);
-	void AddAcquisitionTask(std::vector<std::pair<ResourceType, float>> lackingResources, float priority);
+	void AddAcquisitionTask(std::vector<std::pair<ItemType, float>> lackingResources, float priority);
 	void LogCurrentTaskList();
 	void FSM(float deltaTime);
 	void CheckDeath();
@@ -78,6 +77,7 @@ private:
 	std::unique_ptr<MilitaryManager> military;
 	std::unique_ptr<TaskAllocator> allocator;
 
+	std::map<ItemType, std::vector<PathNode*>> knownResources;
 
 	int prevTaskId = -1;
 

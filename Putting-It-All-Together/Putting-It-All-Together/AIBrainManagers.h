@@ -6,40 +6,41 @@
 #include "Vec2.h"
 #include "PathNode.h"
 #include <memory>
+#include "Renderer.h"
 
 class AIBrain; // forward
 
 // High-level enums and data structures used by the managers and AIBrain
-enum class ResourceType { Wood, Coal, Iron, Steel, Sword, None };
+enum class ItemType { Wood, Coal, Iron, Steel, Sword, None };
 enum class TaskType { None, Discover, Gather, Build, TrainSoldiers, Manufacture };
 
-static PathNode::Type ResourceToNode(ResourceType resourceType)
+static ItemType ResourceToItem(PathNode::ResourceType resourceType)
 {
 	switch (resourceType)
 	{
-	case (ResourceType::Wood):
-		return PathNode::Type::Wood;
-	case (ResourceType::Coal):
-		return PathNode::Type::Coal;
-	case (ResourceType::Iron):
-		return PathNode::Type::Iron;
+	case (PathNode::ResourceType::Wood):
+		return ItemType::Wood;
+	case (PathNode::ResourceType::Coal):
+		return ItemType::Coal;
+	case (PathNode::ResourceType::Iron):
+		return ItemType::Iron;
 	default:
-		return PathNode::Type::Nothing;
+		return ItemType::None;
 	}
 }
 
-static ResourceType NodeToResource(PathNode::Type nodeType)
+static PathNode::ResourceType ItemToResource(ItemType itemType)
 {
-	switch (nodeType)
+	switch (itemType)
 	{
-	case (PathNode::Type::Wood):
-		return ResourceType::Wood;
-	case (PathNode::Type::Coal):
-		return ResourceType::Coal;
-	case (PathNode::Type::Iron):
-		return ResourceType::Iron;
+	case (ItemType::Wood):
+		return PathNode::ResourceType::Wood;
+	case (ItemType::Coal):
+		return PathNode::ResourceType::Coal;
+	case (ItemType::Iron):
+		return PathNode::ResourceType::Iron;
 	default:
-		return ResourceType::None;
+		return PathNode::ResourceType::None;
 	}
 }
 
@@ -64,43 +65,43 @@ static std::string ToString(TaskType type)
 	}
 }
 
-static std::string ToString(ResourceType type)
+static std::string ToString(ItemType type)
 {
 	switch (type)
 	{
-	case (ResourceType::None):
+	case (ItemType::None):
 		return "nothing";
-	case (ResourceType::Iron):
+	case (ItemType::Iron):
 		return "iron";
-	case (ResourceType::Wood):
+	case (ItemType::Wood):
 		return "wood";
-	case (ResourceType::Coal):
+	case (ItemType::Coal):
 		return "coal";
-	case (ResourceType::Steel):
+	case (ItemType::Steel):
 		return "steel";
-	case (ResourceType::Sword):
+	case (ItemType::Sword):
 		return "sword";
 	default:
 		return "nothing";
 	}
 }
 
-static void ResourceProductionType(const std::vector<std::pair<ResourceType, float>>& lackingResources, 
-	std::vector<std::pair<ResourceType, float>>& gatherResources,
-	std::vector<std::pair<ResourceType, float>>& manufactureResources)
+static void ResourceProductionType(const std::vector<std::pair<ItemType, float>>& lackingResources, 
+	std::vector<std::pair<ItemType, float>>& gatherResources,
+	std::vector<std::pair<ItemType, float>>& manufactureItems)
 {
-	for (std::pair<ResourceType, float> resource : lackingResources)
+	for (std::pair<ItemType, float> resource : lackingResources)
 	{
-		if (resource.first == ResourceType::Wood)
+		if (resource.first == ItemType::Wood)
 			gatherResources.push_back(resource);
-		else if (resource.first == ResourceType::Iron)
+		else if (resource.first == ItemType::Iron)
 			gatherResources.push_back(resource);
-		else if (resource.first == ResourceType::Coal)
+		else if (resource.first == ItemType::Coal)
 			gatherResources.push_back(resource);
-		else if (resource.first == ResourceType::Steel)
-			manufactureResources.push_back(resource);
-		else if (resource.first == ResourceType::Sword)
-			manufactureResources.push_back(resource);
+		else if (resource.first == ItemType::Steel)
+			manufactureItems.push_back(resource);
+		else if (resource.first == ItemType::Sword)
+			manufactureItems.push_back(resource);
 	}
 }
 
@@ -124,7 +125,7 @@ struct Task
 {
 	int id = -1;
 	TaskType type = TaskType::None;
-	std::vector<std::pair<ResourceType, float>> resources;
+	std::vector<std::pair<ItemType, float>> resources;
 	float time = 0;
 	float priority = 0.0f;
 	bool assigned = false;
@@ -157,12 +158,12 @@ class ResourceManager
 public:
 	ResourceManager(AIBrain* owner);
 	void Update(float dt);
-	float Get(ResourceType r) const;
+	float Get(ItemType r) const;
 	Cost Get();
-	void Add(ResourceType r, float amount);
-	bool Request(ResourceType r, float amount);
+	void Add(ItemType r, float amount);
+	bool Request(ItemType r, float amount);
 
-	std::map<ResourceType, float> inventory;
+	std::map<ItemType, float> inventory;
 private:
 	AIBrain* owner;
 };
@@ -172,7 +173,7 @@ class TransportManager
 public:
 	TransportManager(AIBrain* owner);
 	void Update(float dt);
-	void ScheduleTransport(ResourceType r, int amount, const Vec2& from, const Vec2& to);
+	void ScheduleTransport(ItemType r, int amount, const Vec2& from, const Vec2& to);
 
 private:
 	AIBrain* owner;
@@ -197,45 +198,45 @@ static std::string ToString(BuildingType type)
 class Costable
 {
 public:
-	bool CanAfford(Cost availableResources, std::vector<std::pair<ResourceType, float>>& lackingResources, int amountToAfford = 1)
+	bool CanAfford(Cost availableResources, std::vector<std::pair<ItemType, float>>& lackingResources, int amountToAfford = 1)
 	{
 		bool canAfford = true;
 		if (availableResources.coal < cost.coal * amountToAfford)
 		{
-			std::pair<ResourceType, float> r;
-			r.first = ResourceType::Coal;
+			std::pair<ItemType, float> r;
+			r.first = ItemType::Coal;
 			r.second = cost.coal * amountToAfford;
 			lackingResources.push_back(r);
 			canAfford = false;
 		}
 		if (availableResources.iron < cost.iron * amountToAfford)
 		{
-			std::pair<ResourceType, float> r;
-			r.first = ResourceType::Iron;
+			std::pair<ItemType, float> r;
+			r.first = ItemType::Iron;
 			r.second = cost.iron * amountToAfford;
 			lackingResources.push_back(r);
 			canAfford = false;
 		}
 		if (availableResources.wood < cost.wood * amountToAfford)
 		{
-			std::pair<ResourceType, float> r;
-			r.first = ResourceType::Wood;
+			std::pair<ItemType, float> r;
+			r.first = ItemType::Wood;
 			r.second = cost.wood * amountToAfford;
 			lackingResources.push_back(r);
 			canAfford = false;
 		}
 		if (availableResources.steel < cost.steel * amountToAfford)
 		{
-			std::pair<ResourceType, float> r;
-			r.first = ResourceType::Steel;
+			std::pair<ItemType, float> r;
+			r.first = ItemType::Steel;
 			r.second = cost.steel * amountToAfford;
 			lackingResources.push_back(r);
 			canAfford = false;
 		}
 		if (availableResources.sword < cost.sword * amountToAfford)
 		{
-			std::pair<ResourceType, float> r;
-			r.first = ResourceType::Sword;
+			std::pair<ItemType, float> r;
+			r.first = ItemType::Sword;
 			r.second = cost.sword * amountToAfford;
 			lackingResources.push_back(r);
 			canAfford = false;
@@ -245,11 +246,11 @@ public:
 
 	bool RemoveResources(std::unique_ptr<ResourceManager>& resourceManager, int amount = 1)
 	{
-		bool affordCoal = resourceManager->Request(ResourceType::Coal, cost.coal * amount);
-		bool affordIron = resourceManager->Request(ResourceType::Iron, cost.iron * amount);
-		bool affordWood = resourceManager->Request(ResourceType::Wood, cost.wood * amount);
-		bool affordSteel = resourceManager->Request(ResourceType::Steel, cost.steel * amount);
-		bool affordSword = resourceManager->Request(ResourceType::Sword, cost.sword * amount);
+		bool affordCoal = resourceManager->Request(ItemType::Coal, cost.coal * amount);
+		bool affordIron = resourceManager->Request(ItemType::Iron, cost.iron * amount);
+		bool affordWood = resourceManager->Request(ItemType::Wood, cost.wood * amount);
+		bool affordSteel = resourceManager->Request(ItemType::Steel, cost.steel * amount);
+		bool affordSword = resourceManager->Request(ItemType::Sword, cost.sword * amount);
 
 		if (affordCoal && affordIron && affordWood && affordSteel && affordSword)
 			return true;
@@ -365,16 +366,16 @@ class Product : public Costable
 {
 public:
 
-	Product(ResourceType type) : type(type)
+	Product(ItemType type) : type(type)
 	{
-		if (type == ResourceType::Steel)
+		if (type == ItemType::Steel)
 		{
 			Cost steel;
 			steel.coal = 1;
 			steel.iron = 2;
 			cost = steel;
 		}
-		else if (type == ResourceType::Sword)
+		else if (type == ItemType::Sword)
 		{
 			Cost sword;
 			sword.steel = 2;
@@ -383,7 +384,7 @@ public:
 		}
 	}
 private:
-	ResourceType type;
+	ItemType type;
 };
 
 class ManufacturingManager
@@ -396,14 +397,14 @@ public:
 			delete p.second;
 	}
 	void Update(float dt);
-	void QueueManufacture(const ResourceType item, int amount);
-	BuildingType GetBuildingForType(ResourceType type);
-	Product* GetProductTemplate(ResourceType type);
+	void QueueManufacture(const ItemType item, int amount);
+	BuildingType GetBuildingForType(ItemType type);
+	Product* GetProductTemplate(ItemType type);
 
 private:
 	AIBrain* owner;
-	std::map<ResourceType, int> orders;
-	std::map<ResourceType, Product*> productTemplate;
+	std::map<ItemType, int> orders;
+	std::map<ItemType, Product*> productTemplate;
 };
 
 

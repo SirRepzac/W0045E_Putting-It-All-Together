@@ -62,7 +62,7 @@ public:
 	void SetClearance();
 
 	void QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out);
-	void QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, std::vector<PathNode::Type> types = std::vector<PathNode::Type>());
+	void QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, std::vector<PathNode::ResourceType> types = std::vector<PathNode::ResourceType>());
 	void UpdateMovable(Movable* m);
 
 	inline int Index(int x, int y) const
@@ -80,7 +80,9 @@ public:
 		return std::pair<int, int>(row, col);
 	}
 
-	void SetNode(PathNode* node, PathNode::Type type, uint32_t specialColor = 0xFFFFFF);
+	void SetNode(PathNode* node, PathNode::Type type);
+
+	void SetNode(PathNode* node, PathNode::ResourceType type, float resourceAmount = 0);
 
 	PathNode* GetNodeAt(Vec2 pos);
 

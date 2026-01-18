@@ -153,7 +153,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 	return std::vector<PathNode*>();
 }
 
-std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<PathNode::Type> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
+std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<PathNode::ResourceType> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
 	std::unordered_map<PathNode*, NodeRecord> records;
 
@@ -191,7 +191,7 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 
 		// Found goal OR acceptable neighbor of goal
 		// Case 1: current node itself is the goal and reachable
-		if (isDesiredType(current) && current->hitpoints > 0)
+		if (isDesiredType(current) && current->resourceAmount > 0)
 		{
 			outDist = records.at(current).gCost;
 			return ReconstructPath(records, current);
@@ -200,7 +200,7 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 		// Case 2: current is a reachable proxy next to a goal
 		for (PathNode* n : current->neighbors)
 		{
-			if (!isDesiredType(n) || n->hitpoints <= 0)
+			if (!isDesiredType(n) || n->resourceAmount <= 0)
 				continue;
 
 			// We intentionally DO NOT check clearance on the goal node
@@ -282,7 +282,7 @@ std::vector<PathNode*> AStar::RequestPath(PathNode* startNode, PathNode* endNode
 	return FindPath(startNode, endNode, outDist, agentRadius, canTraverse);
 }
 
-std::vector<PathNode*> AStar::RequestClosestPath(PathNode* startNode, std::vector<PathNode::Type> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
+std::vector<PathNode*> AStar::RequestClosestPath(PathNode* startNode, std::vector<PathNode::ResourceType> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
 	return FindClosestPath(startNode, endTypes, outDist, agentRadius, canTraverse);
 }
