@@ -9,6 +9,8 @@
 #include <filesystem>
 #include "AIBrainManagers.h"
 
+// TODO:
+// fix saving/loading of everything 
 
 struct DataPoint
 {
@@ -143,6 +145,8 @@ void GameLoop::InitializeGame()
 	grid.SetClearance();
 	resourceOverlay.position = (Vec2(WORLD_WIDTH, 0));
 	renderer->AddOverlay(&resourceOverlay);
+	debugOverlay.position = (Vec2(0, 0));
+	renderer->AddOverlay(&debugOverlay);
 }
 
 void GameLoop::SaveData()
@@ -363,8 +367,7 @@ void GameLoop::UpdateRenderer()
 
 	if (focusedAgent)
 	{
-		if (focusedAgent)
-		{
+
 			std::string str1 = "Wood: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Wood));
 			std::string str2 = "Iron: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Iron));
 			std::string str3 = "Coal: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Coal));
@@ -384,7 +387,19 @@ void GameLoop::UpdateRenderer()
 			};
 
 			renderer->SetOverlayLines(resourceOverlay, overlay);
-		}
+		
+	}
+
+	{
+		std::string str1 = "Placing surface: " + ToString(currentPlacingType);
+		std::string str2 = "Placing resource: " + ToString(currentPlacingResourceType);
+
+		std::vector<std::string> overlay = {
+			str1,
+			str2
+		};
+
+		renderer->SetOverlayLines(debugOverlay, overlay);
 	}
 
 	if (renderer)
@@ -451,6 +466,13 @@ void GameLoop::KeyPressed()
 		gameSpeed = (gameSpeed == 0.0f ? 1.0f : 0.0f);
 		keyPressCooldown = 0.2f;
 		Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
+	}
+
+	if (renderer->IsKeyDown(SDL_SCANCODE_TAB))
+	{
+		placingResource = !placingResource;
+		keyPressCooldown = 0.2f;
+		Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(placingResource) + "\n");
 	}
 
 	if (renderer->IsKeyDown(SDL_SCANCODE_UP))
@@ -533,8 +555,10 @@ void GameLoop::LMBMouseClickAction(Vec2 clickPos)
 		placingResourceType = PathNode::None;
 	}
 
-	grid.SetNode(node, placingType);
-	grid.SetNode(node, placingResourceType, resourceAmount);
+	if (placingResource)
+		grid.SetNode(node, placingResourceType, resourceAmount);
+	else
+		grid.SetNode(node, placingType);
 }
 
 void GameLoop::RMBMouseClickAction(Vec2 clickPos)

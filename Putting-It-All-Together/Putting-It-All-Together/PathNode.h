@@ -7,27 +7,27 @@ class PathNode
 {
 public:
 	// Types of special nodes
-enum Type
-{
-	Nothing = -1,
-	TypeStart = 0,
-	Grass,
-	Rock,
-	Water,
-	Swamp,
-	TypeEnd,
-};
+	enum Type
+	{
+		Nothing = -1,
+		TypeStart = 0,
+		Grass,
+		Rock,
+		Water,
+		Swamp,
+		TypeEnd,
+	};
 
-enum ResourceType
-{
-	None = -1,
-	ResourceStart = 0,
-	Wood,
-	Coal,
-	Iron,
-	ResourceEnd,
-	Building
-};
+	enum ResourceType
+	{
+		None = -1,
+		ResourceStart = 0,
+		Wood,
+		Coal,
+		Iron,
+		ResourceEnd,
+		Building
+	};
 
 
 	// Constructor
@@ -70,6 +70,38 @@ struct NodeRecord
 	PathNode* parent = nullptr;
 };
 
+static std::string ToString(PathNode::Type type)
+{
+	if (type == PathNode::Nothing)
+		return "nothing";
+	if (type == PathNode::Grass)
+		return "grass";
+	if (type == PathNode::Water)
+		return "water";
+	else if (type == PathNode::Swamp)
+		return "swamp";
+	else if (type == PathNode::Rock)
+		return "rock";
+	else
+		return "";
+}
+
+static std::string ToString(PathNode::ResourceType type)
+{
+	if (type == PathNode::None)
+		return "none";
+	if (type == PathNode::Wood)
+		return "wood";
+	if (type == PathNode::Iron)
+		return "iron";
+	else if (type == PathNode::Coal)
+		return "coal";
+	else if (type == PathNode::Building)
+		return "building";
+	else
+		return "";
+}
+
 static uint32_t NodeColor(PathNode::Type type)
 {
 	if (type == PathNode::Nothing)
@@ -82,7 +114,7 @@ static uint32_t NodeColor(PathNode::Type type)
 		return 0x003917; // dark green
 	else if (type == PathNode::Rock)
 		return 0x575757; // dark gray
-	else 
+	else
 		return 0xFFFFFF; // white
 }
 

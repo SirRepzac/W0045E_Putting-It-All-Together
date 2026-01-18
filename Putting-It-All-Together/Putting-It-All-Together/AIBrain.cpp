@@ -75,12 +75,13 @@ void AIBrain::UpdateDiscovered()
 	double gameTime = GameLoop::Instance().GetGameTime();
 
 	std::vector<PathNode*> visible;
-	float visionRadius = ownerAI->GetRadius() * 5;
 
-	if (grid.GetNodeAt(ownerAI->GetPosition())->IsObstacle())
+	PathNode* currentNode = grid.GetNodeAt(ownerAI->GetPosition());
+
+	if (currentNode->IsObstacle())
 		return;
 
-	grid.QueryNodes(ownerAI->GetPosition(), visionRadius, visible);
+	visible = currentNode->neighbors;
 
 	for (PathNode* node : visible)
 	{

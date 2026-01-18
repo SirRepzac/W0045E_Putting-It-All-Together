@@ -75,6 +75,8 @@ private:
 	PathNode::Type currentPlacingType = PathNode::Rock;
 	PathNode::ResourceType currentPlacingResourceType = PathNode::None;
 
+	bool placingResource = false;
+
 	float gameSpeed = 1.0f;
 
 	std::vector<Renderer::Entity> debugEnts;
@@ -95,5 +97,6 @@ private:
 
 	// top right
 	Renderer::Overlay resourceOverlay;
+	Renderer::Overlay debugOverlay;
 
 };
