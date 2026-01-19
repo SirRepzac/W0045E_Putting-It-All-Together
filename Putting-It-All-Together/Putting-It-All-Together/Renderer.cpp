@@ -134,9 +134,9 @@ bool Renderer::IfMouseClickScreen(MouseClick click, int& x, int& y)
 
 	Uint32 flags = SDL_GetMouseState(&sx, &sy);
 
-	if (!(flags & SDL_BUTTON_LEFT) && click == MouseClick::Left)
+	if (!(flags & SDL_BUTTON_MASK(SDL_BUTTON_LEFT)) && click == MouseClick::Left)
 		return false;
-	if (!(flags & SDL_BUTTON_RIGHT) && click == MouseClick::Right)
+	if (!(flags & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT)) && click == MouseClick::Right)
 		return false;
 
 	// Convert client px -> world coords using same scale as OnPaint
@@ -411,7 +411,6 @@ void Renderer::UpdateDirtyNodes(const AIBrain* brain)
 		DrawNode& node = nodeCache[i];
 		auto indexPair = grid.TwoDIndex(i);
 		PathNode& gridNode = grid.GetNodes()[indexPair.first][indexPair.second];
-
 
 		if (brain == nullptr || (brain->IsDiscovered(i) && game.USE_FOG_OF_WAR))
 		{

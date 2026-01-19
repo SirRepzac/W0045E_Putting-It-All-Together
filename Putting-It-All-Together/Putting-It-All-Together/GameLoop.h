@@ -32,8 +32,6 @@ public:
 	// Runs a loop that invokes perFrame(deltaSeconds) each frame (if provided).
 	void RunGameLoop(double durationSeconds = -1.0, unsigned int fps = 60, std::function<void(float)> perFrame = nullptr);
 	void InitializeGame();
-	void SaveData();
-	void LoadGameData();
 	void UpdateGameLoop(float delta, double timePassed);
 
 	void AddDebugEntity(Vec2 pos, uint32_t color = Renderer::Color(200, 0, 0)/*red*/, int radius = 1, bool filled = true);
@@ -87,9 +85,6 @@ private:
 
 	std::vector<GameAI*> aiList;
 	std::vector<GameAI*> deathRow;
-
-	std::string dataPath = "Data";
-	std::string positionPath = "wall_positions.data";
 
 	double currentFPS = 0.0;
 

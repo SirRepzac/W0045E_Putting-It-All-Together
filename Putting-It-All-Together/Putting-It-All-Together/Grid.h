@@ -14,6 +14,7 @@ public:
 	// height - how high the grid is
 	// cellsize - the diameter of each cell
 	Grid(int width, int height, int cellSize, Vec2 gridSize = {0, 0});
+	Grid(int width, int height, int colAmount, std::string map);
 
 	~Grid()
 	{
@@ -24,15 +25,10 @@ public:
 		//		delete specialNode;
 		//	}
 		//}
-		nodeLocations.clear();
+		//nodeLocations.clear();
 	}
 
 	bool WorldToGrid(const Vec2& pos, int& row, int& col) const;
-	
-	// Draw the outlines of the grid
-	// --------------------------
-	// color - the color of the lines
-	void DrawGridLines();
 
 	// Get the amount of rows in the grid
 	// --------------------------
@@ -97,7 +93,6 @@ private:
 	int cols;
 	std::vector<std::vector<PathNode>> nodes;
 	std::vector<std::vector<Movable*>> movableLocations;
-	std::vector<PathNode*> nodeLocations;
 
 	// Set all neighbors for all nodes
 	// --------------------------
@@ -112,4 +107,6 @@ private:
 	// --------------------------
 	// returns the center position of the node
 	Vec2 GetCellCenter(int row, int col);
+
+	Vec2 offsetVector;
 };

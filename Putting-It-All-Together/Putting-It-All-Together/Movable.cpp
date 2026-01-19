@@ -47,7 +47,12 @@ void Movable::Move(Vec2 dir, float acc, float deltaTime)
 		velocity = Vec2(0.0f, 0.0f);
 
 	// 5. Move
-	position += velocity * deltaTime * SurfaceSpeed(GameLoop::Instance().GetGrid().GetNodeAt(position)->type);
+	PathNode* myNode = GameLoop::Instance().GetGrid().GetNodeAt(position);
+
+	if (!myNode)
+		return;
+
+	position += velocity * deltaTime * SurfaceSpeed(myNode->type);
 
 	velocity += pushforce;
 
@@ -56,7 +61,7 @@ void Movable::Move(Vec2 dir, float acc, float deltaTime)
 
 	// Agent collisions
 	std::vector<Movable*> movables;
-	grid.QueryEnt(position, radius * 2, movables);
+	grid.QueryEnt(position, grid.cellSize, movables);
 
 	for (Movable* m : movables)
 	{
@@ -89,13 +94,15 @@ void Movable::Move(Vec2 dir, float acc, float deltaTime)
 
 	// Wall collisions
 	std::vector<PathNode*> obstacles;
-	grid.QueryNodes(position, radius, obstacles);
+	grid.QueryNodes(position, grid.cellSize, obstacles);
+
 
 	Vec2 combinedNormal(0, 0);
 	float maxPenetration = 0;
 
 	for (const PathNode* o : obstacles)
 	{
+		GameLoop::Instance().AddDebugEntity(o->position, 10);
 		if (!o->IsObstacle())
 			continue;
 

@@ -143,7 +143,6 @@
     <ClCompile Include="random.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Vec2.cpp" />
-    <ClCompile Include="WorldGen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AIBrain.h" />
@@ -162,7 +161,6 @@
     <ClInclude Include="random.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Vec2.h" />
-    <ClInclude Include="WorldGen.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -9,37 +9,32 @@
 #include <filesystem>
 #include "AIBrainManagers.h"
 
-// TODO:
-// fix saving/loading of everything 
-
-struct DataPoint
+static std::string LoadDataFile(const std::string& filename)
 {
-	DataPoint(float x, float y, PathNode::Type type) : x(x), y(y), type(type) {}
-	float x;
-	float y;
-	PathNode::Type type;
-};
-
-static std::vector<DataPoint> LoadDataFile(const std::string& filename)
-{
-	std::vector<DataPoint> result;
+	std::string result;
 	std::ifstream file(filename);
 	if (!file) return result;
 
-	std::string line;
-	while (std::getline(file, line))
+	char c;
+	while (file.get(c))
 	{
-		if (line.empty()) continue;
-		std::istringstream iss (line);
-		int typeInt;
-		float x, y;
-		if (iss >> typeInt >> x >> y)
-		{
-			result.push_back({ x, y, static_cast<PathNode::Type>(typeInt) });
-		}
+		if (c == ' ' || c == '\n') continue;
+		result += c;
 	}
 
+	file.close();
+
 	return result;
+}
+
+static std::string LoadMap()
+{ 
+	std::string dataPath = "Map";
+	std::string mapPath = "map.txt";
+	// Ensure directory exists (create if missing) 
+	std::error_code ec; std::filesystem::create_directories(dataPath, ec); // create if needed
+	std::string fileName = dataPath + "/" + mapPath;
+	return LoadDataFile(fileName);
 }
 
 void GameLoop::RefreshScreen()
@@ -53,7 +48,7 @@ void GameLoop::RefreshScreen()
 	}
 }
 
-GameLoop::GameLoop() : grid(WORLD_WIDTH, WORLD_HEIGHT, 0, Vec2(100, 100))
+GameLoop::GameLoop() : grid(WORLD_WIDTH, WORLD_HEIGHT, 100, LoadMap())
 {
 	Movable::baseRadius = grid.cellSize / 5;
 
@@ -140,56 +135,11 @@ void GameLoop::InitializeGame()
 		}
 	}
 
-	LoadGameData();
-
 	grid.SetClearance();
 	resourceOverlay.position = (Vec2(WORLD_WIDTH, 0));
 	renderer->AddOverlay(&resourceOverlay);
 	debugOverlay.position = (Vec2(0, 0));
 	renderer->AddOverlay(&debugOverlay);
-}
-
-void GameLoop::SaveData()
-{
-	// Ensure directory exists
-	std::error_code ec;
-	std::filesystem::create_directories(dataPath, ec);
-
-	std::string runName = dataPath + "/" + positionPath;
-	std::ofstream s(runName, std::ios::out | std::ios::trunc);
-	if (!s) return;
-
-	s.setf(std::ios::fixed);
-	s << std::setprecision(6);
-
-	auto& nodes = grid.GetNodes();
-	int rows = grid.GetRows();
-	int cols = grid.GetCols();
-
-	// Write one node per line: "<type> <x> <y>\n"
-	for (int r = 0; r < rows; ++r)
-	{
-		for (int c = 0; c < cols; ++c)
-		{
-			PathNode& n = nodes[r][c];
-			if (n.type <= PathNode::TypeStart || n.type >= PathNode::TypeEnd) continue;
-			s << static_cast<int>(n.type) << " " << n.position.x << " " << n.position.y << "\n";
-		}
-	}
-
-	s.flush();
-	s.close();
-}
-
-void GameLoop::LoadGameData()
-{ // Ensure directory exists (create if missing) 
-	std::error_code ec; std::filesystem::create_directories(dataPath, ec); // create if needed
-	std::string fileName = dataPath + "/" + positionPath;
-	std::vector<DataPoint> dataPoints = LoadDataFile(fileName);
-	for (const DataPoint& p : dataPoints)
-	{
-		grid.SetNode(grid.GetNodeAt({ p.x, p.y }), p.type);
-	}
 }
 
 void GameLoop::CreateAI(int count)
@@ -243,9 +193,6 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 		secondsd delta = frameStart - lastFrameStart;
 		lastFrameStart = frameStart;
 
-		if (frameAmount % 300 == 299)
-			SaveData();
-
 		float dt = static_cast<float>(delta.count());
 
 		currentFPS = 1 / delta.count();
@@ -279,7 +226,6 @@ void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::functi
 		}
 	}
 
-	SaveData();
 	Logger::Instance().Log("Shutdown \n");
 }
 
@@ -307,8 +253,6 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 	{
 		m->Update(delta);
 	}
-
-	grid.DrawGridLines();
 
 	if (focusedAgent)
 	{
@@ -429,10 +373,20 @@ void GameLoop::MouseClickAction()
 
 	if (renderer->IfMouseClickScreen(Renderer::MouseClick::Right, x, y))
 	{
+		Vec2 clickPos = Vec2(x, y);
+		PathNode* clicked = grid.GetNodeAt(clickPos);
+		if (clicked)
+			Logger::Instance().Log(std::string("RMB click at: ") + clickPos.ToString() + " (Node: " + clicked->position.ToString() + ")\n");
+
 		RMBMouseClickAction(Vec2(x, y));
 	}
 	if (renderer->IfMouseClickScreen(Renderer::MouseClick::Left, x, y))
 	{
+		Vec2 clickPos = Vec2(x, y);
+		PathNode* clicked = grid.GetNodeAt(clickPos);
+		if (clicked)
+			Logger::Instance().Log(std::string("LMB click at: ") + clickPos.ToString() + " (Node: " + clicked->position.ToString() + ")\n");
+	
 		LMBMouseClickAction(Vec2(x, y));
 	}
 }

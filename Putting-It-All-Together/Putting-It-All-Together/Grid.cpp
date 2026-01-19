@@ -32,7 +32,6 @@ Grid::Grid(int width, int height, int inputCellSize, Vec2 gridSize)
 
 	nodes.assign(rows, std::vector<PathNode>(cols));
 	movableLocations.resize(cols * rows);
-	nodeLocations.resize(cols * rows);
 
 	for (int r = 0; r < rows; r++)
 	{
@@ -41,7 +40,76 @@ Grid::Grid(int width, int height, int inputCellSize, Vec2 gridSize)
 			nodes[r][c].position = GetCellCenter(r, c);
 			nodes[r][c].id = nodeIds++;
 			nodes[r][c].size = cellSize / 2;
-			nodeLocations[Index(c, r)] = &nodes[r][c];
+		}
+	}
+
+	SetNeighbors(rows, cols);
+	SetClearance();
+}
+
+Grid::Grid(int width, int height, int colAmount, std::string map)
+{
+	cols = colAmount;
+	rows = map.size() / colAmount;
+	if (map.size() % colAmount != 0)
+		rows++;
+
+	this->width = width;
+	this->height = height;
+
+	//std::reverse(map.begin(), map.end());
+
+	cellSize = std::min<float>((float)height / (float)rows, (float)width / (float)cols);
+
+	float actualGridWidth = cols * cellSize;
+	float actualGridHeight = rows * cellSize;
+
+	float offsetX = (width - actualGridWidth) * 0.5f;
+	float offsetY = (height - actualGridHeight) * 0.5f;
+
+	offsetVector = { offsetX, offsetY };
+
+	int nodeIds = 0;
+
+	if (rows <= 0 || cols <= 0 || cellSize <= 0) return;
+
+	nodes.assign(rows, std::vector<PathNode>(cols));
+	movableLocations.resize(cols * rows);
+
+	for (int r = 0; r < rows; r++)
+	{
+		for (int c = 0; c < cols; c++)
+		{
+			nodes[r][c].position = GetCellCenter(r, c);
+			nodes[r][c].id = nodeIds++;
+			nodes[r][c].size = cellSize / 2;
+
+			int currIdx = Index(c, r);
+			if (currIdx < map.size())
+			{
+				if (map[currIdx] == 'M')
+				{
+					nodes[r][c].type = PathNode::Grass;
+				}
+				else if (map[currIdx] == 'T')
+				{
+					nodes[r][c].type = PathNode::Grass;
+					nodes[r][c].resource = PathNode::Wood;
+					nodes[r][c].resourceAmount = 5.0f;
+				}
+				else if (map[currIdx] == 'V')
+				{
+					nodes[r][c].type = PathNode::Water;
+				}
+				else if (map[currIdx] == 'G')
+				{
+					nodes[r][c].type = PathNode::Swamp;
+				}
+				else if (map[currIdx] == 'B')
+				{
+					nodes[r][c].type = PathNode::Rock;
+				}
+			}
 		}
 	}
 
@@ -119,13 +187,7 @@ void Grid::SetClearance()
 
 bool Grid::WorldToGrid(const Vec2& pos, int& row, int& col) const
 {
-	float realWidth = cols * cellSize;
-	float realHeight = rows * cellSize;
-
-	Vec2 centering((width - realWidth) / 2.0f,
-		(height - realHeight) / 2.0f);
-
-	Vec2 adjusted = pos - centering;
+	Vec2 adjusted = pos - offsetVector;
 
 	col = static_cast<int>(std::floor(adjusted.x / cellSize));
 	row = static_cast<int>(std::floor(adjusted.y / cellSize));
@@ -145,7 +207,7 @@ void Grid::SetNode(PathNode* node, PathNode::Type type)
 
 	int index = Index(col, row);
 
-	PathNode* baseNode = nodeLocations[index];
+	PathNode* baseNode = &nodes.at(row).at(col);
 
 	node->type = type;
 	GameLoop::Instance().renderer->MarkNodeDirty(index);
@@ -161,9 +223,9 @@ void Grid::SetNode(PathNode* node, PathNode::ResourceType type, float resourceAm
 
 	WorldToGrid(node->position, row, col);
 
-	int index = Index(col, row);
+	PathNode* baseNode = &nodes.at(row).at(col);
 
-	PathNode* baseNode = nodeLocations[index];
+	int index = Index(col, row);
 
 	node->resource = type;
 	node->resourceAmount = resourceAmount;
@@ -320,86 +382,33 @@ void Grid::SetNeighbors(int rows, int cols)
 	}
 }
 
-void Grid::DrawGridLines()
-{
-
-	if (!GameLoop::Instance().DEBUG_MODE)
-		return;
-
-	uint32_t lineColor = Renderer::Black;
-
-	for (auto row : nodes)
-	{
-		for (auto node : row)
-		{
-			Vec2 pos = node.position;
-			float left = pos.x - cellSize / 2;
-			float bottom = pos.y + cellSize / 2;
-			float right = pos.x + cellSize / 2;
-			float top = pos.y - cellSize / 2;
-			auto e = Renderer::Entity::MakeRect(left, bottom, right, top, lineColor, false, 2);
-			GameLoop::Instance().AddDebugEntity(e);
-		}
-	}
-
-	//float realWidth = cols * cellSize;
-	//float realHeight = rows * cellSize;
-
-	//Vec2 centeringVec = Vec2((width - realWidth) / 2.0f, (height - realHeight) / 2.0f);
-
-	//for (int i = 0; i <= rows; i++)
-	//{
-	//	Vec2 vec1 = Vec2(0.0f, static_cast<float>(i * cellSize)) + centeringVec;
-	//	Vec2 vec2 = Vec2(realWidth, static_cast<float>(i * cellSize)) + centeringVec;
-
-	//	auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
-	//	GameLoop::Instance().AddDebugEntity(e);
-	//}
-	//for (int j = 0; j <= cols; j++)
-	//{
-	//	Vec2 vec1 = Vec2(static_cast<float>(j * cellSize), 0.0f) + centeringVec;
-	//	Vec2 vec2 = Vec2(static_cast<float>(j * cellSize), realHeight) + centeringVec;
-
-	//	auto e = Renderer::Entity::MakeLine(vec1.x, vec1.y, vec2.x, vec2.y, 2.0f, lineColor);
-	//	GameLoop::Instance().AddDebugEntity(e);
-	//}
-}
-
 std::vector<float> Grid::GetGlobalGridPosition()
 {
 	float realWidth = cols * cellSize;
 	float realHeight = rows * cellSize;
 
-	Vec2 centeringVec = Vec2((width - realWidth) / 2.0f, (height - realHeight) / 2.0f);
-
-	float bottom = centeringVec.y;
-	float top = realHeight + centeringVec.y;
-	float left = centeringVec.x;
-	float right = realWidth + centeringVec.x;
+	float bottom = offsetVector.y;
+	float top = realHeight + offsetVector.y;
+	float left = offsetVector.x;
+	float right = realWidth + offsetVector.x;
 
 	return std::vector<float>{left, bottom, right, top};
 }
 
 Vec2 Grid::GetCellCenter(int row, int col)
 {
-	float actualGridWidth = cols * cellSize;
-	float actualGridHeight = rows * cellSize;
-
-	float offsetX = (width - actualGridWidth) * 0.5f;
-	float offsetY = (height - actualGridHeight) * 0.5f;
-
-	float x = offsetX + (col + 0.5f) * cellSize;
-	float y = offsetY + (row + 0.5f) * cellSize;
+	float x = offsetVector.x + (col + 0.5f) * cellSize;
+	float y = offsetVector.y + (row + 0.5f) * cellSize;
 
 	return Vec2(x, y);
 }
 
 void Grid::QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out)
 {
-	int minX = (int)((pos.x - radius) / cellSize);
-	int maxX = (int)((pos.x + radius) / cellSize);
-	int minY = (int)((pos.y - radius) / cellSize);
-	int maxY = (int)((pos.y + radius) / cellSize);
+	int minX = (int)((pos.x - offsetVector.x - radius) / cellSize);
+	int maxX = (int)((pos.x - offsetVector.x + radius) / cellSize);
+	int minY = (int)((pos.y - offsetVector.y - radius) / cellSize);
+	int maxY = (int)((pos.y - offsetVector.y + radius) / cellSize);
 
 	for (int cy = minY; cy <= maxY; ++cy)
 		for (int cx = minX; cx <= maxX; ++cx)
@@ -416,10 +425,10 @@ void Grid::QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out)
 // given an unspecified type, it will return all nodes
 void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, std::vector<PathNode::ResourceType> types)
 {
-	int minX = (int)((pos.x - radius) / cellSize);
-	int maxX = (int)((pos.x + radius) / cellSize);
-	int minY = (int)((pos.y - radius) / cellSize);
-	int maxY = (int)((pos.y + radius) / cellSize);
+	int minX = (int)((pos.x - offsetVector.x - radius) / cellSize);
+	int maxX = (int)((pos.x - offsetVector.x + radius) / cellSize);
+	int minY = (int)((pos.y - offsetVector.y - radius) / cellSize);
+	int maxY = (int)((pos.y - offsetVector.y + radius) / cellSize);
 
 	for (int cy = minY; cy <= maxY; ++cy)
 		for (int cx = minX; cx <= maxX; ++cx)
@@ -427,10 +436,11 @@ void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out
 			if (cx < 0 || cy < 0 || cx >= cols || cy >= rows)
 				continue;
 
-			auto loc = nodeLocations[Index(cx, cy)];
+			PathNode* loc = &nodes.at(cy).at(cx);
 
 			if (loc == nullptr) 
 				continue;
+
 			if (!types.empty())
 			{
 				bool add = false;
@@ -476,5 +486,4 @@ void Grid::UpdateMovable(Movable* m)
 
 	m->cellX = newX;
 	m->cellY = newY;
-
 }
