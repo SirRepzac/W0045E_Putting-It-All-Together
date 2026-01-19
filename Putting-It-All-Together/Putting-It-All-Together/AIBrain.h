@@ -65,9 +65,12 @@ class AIBrain
 								int c;
 								grid.WorldToGrid(node->position, r, c);
 								GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
+								
 							}
-
-							busy = false;
+							bool valid = true;
+							ai->GoTo(currentTask->building->targetNode, valid);
+							currentTask->type = TaskType::Transport;
+							//busy = false;
 						}
 						else
 						{
@@ -89,10 +92,14 @@ class AIBrain
 						{
 							holding = ItemType::None;
 						}
+
+						currentTask->completed = true;
+						busy = false;
+						currentTask = nullptr;
 					}
 					else
 					{
-						ai->GoTo(currentTask->building->targetNode);
+						//ai->GoTo(currentTask->building->targetNode);
 					}
 				}
 			}
