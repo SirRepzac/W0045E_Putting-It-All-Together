@@ -23,7 +23,6 @@ public:
 		None = -1,
 		ResourceStart = 0,
 		Wood,
-		Coal,
 		Iron,
 		ResourceEnd,
 		Building
@@ -94,8 +93,6 @@ static std::string ToString(PathNode::ResourceType type)
 		return "wood";
 	if (type == PathNode::Iron)
 		return "iron";
-	else if (type == PathNode::Coal)
-		return "coal";
 	else if (type == PathNode::Building)
 		return "building";
 	else
@@ -122,8 +119,6 @@ static uint32_t ResourceColor(PathNode::ResourceType type)
 {
 	if (type == PathNode::Wood)
 		return 0x5E3500; // brown
-	else if (type == PathNode::Coal)
-		return 0x000000; // black
 	else if (type == PathNode::Iron)
 		return 0xC0C0C0; // silver
 	else

@@ -91,7 +91,7 @@ bool GameAI::CanUseNode(const PathNode* node) const
 	return k->walkable;
 }
 
-bool GameAI::CanGoTo(PathNode* destination)
+bool GameAI::CanGoTo(PathNode* destination, float& dist)
 {
 	if (!destination)
 		return false;
@@ -105,6 +105,7 @@ bool GameAI::CanGoTo(PathNode* destination)
 	auto filter = [this](const PathNode* node) { return CanUseNode(node); };
 
 	path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter);
+	dist = pathDist;
 
 	if (path.empty())
 	{

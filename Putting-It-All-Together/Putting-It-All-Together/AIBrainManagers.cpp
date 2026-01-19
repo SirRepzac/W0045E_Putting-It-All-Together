@@ -6,6 +6,88 @@
 #include "GameLoop.h"
 #include "GameAI.h"
 
+
+// TaskAllocator
+TaskAllocator::TaskAllocator(AIBrain* owner) : owner(owner) {}
+int TaskAllocator::AddTask(const Task& t)
+{
+	Task copy = t; 
+	copy.id = nextId++; 
+	tasks[t.type].push_back(copy); 
+	return copy.id;
+}
+
+void TaskAllocator::Update(float dt)
+{
+	for (std::vector<Task>::iterator it = currentTasks.begin(); it != currentTasks.end();)
+	{
+		if (it->completed)
+			it = currentTasks.erase(it);
+		else
+			it++;
+	}
+}
+
+Task* TaskAllocator::GetNext(TaskType type)
+{
+	// If there are no tasks, return nullptr
+	if (tasks[type].empty())
+		return nullptr;
+
+	// Find iterator to the highest-priority task
+	auto it = std::max_element(tasks[type].begin(), tasks[type].end(), [](const Task& a, const Task& b)
+		{
+			return a.priority < b.priority;
+		});
+
+	if (it == tasks[type].end())
+		return nullptr;
+
+	currentTasks.push_back(*it);
+	Task* returnTask = &currentTasks.back();
+	it = tasks[type].erase(it);
+
+	return returnTask;
+}
+
+Task* TaskAllocator::GetNext(TaskType type, ItemType item)
+{
+	// If there are no tasks, return nullptr
+	if (tasks[type].empty())
+		return nullptr;
+
+	float highestPriority = -1.0f;
+	Task* highestTask = nullptr;
+
+	std::vector<Task>::iterator it;
+
+	for (it = tasks[type].begin(); it != tasks[type].end(); it++)
+	{
+		bool hasItem = false;
+		for (auto a : it->resources)
+		{
+			if (a.first == item)
+			{
+				hasItem = true;
+				break;
+			}
+		}
+		if (hasItem)
+			break;
+
+		it++;
+	}
+
+	if (it == tasks[type].end())
+		return nullptr;
+
+	currentTasks.push_back(*it);
+	Task* returnTask = &currentTasks.back();
+	it = tasks[type].erase(it);
+
+	return returnTask;
+}
+
 // ResourceManager
 ResourceManager::ResourceManager(AIBrain* owner) : owner(owner) {}
 void ResourceManager::Update(float dt)
@@ -145,6 +227,33 @@ void BuildManager::QueueBuilding(BuildingType type, PathNode* node)
 	queue.push_back(building);
 }
 
+void Building::PlaceBuilding()
+{
+	if (!targetNode)
+		return;
+
+	Grid& grid = GameLoop::Instance().GetGrid();
+	grid.SetNode(targetNode, PathNode::ResourceType::Building, 1);
+}
+
+void Building::RemoveBuilding()
+{
+	if (!targetNode)
+		return;
+
+	Grid& grid = GameLoop::Instance().GetGrid();
+	grid.SetNode(targetNode, PathNode::ResourceType::None);
+}
+
+bool Building::AddResource(ItemType resource)
+{
+	if (cost.NeedsResource(resource))
+	{
+		return true;
+	}
+	else return false;
+}
+
 // ManufacturingManager
 ManufacturingManager::ManufacturingManager(AIBrain* owner) : owner(owner) 
 {
@@ -175,7 +284,7 @@ BuildingType ManufacturingManager::GetBuildingForType(ItemType type)
 	if (type == ItemType::Iron_Bar)
 		return BuildingType::Smelter;
 	else if (type == ItemType::Sword)
-		return BuildingType::Armsmith;
+		return BuildingType::Forge;
 	else if (type == ItemType::Coal)
 		return BuildingType::Coal_Mine;
 	else
@@ -212,9 +321,9 @@ void PopulationManager::Update(float dt)
 			}
 		}
 }
-void PopulationManager::TrainUnit(PopulationType type, GameAI* unit)
+void PopulationManager::TrainUnit(PopulationType type, Agent* unit)
 {
-	trainingQueue.push_back(std::pair<GameAI*, float>(unit, unitTemplates[type]->productionTime));
+	trainingQueue.push_back(std::pair<Agent*, float>(unit, unitTemplates[type]->productionTime));
 }
 
 
@@ -226,71 +335,4 @@ PopulationUpgrade* PopulationManager::GetTemplate(PopulationType type)
 	Logger::Instance().Log("Failed to get soldier template \n");
 	std::cout << "failed to get soldier template" << std::endl;
 	return nullptr;
-}
-
-// TaskAllocator
-TaskAllocator::TaskAllocator(AIBrain* owner) : owner(owner) {}
-int TaskAllocator::AddTask(const Task& t)
-{
-	Task copy = t; copy.id = nextId++; tasks.push_back(copy); return copy.id;
-
-	Logger::Instance().Log("Task List: \n");
-	for (Task ttt : tasks)
-	{
-		Logger::Instance().Log(ToString(ttt.type) + " task id : " + std::to_string(ttt.id) + " priority = " + std::to_string(ttt.priority));
-	}
-}
-
-void TaskAllocator::Update(float dt)
-{
-	(void)dt;
-}
-bool TaskAllocator::HasPending() const
-{
-	return !tasks.empty();
-}
-
-Task* TaskAllocator::GetNext()
-{
-	// If there are no tasks, return nullptr
-	if (tasks.empty())
-		return nullptr;
-
-	// Find iterator to the highest-priority task
-	auto it = std::max_element(tasks.begin(), tasks.end(), [](const Task& a, const Task& b)
-		{
-			return a.priority < b.priority;
-		});
-
-	if (it == tasks.end())
-		return nullptr;
-
-	// Mark the actual task stored in the vector as assigned
-	it->assigned = true;
-
-	// Return pointer to the actual Task so caller can edit it in-place
-	return &(*it);
-}
-
-void TaskAllocator::RemoveTask(int id)
-{
-	tasks.erase(std::remove_if(tasks.begin(), tasks.end(), [id](const Task& t) { return t.id == id; }), tasks.end());
-}
-
-void Building::PlaceBuilding()
-{
-	if (!targetNode)
-		return;
-
-	Grid& grid = GameLoop::Instance().GetGrid();
-	grid.SetNode(targetNode, PathNode::ResourceType::Building, 1);
-}
-
-void Building::RemoveBuilding()
-{
-	if (!targetNode)
-		return;
-
-	Grid& grid = GameLoop::Instance().GetGrid();
-	grid.SetNode(targetNode, PathNode::ResourceType::None);
 }

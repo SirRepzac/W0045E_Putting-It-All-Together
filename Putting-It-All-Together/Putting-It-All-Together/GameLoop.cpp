@@ -302,7 +302,7 @@ void GameLoop::UpdateRenderer()
 			std::string str1 = "Wood: " + std::to_string(brain->GetResources()->Get(ItemType::Wood));
 			std::string str2 = "Iron: " + std::to_string(brain->GetResources()->Get(ItemType::Iron));
 			std::string str3 = "Coal: " + std::to_string(brain->GetResources()->Get(ItemType::Coal));
-			std::string str4 = "Steel: " + std::to_string(brain->GetResources()->Get(ItemType::Steel));
+			std::string str4 = "Iron_Bar: " + std::to_string(brain->GetResources()->Get(ItemType::Iron_Bar));
 			std::string str5 = "Swords: " + std::to_string(brain->GetResources()->Get(ItemType::Sword));
 			std::string str6 = "Soldiers: " + std::to_string(brain->GetMilitary()->GetSoldierCount());
 			std::string str7 = "FPS: " + std::to_string(static_cast<int>(currentFPS));

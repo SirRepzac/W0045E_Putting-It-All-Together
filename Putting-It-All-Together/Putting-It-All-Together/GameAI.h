@@ -40,7 +40,7 @@ public:
 
 	bool CanUseNode(const PathNode* node) const;
 
-	bool CanGoTo(PathNode* destination);
+	bool CanGoTo(PathNode* destination, float& dist);
 
 	void GoTo(PathNode* destination, bool& isPathValid, bool ignoreFog = false);
 

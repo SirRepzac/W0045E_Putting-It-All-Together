@@ -12,30 +12,105 @@ struct KnownNode
 {
 	bool discovered = false;
 	bool walkable = false;   // belief
-	float lastSeenTime = 0;  // optional
+	float lastSeenTime = 0;
 };
+
 
 class AIBrain
 {
+	struct Agent
+	{
+		Agent(GameAI* ai) : ai(ai), busy(false), type(PopulationType::Worker) {}
+		GameAI* ai;
+		PopulationType type;
+		bool busy;
+		ItemType holding = ItemType::None;
+		Task* currentTask = nullptr;
+		float workTimer = 0.0f;
+
+		void Update(float dt)
+		{
+			if (currentTask == nullptr)
+				return;
+
+			if (type == PopulationType::Worker)
+			{
+				if (currentTask->type == TaskType::GatherWood)
+				{
+					Grid& grid = GameLoop::Instance().GetGrid();
+					std::vector<PathNode*> nodes;
+					grid.QueryNodes(ai->GetPosition(), ai->GetRadius() * 2, nodes, PathNode::ResourceType::Wood);
+
+					for (std::vector<PathNode*>::iterator it = nodes.begin(); it != nodes.end();)
+					{
+						if ((*it)->resourceAmount <= 0)
+							it = nodes.erase(it);
+						else
+							it++;
+					}
+
+					// is close to resource
+					if (!nodes.empty())
+					{
+						if (workTimer >= 30.0f)
+						{
+							PathNode* node = nodes[0];
+							holding = ItemType::Wood;
+
+							node->resourceAmount--;
+							if (node->resourceAmount <= 0)
+							{
+								node->resource = PathNode::ResourceType::None;
+								int r;
+								int c;
+								grid.WorldToGrid(node->position, r, c);
+								GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
+							}
+
+							busy = false;
+						}
+						else
+						{
+							workTimer += dt;
+						}
+					}
+					else
+					{
+						bool valid = true;
+						// is not close, go to closest
+						ai->GoToClosest(PathNode::ResourceType::Wood, valid);
+					}
+				}
+				else if (currentTask->type == TaskType::Transport)
+				{
+					if (DistanceBetween(ai->GetPosition(), currentTask->building->targetNode->position) < ai->GetRadius() * 2)
+					{
+						if (currentTask->building->AddResource(holding))
+						{
+							holding = ItemType::None;
+						}
+					}
+					else
+					{
+						ai->GoTo(currentTask->building->targetNode);
+					}
+				}
+			}
+		}
+	};
 public:
 	AIBrain();
 	~AIBrain();
 
 	void Think(float deltaTime);
 
-	// Priorities
-	void SetMaterialPriority(float p);
-	void SetLaborPriority(float p);
-	void SetConstructionPriority(float p);
-
 	// Desires
 	void AddDesire(const std::string& name, TaskType taskType, ItemType primaryResource, int targetCount, float importance = 1.0f);
 
-	// Expose managers for now (could switch to accessor methods)
 	ResourceManager* GetResources() { return resources.get(); }
 	BuildManager* GetBuild() { return build.get(); }
-	MilitaryManager* GetMilitary() { return military.get(); }
-	TaskAllocator* GetAllocator() { return allocator.get(); }
+	PopulationManager* GetMilitary() { return military.get(); }
+	TaskAllocator* GetAllocator() { return taskAllocator.get(); }
 
 	void UpdateDiscovered();
 
@@ -46,9 +121,9 @@ public:
 	bool IsDiscovered(int row, int col) const;
 
 private:
-	// internal update steps
 	void UpdateValues(float deltaTime);
-	void Decay(float deltaTime);
+	Agent* GetBestAgent(PopulationType type, PathNode* node);
+	void UpdateWorkers(float dt);
 	void GatherResources(Task& t, float deltaTime);
 	void ManufactureProducts(Task& t, float deltaTime);
 	void AddAcquisitionTask(std::vector<std::pair<ItemType, float>> lackingResources, float priority);
@@ -62,11 +137,9 @@ private:
 
 	PathNode* FindClosestOpenArea(Vec2 areaSize);
 
-	std::vector<GameAI*> agents;
+	std::vector<Agent> agents;
 
-	std::vector<GameAI*> scouts;
-	std::vector<GameAI*> soldiers;
-	std::vector<GameAI*> craftsmen;
+	std::map<PopulationType, std::vector<Agent*>> populationMap;
 
 	float materialPriority = 1.0f;
 	float laborPriority = 1.0f;
@@ -78,8 +151,8 @@ private:
 	std::unique_ptr<TransportManager> transport;
 	std::unique_ptr<BuildManager> build;
 	std::unique_ptr<ManufacturingManager> manufacturing;
-	std::unique_ptr<MilitaryManager> military;
-	std::unique_ptr<TaskAllocator> allocator;
+	std::unique_ptr<PopulationManager> military;
+	std::unique_ptr<TaskAllocator> taskAllocator;
 
 	std::map<ItemType, std::vector<PathNode*>> knownResources;
 

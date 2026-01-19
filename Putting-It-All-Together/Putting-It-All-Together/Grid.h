@@ -58,7 +58,7 @@ public:
 	void SetClearance();
 
 	void QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out);
-	void QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, std::vector<PathNode::ResourceType> types = std::vector<PathNode::ResourceType>());
+	void QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, PathNode::ResourceType type);
 	void UpdateMovable(Movable* m);
 
 	inline int Index(int x, int y) const

@@ -423,7 +423,7 @@ void Grid::QueryEnt(const Vec2& pos, float radius, std::vector<Movable*>& out)
 
 // Query special nodes of a certain type within a radius
 // given an unspecified type, it will return all nodes
-void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, std::vector<PathNode::ResourceType> types)
+void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out, PathNode::ResourceType type)
 {
 	int minX = (int)((pos.x - offsetVector.x - radius) / cellSize);
 	int maxX = (int)((pos.x - offsetVector.x + radius) / cellSize);
@@ -441,19 +441,8 @@ void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out
 			if (loc == nullptr) 
 				continue;
 
-			if (!types.empty())
-			{
-				bool add = false;
-				for (PathNode::ResourceType t : types)
-				{
-					if (loc->type != t)
-						continue;
-
-					add = true;
-				}
-				if (!add)
-					continue;
-			}
+			if (loc->type != type)
+				continue;
 
 			out.push_back(loc);
 		}

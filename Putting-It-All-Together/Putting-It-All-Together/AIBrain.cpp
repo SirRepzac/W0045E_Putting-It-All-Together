@@ -10,8 +10,8 @@ AIBrain::AIBrain()
 	transport = std::make_unique<TransportManager>(this);
 	build = std::make_unique<BuildManager>(this);
 	manufacturing = std::make_unique<ManufacturingManager>(this);
-	military = std::make_unique<MilitaryManager>(this);
-	allocator = std::make_unique<TaskAllocator>(this);
+	military = std::make_unique<PopulationManager>(this);
+	taskAllocator = std::make_unique<TaskAllocator>(this);
 
 	// initialize some inventory
 	resources->Add(ItemType::Wood, 0);
@@ -19,7 +19,7 @@ AIBrain::AIBrain()
 	resources->Add(ItemType::Iron, 0);
 
 	// Desire: 20 soldiers
-	AddDesire("HaveSoldiers", TaskType::TrainSoldiers, ItemType::None, 20, 1.0f);
+	AddDesire("HaveSoldiers", TaskType::TrainUnit, ItemType::None, 20, 1.0f);
 
 	Grid& grid = GameLoop::Instance().GetGrid();
 	int rows = grid.GetRows();
@@ -49,7 +49,6 @@ AIBrain::~AIBrain()
 
 void AIBrain::Think(float deltaTime)
 {
-	Decay(deltaTime);
 	UpdateValues(deltaTime);
 
 	// update managers
@@ -60,15 +59,11 @@ void AIBrain::Think(float deltaTime)
 	build->Update(deltaTime);
 	manufacturing->Update(deltaTime);
 	military->Update(deltaTime);
-	allocator->Update(deltaTime);
+	taskAllocator->Update(deltaTime);
 
 	FSM(deltaTime);
 	CheckDeath();
 }
-
-void AIBrain::SetMaterialPriority(float p) { materialPriority = p; }
-void AIBrain::SetLaborPriority(float p) { laborPriority = p; }
-void AIBrain::SetConstructionPriority(float p) { constructionPriority = p; }
 
 void AIBrain::AddDesire(const std::string& name, TaskType taskType, ItemType primaryResource, int targetCount, float importance)
 {
@@ -88,16 +83,16 @@ void AIBrain::UpdateDiscovered()
 
 	std::vector<PathNode*> visible;
 
-	for (auto scout : scouts)
+	for (auto scout : populationMap[PopulationType::Scout])
 	{
-		PathNode* currentNode = grid.GetNodeAt(scout->GetPosition());
+		PathNode* currentNode = grid.GetNodeAt(scout->ai->GetPosition());
 		if (currentNode->IsObstacle())
 			continue;
 		visible = currentNode->neighbors;
 
 		for (PathNode* node : visible)
 		{
-			if (!grid.HasLineOfSight(scout->GetPosition(), node->position, 1) && !node->IsObstacle())
+			if (!grid.HasLineOfSight(scout->ai->GetPosition(), node->position, 1) && !node->IsObstacle())
 				continue;
 
 			Discover(node, grid, gameTime);
@@ -154,25 +149,64 @@ void AIBrain::UpdateValues(float deltaTime)
 
 		d.added = true;
 
-		if (d.fulfillTaskType == TaskType::TrainSoldiers)
+		if (d.fulfillTaskType == TaskType::TrainUnit)
 		{
 			int amount = d.targetCount;
 			float basePrio = d.importance;
 
 			Task t;
-			t.type = TaskType::TrainSoldiers;
+			t.type = TaskType::TrainUnit;
 			t.priority = basePrio;
 			t.amount = amount;
-			allocator->AddTask(t);
+			taskAllocator->AddTask(t);
 		}
 	}
 }
 
-void AIBrain::Decay(float deltaTime)
+Agent* AIBrain::GetBestAgent(PopulationType type, PathNode* node)
 {
-	materialPriority = std::max(0.1f, materialPriority - deltaTime * 0.01f);
-	laborPriority = std::max(0.1f, laborPriority - deltaTime * 0.005f);
-	constructionPriority = std::max(0.1f, constructionPriority - deltaTime * 0.007f);
+	float bestScore = FLT_MAX;
+	Agent* bestAgent = nullptr;
+	for (Agent* agent : populationMap[type])
+	{
+		if (agent->busy)
+			continue;
+
+		float dist;
+		if (agent->ai->CanGoTo(node, dist))
+		{
+			if (dist < bestScore)
+			{
+				bestScore = dist;
+				bestAgent = agent;
+			}
+		}
+	}
+	return bestAgent;
+}
+
+void AIBrain::UpdateWorkers(float dt)
+{
+	// assign idle workers to gathering tasks
+	for (Agent* agent : populationMap[PopulationType::Worker])
+	{
+		if (agent->busy)
+		{
+			agent->Update(dt);
+			continue;
+		}
+		Task* t = nullptr;
+		if (agent->holding == ItemType::None)
+			t = taskAllocator->GetNext(TaskType::GatherWood);
+		else
+			t = taskAllocator->GetNext(TaskType::Transport, agent->holding);
+		if (t)
+		{
+			agent->currentTask = t;
+			agent->busy = true;
+		}
+		agent->Update(dt);
+	}
 }
 
 void AIBrain::GatherResources(Task& t, float deltaTime)
@@ -199,7 +233,7 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 		}
 		Logger::Instance().Log(ownerAI->GetName() + " quit gathering with: " + ss + "\n");
 
-		allocator->RemoveTask(t.id);
+		taskAllocator->RemoveTask(t.id);
 		return;
 	}
 
@@ -263,7 +297,7 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 			tt.priority = t.priority + 1;
 			tt.time = 5.0f;
 			tt.resources = res;
-			allocator->AddTask(tt);
+			taskAllocator->AddTask(tt);
 		}
 	}
 }
@@ -285,7 +319,7 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 	}
 	if (endTask)
 	{
-		allocator->RemoveTask(t.id);
+		taskAllocator->RemoveTask(t.id);
 		return;
 	}
 
@@ -309,7 +343,7 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 				bTask.type = TaskType::Build;
 				bTask.buildingType = bType;
 				bTask.priority = t.priority + 2;
-				allocator->AddTask(bTask);
+				taskAllocator->AddTask(bTask);
 
 				continue;
 			}
@@ -350,10 +384,10 @@ void AIBrain::AddAcquisitionTask(std::vector<std::pair<ItemType, float>> lacking
 	if (!gatherResources.empty())
 	{
 		Task t;
-		t.type = TaskType::Gather;
+		t.type = TaskType::GatherWood;
 		t.resources = gatherResources;
 		t.priority = priority;
-		allocator->AddTask(t);
+		taskAllocator->AddTask(t);
 	}
 
 	if (!manufactureResources.empty())
@@ -362,7 +396,7 @@ void AIBrain::AddAcquisitionTask(std::vector<std::pair<ItemType, float>> lacking
 		tt.type = TaskType::Manufacture;
 		tt.resources = manufactureResources;
 		tt.priority = priority;
-		allocator->AddTask(tt);
+		taskAllocator->AddTask(tt);
 	}
 }
 
@@ -376,19 +410,19 @@ void AIBrain::LogCurrentTaskList()
 	}
 	Logger::Instance().Log("Has: " + s + "\n");
 
-	auto r = allocator->tasks;
+	auto r = taskAllocator->tasks;
 
 	std::sort(r.begin(), r.end(), [](Task a, Task b)
 		{
 			return a.priority > b.priority;
 		});
 
-	for (auto w : allocator->tasks)
+	for (auto w : taskAllocator->tasks)
 	{
 		Logger::Instance().Log("Task: " + ToString(w.type) + "(task id : " + std::to_string(w.id) + " priority = " + std::to_string(w.priority) + ")");
 		std::string ss;
 
-		if (w.type == TaskType::Gather)
+		if (w.type == TaskType::GatherWood)
 		{
 			for (auto l : w.resources)
 			{
@@ -423,7 +457,7 @@ void AIBrain::FSM(float deltaTime)
 	if (frames % 300 == 0)
 		LogCurrentTaskList();
 
-	if (!allocator->HasPending())
+	if (!taskAllocator->HasPending())
 	{
 		return;
 	}
@@ -437,14 +471,14 @@ void AIBrain::FSM(float deltaTime)
 	std::vector<std::pair<ItemType, float>> lackingResources;
 	bool foundResource;
 
-	Task* tt = allocator->GetNext();
+	Task* tt = taskAllocator->GetNext();
 	if (tt == nullptr)
 		return;
 	Task& t = *tt;
 	if (t.id != prevTaskId)
 	{
 		Logger::Instance().Log(ownerAI->GetName() + " assigned to " + ToString(t.type) + "(task id : " + std::to_string(t.id) + " priority = " + std::to_string(t.priority) + ")");
-		if (t.type == TaskType::Gather)
+		if (t.type == TaskType::GatherWood)
 		{
 			std::string ss;
 			for (auto l : t.resources)
@@ -457,16 +491,16 @@ void AIBrain::FSM(float deltaTime)
 
 	switch (t.type)
 	{
-	case TaskType::Gather:
+	case TaskType::GatherWood:
 		GatherResources(t, deltaTime);
 		break;
 	case TaskType::Manufacture:
 		ManufactureProducts(t, deltaTime);
 		break;
-	case TaskType::TrainSoldiers:
+	case TaskType::TrainUnit:
 		if (t.amount <= 0)
 		{
-			allocator->RemoveTask(t.id);
+			taskAllocator->RemoveTask(t.id);
 			break;
 		}
 
@@ -482,7 +516,7 @@ void AIBrain::FSM(float deltaTime)
 			bTask.type = TaskType::Build;
 			bTask.priority = t.priority + 1;
 			bTask.buildingType = BuildingType::Barrack;
-			allocator->AddTask(bTask);
+			taskAllocator->AddTask(bTask);
 			break;
 		}
 
@@ -500,12 +534,12 @@ void AIBrain::FSM(float deltaTime)
 				tt.type = TaskType::Discover;
 				tt.priority = t.priority + 1;
 				tt.time = 5.0f;
-				allocator->AddTask(tt);
+				taskAllocator->AddTask(tt);
 			}
 		}
 		else
 		{
-			Soldier* s = military->GetTemplate(SoldierType::Infantry);
+			PopulationUpgrade* s = military->GetTemplate(PopulationType::Infantry);
 			int soldiersPerBatch = 20;
 
 			if (t.amount < soldiersPerBatch)
@@ -514,7 +548,7 @@ void AIBrain::FSM(float deltaTime)
 			if (s->CanAfford(resources->Get(), lackingResources, soldiersPerBatch))
 			{
 				s->RemoveResources(resources, soldiersPerBatch);
-				military->TrainSoldiers(s->type, soldiersPerBatch);
+				military->TrainUnit(s->type, soldiersPerBatch);
 				t.amount -= soldiersPerBatch;
 			}
 			else
@@ -528,7 +562,7 @@ void AIBrain::FSM(float deltaTime)
 	case TaskType::Build:
 
 		if (build->HasBuilding(t.buildingType) || build->IsInQueue(t.buildingType))
-			allocator->RemoveTask(t.id);
+			taskAllocator->RemoveTask(t.id);
 
 		b = build->GetBuildingTemplate(t.buildingType);
 
@@ -547,7 +581,7 @@ void AIBrain::FSM(float deltaTime)
 					tt.type = TaskType::Discover;
 					tt.priority = t.priority + 1;
 					tt.time = 5.0f;
-					allocator->AddTask(tt);
+					taskAllocator->AddTask(tt);
 				}
 
 				break;
@@ -555,7 +589,7 @@ void AIBrain::FSM(float deltaTime)
 
 			b->RemoveResources(resources);
 			build->QueueBuilding(t.buildingType, GetBuildingLocation(t.buildingType)->position);
-			allocator->RemoveTask(t.id);
+			taskAllocator->RemoveTask(t.id);
 			break;
 		}
 
@@ -578,7 +612,7 @@ void AIBrain::FSM(float deltaTime)
 		if (t.time <= 0)
 		{
 			Logger::Instance().Log(ownerAI->GetName() + " explored for time duration \n");
-			allocator->RemoveTask(t.id);
+			taskAllocator->RemoveTask(t.id);
 			break;
 		}
 		t.time -= deltaTime;
@@ -592,7 +626,7 @@ void AIBrain::FSM(float deltaTime)
 				if (ownerAI->CanGoTo(node))
 				{
 					Logger::Instance().Log(ownerAI->GetName() + " discovered resource " + ToString(resource.first) + "\n");
-					allocator->RemoveTask(t.id);
+					taskAllocator->RemoveTask(t.id);
 					foundResource = true;
 					break;
 				}
