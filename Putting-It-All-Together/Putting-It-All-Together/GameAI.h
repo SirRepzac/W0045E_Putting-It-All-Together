@@ -10,8 +10,8 @@
 #include "Grid.h"
 
 
-class AIBrain;
 class Behaviour;
+class AIBrain;
 
 class GameAI : public Movable
 {
@@ -54,16 +54,17 @@ public:
 	Movable* GetMovingTarget() { return targetMovable; }
 	State GetCurrentState() { return currentState; }
 
-	AIBrain* GetBrain() { return brain; }
-
 	Vec2 GetPrevPos() { return prevPos; }
 
-
 	PathNode* GetPathDestination();
+
+	void ConnectBrain(AIBrain* brain) { connectedBrain = brain; }
 
 private:
 	Vec2 targetPos;
 	Movable* targetMovable = nullptr;
+
+	AIBrain* connectedBrain = nullptr;
 
 	Vec2 prevPos;
 	State currentState;
@@ -74,8 +75,6 @@ private:
 	float SEPARATION_WEIGHT = 0; // recommended value: 2.0
 	float AGENTAVOIDANCE_WEIGHT = 0.0f; // recommended value: 2.0
 	float WALLAVOIDANCE_WEIGHT = 0.0f; // recommended value: 1.0
-
-	AIBrain* brain;
 
 	PathNode* desiredDestination = nullptr;
 };

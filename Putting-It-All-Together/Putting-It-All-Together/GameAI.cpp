@@ -7,8 +7,7 @@
 
 
 GameAI::GameAI(Vec2 pos) :
-	currentState(State::STATE_IDLE),
-	brain(new AIBrain(this))
+	currentState(State::STATE_IDLE)
 {
 	if (!pos)
 		pos = Vec2(0, 0);
@@ -30,10 +29,6 @@ GameAI::~GameAI()
 {
 	if (behaviour)
 		delete behaviour;
-	
-	if (brain)
-		delete brain;
-	
 }
 
 void GameAI::SetState(State state)
@@ -45,8 +40,6 @@ void GameAI::SetState(State state)
 
 void GameAI::Update(float deltaTime)
 {
-	brain->Think(deltaTime);
-
 	Behaviour::Info cInfo = Behaviour::Info();
 	Behaviour::Info wInfo = Behaviour::Info();
 	Behaviour::Info sInfo = Behaviour::Info();
@@ -81,23 +74,21 @@ void GameAI::Update(float deltaTime)
 
 bool GameAI::CanUseNode(const PathNode* node) const
 {
-	if (!brain)
-		return false;
+	if (!connectedBrain)
+		return !node->IsObstacle();
 
 	Grid& grid = GameLoop::Instance().GetGrid();
 
 	int r, c;
 	grid.WorldToGrid(node->position, r, c);
 
-	auto& knownNodes = brain->knownNodes;
-
-	const KnownNode& k = knownNodes[r][c];
+	KnownNode* k = &connectedBrain->knownNodes[r][c];
 
 	// Option A: unknown = blocked
-	if (!k.discovered)
+	if (k->discovered)
 		return false;
 
-	return k.walkable;
+	return k->walkable;
 }
 
 bool GameAI::CanGoTo(PathNode* destination)
@@ -137,12 +128,10 @@ void GameAI::GoTo(PathNode* destination, bool &isPathValid, bool ignoreFog)
 	float pathDist = 0;
 	std::vector<PathNode*> path;
 
-	auto filter = [this](const PathNode* node) { return !node->IsObstacle(); };
-	auto filter2 = [this](const PathNode* node) { return CanUseNode(node); };
+	auto filter = [this](const PathNode* node) { return CanUseNode(node); };
+	auto filter2 = [this](const PathNode* node) { return !node->IsObstacle(); };
 
-	//auto filter = ignoreFog ? [this](const PathNode* node) { return !node->IsObstacle(); } : [this](const PathNode* node) { return CanUseNode(node); };
-
-	if (ignoreFog)
+	if (!ignoreFog)
 		path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter);
 	else
 		path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter2);

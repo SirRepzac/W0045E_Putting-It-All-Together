@@ -4,7 +4,7 @@
 #include "Logger.h"
 #include <algorithm>
 
-AIBrain::AIBrain(GameAI* owner) : ownerAI(owner)
+AIBrain::AIBrain()
 {
 	resources = std::make_unique<ResourceManager>(this);
 	transport = std::make_unique<TransportManager>(this);
@@ -25,18 +25,30 @@ AIBrain::AIBrain(GameAI* owner) : ownerAI(owner)
 	int rows = grid.GetRows();
 	int cols = grid.GetCols();
 	knownNodes.assign(rows, std::vector<KnownNode>(cols));
+
+	Vec2 startingPos = { 965, 491 };
+	PathNode* startNode = grid.GetNodeAt(startingPos);
+	double gameTime = GameLoop::Instance().GetGameTime();
+	Discover(startNode, grid, gameTime);
+	for (auto n : startNode->neighbors)
+	{
+		Discover(n, grid, gameTime);
+	}
+
+	std::vector<GameAI*> workers = GameLoop::Instance().CreateAI(50, startingPos);
+	for (GameAI* worker : workers)
+	{
+		agents.push_back(worker);
+		worker->ConnectBrain(this);
+	}
 }
 
 AIBrain::~AIBrain()
 {
-	ownerAI = nullptr;
 }
 
 void AIBrain::Think(float deltaTime)
 {
-	if (!ownerAI)
-		return;
-
 	Decay(deltaTime);
 	UpdateValues(deltaTime);
 
@@ -76,24 +88,28 @@ void AIBrain::UpdateDiscovered()
 
 	std::vector<PathNode*> visible;
 
-	PathNode* currentNode = grid.GetNodeAt(ownerAI->GetPosition());
-
-	if (currentNode->IsObstacle())
-		return;
-
-	visible = currentNode->neighbors;
-
-	for (PathNode* node : visible)
+	for (auto scout : scouts)
 	{
-		if (!grid.HasLineOfSight(ownerAI->GetPosition(), node->position, 1) && !node->IsObstacle())
+		PathNode* currentNode = grid.GetNodeAt(scout->GetPosition());
+		if (currentNode->IsObstacle())
 			continue;
+		visible = currentNode->neighbors;
 
-		Discover(node, grid, gameTime);
+		for (PathNode* node : visible)
+		{
+			if (!grid.HasLineOfSight(scout->GetPosition(), node->position, 1) && !node->IsObstacle())
+				continue;
+
+			Discover(node, grid, gameTime);
+		}
 	}
 }
 
 void AIBrain::Discover(PathNode* node, Grid& grid, double& gameTime)
 {
+	if (!node)
+		return;
+
 	int r, c;
 	grid.WorldToGrid(node->position, r, c);
 
@@ -121,6 +137,11 @@ bool AIBrain::IsDiscovered(int index) const
 	auto indexPair = grid.TwoDIndex(index);
 
 	return knownNodes[indexPair.first][indexPair.second].discovered;
+}
+
+bool AIBrain::IsDiscovered(int row, int col) const
+{
+	return knownNodes[row][col].discovered;
 }
 
 void AIBrain::UpdateValues(float deltaTime)
@@ -156,6 +177,9 @@ void AIBrain::Decay(float deltaTime)
 
 void AIBrain::GatherResources(Task& t, float deltaTime)
 {
+	GameAI* ownerAI = nullptr;
+	return;
+
 	std::vector<std::pair<ItemType, float>>& resourcePairs = t.resources;
 	std::vector<std::pair<ItemType, float>> res;
 	bool endTask = true;
@@ -246,6 +270,9 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 
 void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 {
+	GameAI* ownerAI = nullptr;
+	return;
+
 	std::vector<std::pair<ItemType, float>>& resourcePairs = t.resources;
 	std::vector<std::pair<ItemType, float>> res;
 	bool endTask = true;
@@ -295,7 +322,7 @@ void AIBrain::ManufactureProducts(Task& t, float deltaTime)
 				ownerAI->GoTo(buildingNode, valid, true);
 				continue;
 			}
-			
+
 			p->RemoveResources(resources, amount);
 			resources->Add(r.first, amount);
 		}
@@ -347,7 +374,7 @@ void AIBrain::LogCurrentTaskList()
 	{
 		s += std::to_string(resources->Get(l.first)) + " " + ToString(l.first) + ", ";
 	}
-	Logger::Instance().Log(ownerAI->GetName() + " has: " + s + "\n");
+	Logger::Instance().Log("Has: " + s + "\n");
 
 	auto r = allocator->tasks;
 
@@ -358,7 +385,7 @@ void AIBrain::LogCurrentTaskList()
 
 	for (auto w : allocator->tasks)
 	{
-		Logger::Instance().Log(ownerAI->GetName() + " Task: " + ToString(w.type) + "(task id : " + std::to_string(w.id) + " priority = " + std::to_string(w.priority) + ")");
+		Logger::Instance().Log("Task: " + ToString(w.type) + "(task id : " + std::to_string(w.id) + " priority = " + std::to_string(w.priority) + ")");
 		std::string ss;
 
 		if (w.type == TaskType::Gather)
@@ -367,7 +394,7 @@ void AIBrain::LogCurrentTaskList()
 			{
 				ss += std::to_string(l.second) + " " + ToString(l.first) + ", ";
 			}
-			Logger::Instance().Log(ownerAI->GetName() + " --- requires: " + ss + "\n");
+			Logger::Instance().Log("--- Requires: " + ss + "\n");
 		}
 		if (w.type == TaskType::Manufacture)
 		{
@@ -375,11 +402,11 @@ void AIBrain::LogCurrentTaskList()
 			{
 				ss += std::to_string(l.second) + " " + ToString(l.first) + ", ";
 			}
-			Logger::Instance().Log(ownerAI->GetName() + " --- producing: " + ss + "\n");
+			Logger::Instance().Log("--- Producing: " + ss + "\n");
 		}
 		if (w.type == TaskType::Build)
 		{
-			Logger::Instance().Log(ownerAI->GetName() + " --- building: " + ToString(w.buildingType) + "\n");
+			Logger::Instance().Log("--- Building: " + ToString(w.buildingType) + "\n");
 		}
 	}
 
@@ -388,16 +415,16 @@ void AIBrain::LogCurrentTaskList()
 
 void AIBrain::FSM(float deltaTime)
 {
+
+	GameAI* ownerAI = nullptr;
+	return;
+
 	frames++;
 	if (frames % 300 == 0)
 		LogCurrentTaskList();
 
-	if (!ownerAI)
-		return;
-
-	if (!allocator->HasPending() && ownerAI->GetCurrentState() != GameAI::State::STATE_IDLE)
+	if (!allocator->HasPending())
 	{
-		ownerAI->SetState(GameAI::State::STATE_IDLE);
 		return;
 	}
 
@@ -426,7 +453,6 @@ void AIBrain::FSM(float deltaTime)
 			}
 			Logger::Instance().Log(ownerAI->GetName() + " --- requires: " + ss + "\n");
 		}
-
 	}
 
 	switch (t.type)
@@ -446,13 +472,13 @@ void AIBrain::FSM(float deltaTime)
 
 		if (build->IsInQueue(BuildingType::Barrack))
 		{
-			Logger::Instance().Log(ownerAI->GetName() + " waiting for barrack to train soldiers \n");
+			Logger::Instance().Log("Waiting for barrack to train soldiers \n");
 			break;
 		}
 
 		if (!build->HasBuilding(BuildingType::Barrack))
 		{
-			Logger::Instance().Log(ownerAI->GetName() + " no barrack to train soldiers \n");
+			Logger::Instance().Log("No barrack to train soldiers \n");
 			bTask.type = TaskType::Build;
 			bTask.priority = t.priority + 1;
 			bTask.buildingType = BuildingType::Barrack;
@@ -565,7 +591,7 @@ void AIBrain::FSM(float deltaTime)
 			{
 				if (ownerAI->CanGoTo(node))
 				{
-					Logger::Instance().Log(ownerAI->GetName() + " discovered resource " + ToString(resource.first) +  "\n");
+					Logger::Instance().Log(ownerAI->GetName() + " discovered resource " + ToString(resource.first) + "\n");
 					allocator->RemoveTask(t.id);
 					foundResource = true;
 					break;
@@ -593,6 +619,9 @@ void AIBrain::FSM(float deltaTime)
 
 void AIBrain::CheckDeath()
 {
+	GameAI* ownerAI = nullptr;
+	return;
+
 	bool someCondition = false;
 	// placeholder: no death logic yet
 	if (someCondition)
@@ -605,6 +634,9 @@ void AIBrain::CheckDeath()
 
 bool AIBrain::IsFrontierNode(const PathNode* node)
 {
+	GameAI* ownerAI = nullptr;
+	return false;
+
 	Grid& grid = GameLoop::Instance().GetGrid();
 
 	int r = -1;
@@ -634,6 +666,9 @@ bool AIBrain::IsFrontierNode(const PathNode* node)
 
 PathNode* AIBrain::FindClosestFrontier()
 {
+	GameAI* ownerAI = nullptr;
+	return nullptr;
+
 	GameLoop& game = GameLoop::Instance();
 	Grid& grid = game.GetGrid();
 
@@ -686,6 +721,9 @@ PathNode* AIBrain::FindClosestFrontier()
 
 PathNode* AIBrain::FindClosestOpenArea(Vec2 areaSize)
 {
+	GameAI* ownerAI = nullptr;
+	return nullptr;
+
 	GameLoop& game = GameLoop::Instance();
 	Grid& grid = game.GetGrid();
 

@@ -18,7 +18,7 @@ struct KnownNode
 class AIBrain
 {
 public:
-	AIBrain(GameAI* owner);
+	AIBrain();
 	~AIBrain();
 
 	void Think(float deltaTime);
@@ -42,8 +42,8 @@ public:
 	void Discover(PathNode* node, Grid& grid, double& gameTime);
 
 	std::vector<std::vector<KnownNode>> knownNodes;
-
 	bool IsDiscovered(int index) const;
+	bool IsDiscovered(int row, int col) const;
 
 private:
 	// internal update steps
@@ -62,7 +62,11 @@ private:
 
 	PathNode* FindClosestOpenArea(Vec2 areaSize);
 
-	GameAI* ownerAI = nullptr;
+	std::vector<GameAI*> agents;
+
+	std::vector<GameAI*> scouts;
+	std::vector<GameAI*> soldiers;
+	std::vector<GameAI*> craftsmen;
 
 	float materialPriority = 1.0f;
 	float laborPriority = 1.0f;

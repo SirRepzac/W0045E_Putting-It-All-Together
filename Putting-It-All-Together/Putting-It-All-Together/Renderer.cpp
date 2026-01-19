@@ -412,7 +412,7 @@ void Renderer::UpdateDirtyNodes(const AIBrain* brain)
 		auto indexPair = grid.TwoDIndex(i);
 		PathNode& gridNode = grid.GetNodes()[indexPair.first][indexPair.second];
 
-		if (brain == nullptr || (brain->IsDiscovered(i) && game.USE_FOG_OF_WAR))
+		if (brain == nullptr || brain->IsDiscovered(i) || !game.USE_FOG_OF_WAR)
 		{
 			node.type = gridNode.type;
 			node.resource = gridNode.resource;

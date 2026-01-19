@@ -32,6 +32,7 @@ public:
 	// Runs a loop that invokes perFrame(deltaSeconds) each frame (if provided).
 	void RunGameLoop(double durationSeconds = -1.0, unsigned int fps = 60, std::function<void(float)> perFrame = nullptr);
 	void InitializeGame();
+	std::vector<GameAI*> CreateAI(int count, Vec2 startingPosition);
 	void UpdateGameLoop(float delta, double timePassed);
 
 	void AddDebugEntity(Vec2 pos, uint32_t color = Renderer::Color(200, 0, 0)/*red*/, int radius = 1, bool filled = true);
@@ -56,7 +57,7 @@ public:
 
 	void RefreshScreen();
 
-	GameAI* focusedAgent = nullptr;
+	AIBrain* brain = nullptr;
 
 private:
 	GameLoop();
@@ -65,7 +66,6 @@ private:
 	void CreatePlayer(Vec2 pos = Vec2(WORLD_WIDTH / 2.0f, WORLD_HEIGHT - 100.0f));
 	void LMBMouseClickAction(Vec2 clickPos);
 	void RMBMouseClickAction(Vec2 clickPos);
-	void CreateAI(int count);
 	void HandlePlayerInput(float delta);
 	void ExecuteDeathRow();
 

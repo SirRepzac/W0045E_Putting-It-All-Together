@@ -78,7 +78,9 @@ void GameLoop::DeleteAll()
 
 	delete pathfinder;
 
-	focusedAgent = nullptr;
+	if (brain)
+		delete brain;
+	brain = nullptr;
 
 	for (GameAI* ai : aiList)
 	{
@@ -103,13 +105,6 @@ void GameLoop::InitializeGame()
 	AddPersistentLine(crnr2, crnr3, Renderer::Black);
 	AddPersistentLine(crnr3, crnr4, Renderer::Black);
 	AddPersistentLine(crnr4, crnr1, Renderer::Black);
-
-	CreateAI(0);
-
-	if (!aiList.empty())
-		focusedAgent = aiList[0];
-
-	CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
 
 	renderer->nodeCache.resize(grid.GetCols() * grid.GetRows());
 	renderer->nodeNeedsUpdate.resize(grid.GetCols() * grid.GetRows());
@@ -140,35 +135,30 @@ void GameLoop::InitializeGame()
 	renderer->AddOverlay(&resourceOverlay);
 	debugOverlay.position = (Vec2(0, 0));
 	renderer->AddOverlay(&debugOverlay);
+
+	CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
+	brain = new AIBrain();
 }
 
-void GameLoop::CreateAI(int count)
+std::vector<GameAI*> GameLoop::CreateAI(int count, Vec2 startingPosition)
 {
 	int aiCount = count;
 
 	if (aiCount <= 0)
-		return;
+		return std::vector<GameAI*>();
 
-	std::vector<Vec2> startingPositions = {
-		Vec2(110.000000, 90.000000),
-		Vec2(310.000000, 90.000000),
-		Vec2(510.000000, 90.000000),
-		Vec2(710.000000, 90.000000)
-	};
+	std::vector<GameAI*> newAIs;
 
 	for (int i = 0; i < aiCount; ++i)
 	{
-		Vec2 aiPos;
-		if (i >= startingPositions.size())
-			aiPos = Vec2(static_cast<float>(rand() % (WORLD_WIDTH - 100) + 50), static_cast<float>(rand() % (WORLD_HEIGHT - 100) + 50));
-		else
-			aiPos = Vec2(startingPositions[i].x, startingPositions[i].y);
-
-		GameAI* ai = new GameAI(aiPos);
+		GameAI* ai = new GameAI(startingPosition);
 		aiList.push_back(ai);
+		newAIs.push_back(ai);
 
 		Logger::Instance().Log("Created: " + ai->GetName() + "\n");
 	}
+
+	return newAIs;
 }
 
 void GameLoop::RunGameLoop(double durationSeconds, unsigned int fps, std::function<void(float)> perFrame)
@@ -250,19 +240,15 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 
 	HandlePlayerInput(delta);
 
+	if (brain)
+		brain->Think(delta);
+
 	for (Movable* m : GetMovables())
 	{
 		m->Update(delta);
 	}
 
-	if (focusedAgent)
-	{
-		renderer->UpdateDirtyNodes(focusedAgent->GetBrain());
-	}
-	else
-	{
-		renderer->UpdateDirtyNodes(nullptr);
-	}
+	renderer->UpdateDirtyNodes(brain);
 }
 
 void GameLoop::UpdateRenderer()
@@ -310,15 +296,15 @@ void GameLoop::UpdateRenderer()
 		ents.push_back(e);
 	}
 
-	if (focusedAgent)
+	if (brain)
 	{
 
-			std::string str1 = "Wood: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Wood));
-			std::string str2 = "Iron: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Iron));
-			std::string str3 = "Coal: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Coal));
-			std::string str4 = "Steel: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Steel));
-			std::string str5 = "Swords: " + std::to_string(focusedAgent->GetBrain()->GetResources()->Get(ItemType::Sword));
-			std::string str6 = "Soldiers: " + std::to_string(focusedAgent->GetBrain()->GetMilitary()->GetSoldierCount());
+			std::string str1 = "Wood: " + std::to_string(brain->GetResources()->Get(ItemType::Wood));
+			std::string str2 = "Iron: " + std::to_string(brain->GetResources()->Get(ItemType::Iron));
+			std::string str3 = "Coal: " + std::to_string(brain->GetResources()->Get(ItemType::Coal));
+			std::string str4 = "Steel: " + std::to_string(brain->GetResources()->Get(ItemType::Steel));
+			std::string str5 = "Swords: " + std::to_string(brain->GetResources()->Get(ItemType::Sword));
+			std::string str6 = "Soldiers: " + std::to_string(brain->GetMilitary()->GetSoldierCount());
 			std::string str7 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
 
 			std::vector<std::string> overlay = {
@@ -332,7 +318,6 @@ void GameLoop::UpdateRenderer()
 			};
 
 			renderer->SetOverlayLines(resourceOverlay, overlay);
-		
 	}
 
 	{
