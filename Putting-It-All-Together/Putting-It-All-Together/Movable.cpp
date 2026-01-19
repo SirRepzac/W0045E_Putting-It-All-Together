@@ -15,50 +15,49 @@ void Movable::Push(Vec2 dir, float force)
 
 void Movable::Move(Vec2 dir, float acc, float deltaTime)
 {
-	acc *= GameLoop::Instance().GetGrid().cellSize;
-	float maxSpeed = MAXIMUM_SPEED * GameLoop::Instance().GetGrid().cellSize;
-	// 3. Damping when no input
-	if (dir.IsZero())
-	{
-		float damping = 0.02f;
-		velocity *= std::pow(damping, deltaTime);
-	}
+	Grid& grid = GameLoop::Instance().GetGrid();
 
-	// 1. Desired velocity from input
+	float maxSpeed = MAXIMUM_SPEED / (CELL_SIZE / grid.cellSize);
+	float maxAccel = acc / (CELL_SIZE / grid.cellSize);
+
+	// Desired velocity from input
 	Vec2 desiredVelocity = Vec2(0, 0);
 	if (!dir.IsZero())
 		desiredVelocity = dir.Normalized() * maxSpeed;
 
-	// 2. Steering = desired - current
+	// Steering force
 	Vec2 steering = desiredVelocity - velocity;
 
-	float maxAccel = acc;
 	if (steering.Length() > maxAccel)
 		steering = steering.Normalized() * maxAccel;
 
 	velocity += steering * deltaTime;
 
-
-	// 4. Clamp speed
+	// Clamp speed
 	if (velocity.Length() > maxSpeed)
 		velocity = velocity.Normalized() * maxSpeed;
 
 	if (velocity.Length() < 5.0f && dir.IsZero())
 		velocity = Vec2(0.0f, 0.0f);
 
-	// 5. Move
-	PathNode* myNode = GameLoop::Instance().GetGrid().GetNodeAt(position);
+	// Damping when idle
+	if (dir.IsZero())
+	{
+		float damping = 6; // 1/seconds
+		velocity *= std::exp(-damping * deltaTime);
+	}
 
-	if (!myNode)
-		return;
 
-	position += velocity * deltaTime * SurfaceSpeed(myNode->type);
+	// Move
+	PathNode* node = grid.GetNodeAt(position);
+	float surface = node ? SurfaceSpeed(node->type) : 1.0f;
 
 	velocity += pushforce;
+	position += velocity * surface * deltaTime;
+
+	pushforce = Vec2(0, 0);
 
 	// ---- COLLISIONS ----
-	Grid& grid = GameLoop::Instance().GetGrid();
-
 	// Agent collisions
 	std::vector<Movable*> movables;
 	grid.QueryEnt(position, grid.cellSize, movables);
@@ -188,5 +187,4 @@ void Movable::Move(Vec2 dir, float acc, float deltaTime)
 	}
 
 	SetPos(position);
-	pushforce = Vec2(0, 0);
 }

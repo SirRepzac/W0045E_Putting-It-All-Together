@@ -237,10 +237,11 @@ void GameLoop::UpdateGameLoop(float delta, double timePassed)
 		if (keyPressCooldown < 0.0f) keyPressCooldown = 0.0f;
 	}
 
-	delta *= gameSpeed;
-
 	if (delta > 0.5f)
 		delta = 0.5f;
+
+	delta *= gameSpeed;
+
 
 	gameTime += delta;
 	ClearDebugEntities();
@@ -431,18 +432,24 @@ void GameLoop::KeyPressed()
 
 	if (renderer->IsKeyDown(SDL_SCANCODE_UP))
 	{
-		gameSpeed += 1;
-		keyPressCooldown = 0.2f;
-		Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
+		if (gameSpeed < 75) // max 75x speed or game starts breaking
+		{
+			gameSpeed += 5;
+			keyPressCooldown = 0.2f;
+			Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
+		}
 	}
 	if (renderer->IsKeyDown(SDL_SCANCODE_DOWN))
 	{
-		gameSpeed -= 1;
-		if (gameSpeed < 0)
-			gameSpeed = 0;
+		if (gameSpeed > 0)
+		{
+			gameSpeed -= 5;
+			if (gameSpeed < 0)
+				gameSpeed = 0;
 
-		keyPressCooldown = 0.2f;
-		Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
+			keyPressCooldown = 0.2f;
+			Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
+		}
 	}
 
 	if (renderer->IsKeyDown(SDL_SCANCODE_1))
