@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <iostream>
 #include "GameLoop.h"
+#include "GameAI.h"
 
 // ResourceManager
 ResourceManager::ResourceManager(AIBrain* owner) : owner(owner) {}
@@ -24,7 +25,7 @@ Cost ResourceManager::Get()
 	c.coal = Get(ItemType::Coal);
 	c.iron = Get(ItemType::Iron);
 	c.wood = Get(ItemType::Wood);
-	c.steel = Get(ItemType::Steel);
+	c.iron_bar = Get(ItemType::Iron_Bar);
 	c.sword = Get(ItemType::Sword);
 	return c;
 }
@@ -64,20 +65,38 @@ BuildManager::BuildManager(AIBrain* owner) : owner(owner)
 {
 	for (int a = (int)BuildingType::Start + 1; a < (int)BuildingType::End; a++)
 	{
-		buildingTemplates[BuildingType(a)] = new Building(BuildingType(a), Vec2());
+		buildingTemplates[BuildingType(a)] = new Building(BuildingType(a), nullptr);
 	}
 }
 void BuildManager::Update(float dt)
 {
 	(void)dt;
 	if (queue.empty()) return;
-	Building* building = queue.front();
-	queue.erase(queue.begin());
 
-	builtBuildings[building->type] = building;
-	building->PlaceBuilding();
+	for (std::vector<Building*>::iterator it = queue.begin(); it != queue.end();)
+	{
+		if ((*it)->productionTime <= 0)
+		{
+			builtBuildings[(*it)->type] = *it;
+			(*it)->PlaceBuilding();
+			Logger::Instance().Log(std::string("Built: ") + ToString((*it)->type) + "\n");
+			queue.erase(it);
+		}
+		else
+			++it;
+	}
+}
 
-	Logger::Instance().Log(std::string("Built: ") + ToString(building->type) + "\n");
+void BuildManager::WorkOnBuilding(float dt, BuildingType building)
+{
+	for (auto b : queue)
+	{
+		if (b->type == building)
+		{
+			b->productionTime -= dt;
+			break;
+		}
+	}
 }
 
 bool BuildManager::HasBuilding(const BuildingType type) const
@@ -120,30 +139,32 @@ bool BuildManager::IsInQueue(const BuildingType type) const
 	}
 	return found;
 }
-void BuildManager::QueueBuilding(BuildingType type, const Vec2& pos)
+void BuildManager::QueueBuilding(BuildingType type, PathNode* node)
 {
-	Building* building = new Building(type, pos);
+	Building* building = new Building(type, node);
 	queue.push_back(building);
 }
 
 // ManufacturingManager
 ManufacturingManager::ManufacturingManager(AIBrain* owner) : owner(owner) 
 {
-	productTemplate[ItemType::Steel] = new Product(ItemType::Steel);
+	productTemplate[ItemType::Iron_Bar] = new Product(ItemType::Iron_Bar);
 	productTemplate[ItemType::Sword] = new Product(ItemType::Sword);
-
 }
+
 void ManufacturingManager::Update(float dt)
 {
-	(void)dt;
-	for (auto it = orders.begin(); it != orders.end(); )
+	for (auto order : orders)
 	{
-		it->second = std::max(0, it->second - 1);
-		if (it->second == 0)
-			it = orders.erase(it);
-		else ++it;
+		if (order.second > 0 && orderTime[order.first] > productTemplate[order.first]->productionTime)
+		{
+			owner->GetResources()->Add(order.first, 1);
+			order.second--;
+			orderTime[order.first] = 0;
+		}
 	}
 }
+
 void ManufacturingManager::QueueManufacture(const ItemType item, int amount)
 {
 	orders[item] += amount;
@@ -151,10 +172,12 @@ void ManufacturingManager::QueueManufacture(const ItemType item, int amount)
 
 BuildingType ManufacturingManager::GetBuildingForType(ItemType type)
 {
-	if (type == ItemType::Steel)
-		return BuildingType::Forge;
+	if (type == ItemType::Iron_Bar)
+		return BuildingType::Smelter;
 	else if (type == ItemType::Sword)
-		return BuildingType::Anvil;
+		return BuildingType::Armsmith;
+	else if (type == ItemType::Coal)
+		return BuildingType::Coal_Mine;
 	else
 		return BuildingType::None;
 }
@@ -165,64 +188,44 @@ Product* ManufacturingManager::GetProductTemplate(ItemType type)
 }
 
 // MilitaryManager
-MilitaryManager::MilitaryManager(AIBrain* owner) : owner(owner) 
+PopulationManager::PopulationManager(AIBrain* owner) : owner(owner) 
 {
-	for (int a = 0; a < (int)SoldierType::End; a++)
+	for (int a = 0; a < (int)PopulationType::End; a++)
 	{
-		soldierTemplates[SoldierType(a)] = new Soldier(SoldierType(a));
+		unitTemplates[PopulationType(a)] = new PopulationUpgrade(PopulationType(a));
 	}
 }
-void MilitaryManager::Update(float dt)
+void PopulationManager::Update(float dt)
 {
-	(void)dt;
-	if (GetTrainingQueue() > 0)
-	{
-		for (auto s : trainingQueue)
+		for (auto it = trainingQueue.begin(); it != trainingQueue.end(); )
 		{
-			if (s.second > 0)
+			if (it->second <= 0)
 			{
-				trainingQueue[s.first] -= 1;
-				soldierCounts[s.first] += 1;
-				break;
+				finishedUnits.push_back(it->first);
+				trainingQueue.erase(it++);
+				Logger::Instance().Log(std::string("Trained Unit") + "\n");
+			}
+			else
+			{
+				it->second -= dt;
+				++it;
 			}
 		}
-
-		Logger::Instance().Log(std::string("Trained soldier. Total now: ") + std::to_string(GetSoldierCount()) + "\n");
-	}
 }
-void MilitaryManager::TrainSoldiers(SoldierType type, int count) 
+void PopulationManager::TrainUnit(PopulationType type, GameAI* unit)
 {
-	trainingQueue[type] += count;
+	trainingQueue.push_back(std::pair<GameAI*, float>(unit, unitTemplates[type]->productionTime));
 }
 
-Soldier* MilitaryManager::GetTemplate(SoldierType type)
+
+PopulationUpgrade* PopulationManager::GetTemplate(PopulationType type)
 {
-	if (soldierTemplates.count(type) > 0)
-		return soldierTemplates.at(type);
+	if (unitTemplates.count(type) > 0)
+		return unitTemplates.at(type);
 	// building not found
 	Logger::Instance().Log("Failed to get soldier template \n");
 	std::cout << "failed to get soldier template" << std::endl;
 	return nullptr;
-}
-
-int MilitaryManager::GetSoldierCount()
-{
-	int total = 0;
-	for (auto a : soldierCounts)
-	{
-		total += a.second;
-	}
-	return total;
-}
-
-int MilitaryManager::GetTrainingQueue()
-{
-	int total = 0;
-	for (auto a : trainingQueue)
-	{
-		total += a.second;
-	}
-	return total;
 }
 
 // TaskAllocator
@@ -276,57 +279,18 @@ void TaskAllocator::RemoveTask(int id)
 
 void Building::PlaceBuilding()
 {
-	if (targetNodes.size() == 0)
-		GetTargetNodes();
+	if (!targetNode)
+		return;
 
 	Grid& grid = GameLoop::Instance().GetGrid();
-
-	for (PathNode* node : targetNodes)
-	{
-		if (!node)
-			continue;
-
-		grid.SetNode(node, PathNode::ResourceType::Building, 1);
-	}
+	grid.SetNode(targetNode, PathNode::ResourceType::Building, 1);
 }
 
 void Building::RemoveBuilding()
 {
-	if (targetNodes.size() == 0)
+	if (!targetNode)
 		return;
 
 	Grid& grid = GameLoop::Instance().GetGrid();
-
-	for (PathNode* node : targetNodes)
-	{
-		grid.SetNode(node, PathNode::ResourceType::None);
-	}
-}
-
-void Building::GetTargetNodes()
-{
-	if (targetNodes.size() > 0)
-		return;
-
-	Grid& grid = GameLoop::Instance().GetGrid();
-	Vec2 baseBarrackLoc = position;
-
-	for (int x = 0; x < size.y; x++)
-	{
-		PathNode* nodeX = grid.GetNodeAt(baseBarrackLoc + Vec2(grid.cellSize, 0) * x);
-		targetNodes.push_back(nodeX);
-	}
-
-	int s = targetNodes.size();
-
-	for (int e = 0; e < s; e++)
-	{
-		for (int y = 1; y < size.x; y++)
-		{
-			PathNode* nodeY = grid.GetNodeAt(targetNodes[e]->position + Vec2(0, grid.cellSize) * y);
-			targetNodes.push_back(nodeY);
-		}
-	}
-
-	position = baseBarrackLoc + Vec2((size.y - 1) * grid.cellSize, (size.x - 1) * grid.cellSize);
+	grid.SetNode(targetNode, PathNode::ResourceType::None);
 }

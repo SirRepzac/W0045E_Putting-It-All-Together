@@ -8,11 +8,12 @@
 #include <memory>
 #include "Renderer.h"
 
+class GameAI;
 class AIBrain; // forward
 
 // High-level enums and data structures used by the managers and AIBrain
-enum class ItemType { Wood, Coal, Iron, Steel, Sword, None };
-enum class TaskType { None, Discover, Gather, Build, TrainSoldiers, Manufacture };
+enum class ItemType { Wood, Coal, Iron, Iron_Bar, Sword, None };
+enum class TaskType { None, Discover, Gather, Build, TrainUnit, Manufacture };
 
 static ItemType ResourceToItem(PathNode::ResourceType resourceType)
 {
@@ -35,8 +36,6 @@ static PathNode::ResourceType ItemToResource(ItemType itemType)
 	{
 	case (ItemType::Wood):
 		return PathNode::ResourceType::Wood;
-	case (ItemType::Coal):
-		return PathNode::ResourceType::Coal;
 	case (ItemType::Iron):
 		return PathNode::ResourceType::Iron;
 	default:
@@ -56,7 +55,7 @@ static std::string ToString(TaskType type)
 		return "gather resources";
 	case (TaskType::Build):
 		return "build";
-	case (TaskType::TrainSoldiers):
+	case (TaskType::TrainUnit):
 		return "train soldiers";
 	case (TaskType::Manufacture):
 		return "manufacture";
@@ -77,8 +76,8 @@ static std::string ToString(ItemType type)
 		return "wood";
 	case (ItemType::Coal):
 		return "coal";
-	case (ItemType::Steel):
-		return "steel";
+	case (ItemType::Iron_Bar):
+		return "iron_bar";
 	case (ItemType::Sword):
 		return "sword";
 	default:
@@ -98,16 +97,22 @@ static void ResourceProductionType(const std::vector<std::pair<ItemType, float>>
 			gatherResources.push_back(resource);
 		else if (resource.first == ItemType::Coal)
 			gatherResources.push_back(resource);
-		else if (resource.first == ItemType::Steel)
+		else if (resource.first == ItemType::Iron_Bar)
 			manufactureItems.push_back(resource);
 		else if (resource.first == ItemType::Sword)
 			manufactureItems.push_back(resource);
 	}
 }
 
-enum class SoldierType
+enum class PopulationType
 {
-	Infantry,
+	Worker,
+	Scout,
+	Soldier,
+	Coal_Miner,
+	Arm_Smith,
+	Smelter,
+	Builder,
 	End
 };
 
@@ -115,9 +120,10 @@ enum class BuildingType
 {
 	None,
 	Start,
-	Barrack,
-	Forge,
-	Anvil,
+	Coal_Mine,
+	Armsmith,
+	Smelter,
+	Training_Camp,
 	End
 };
 
@@ -139,7 +145,7 @@ struct Cost
 	float coal = 0;
 	float iron = 0;
 	float wood = 0;
-	float steel = 0;
+	float iron_bar = 0;
 	float sword = 0;
 };
 
@@ -184,12 +190,14 @@ static std::string ToString(BuildingType type)
 {
 	switch (type)
 	{
-	case (BuildingType::Barrack):
-		return "barrack";
-	case (BuildingType::Forge):
-		return "forge";
-	case (BuildingType::Anvil):
-		return "anvil";
+	case (BuildingType::Armsmith):
+		return "armsmith";
+	case (BuildingType::Coal_Mine):
+		return "coal mine";
+	case (BuildingType::Smelter):
+		return "smelter";
+	case (BuildingType::Training_Camp):
+		return "training camp";
 	default:
 		return "nothing";
 	}
@@ -225,11 +233,11 @@ public:
 			lackingResources.push_back(r);
 			canAfford = false;
 		}
-		if (availableResources.steel < cost.steel * amountToAfford)
+		if (availableResources.iron_bar < cost.iron_bar * amountToAfford)
 		{
 			std::pair<ItemType, float> r;
-			r.first = ItemType::Steel;
-			r.second = cost.steel * amountToAfford;
+			r.first = ItemType::Iron_Bar;
+			r.second = cost.iron_bar * amountToAfford;
 			lackingResources.push_back(r);
 			canAfford = false;
 		}
@@ -249,10 +257,10 @@ public:
 		bool affordCoal = resourceManager->Request(ItemType::Coal, cost.coal * amount);
 		bool affordIron = resourceManager->Request(ItemType::Iron, cost.iron * amount);
 		bool affordWood = resourceManager->Request(ItemType::Wood, cost.wood * amount);
-		bool affordSteel = resourceManager->Request(ItemType::Steel, cost.steel * amount);
+		bool affordIron_Bar = resourceManager->Request(ItemType::Iron_Bar, cost.iron_bar * amount);
 		bool affordSword = resourceManager->Request(ItemType::Sword, cost.sword * amount);
 
-		if (affordCoal && affordIron && affordWood && affordSteel && affordSword)
+		if (affordCoal && affordIron && affordWood && affordIron_Bar && affordSword)
 			return true;
 		std::string s;
 		if (!affordCoal)
@@ -261,14 +269,16 @@ public:
 			s += "iron, ";
 		if (!affordWood)
 			s += "wood, ";
-		if (!affordSteel)
-			s += "steel, ";
+		if (!affordIron_Bar)
+			s += "iron_bar, ";
 		if (!affordSword)
 			s += "sword, ";
 			
 		std::cout << "Failed to remove resources: " << s << std::endl;
 		return false;
 	}
+
+	float productionTime;
 
 protected:
 	Cost cost;
@@ -279,51 +289,50 @@ protected:
 class Building : public Costable
 {
 public:
-	Building(BuildingType build, Vec2 pos) : type(build), position(pos), color(Renderer::White)
+	Building(BuildingType build, PathNode* node) : type(build), targetNode(node)
 	{
-		if (build == BuildingType::Barrack)
+		if (build == BuildingType::Coal_Mine)
 		{
 			Cost c;
-			c.iron = 20;
-			c.wood = 50;
+			c.wood = 10;
 			cost = c;
 			size = Vec2(2, 2);
-			color = Renderer::Purple;
+			productionTime = 60.0f;
 		}
-		else if (build == BuildingType::Forge)
+		else if (build == BuildingType::Armsmith)
 		{
 			Cost c;
-			c.iron = 20;
+			c.iron_bar = 3;
 			c.wood = 10;
 			cost = c;
 			size = Vec2(3, 4);
-			color = Renderer::Olive;
+			productionTime = 180.0f;
 		}
-		else if (build == BuildingType::Anvil)
+		else if (build == BuildingType::Smelter)
 		{
 			Cost c;
-			c.iron = 10;
-			c.wood = 20;
+			c.wood = 10;
 			cost = c;
 			size = Vec2(1, 2);
-			color = Renderer::Maroon;
+			productionTime = 120.0f;
+		}
+		else if (build == BuildingType::Training_Camp)
+		{
+			Cost c;
+			c.wood = 10;
+			cost = c;
+			size = Vec2(1, 2);
+			productionTime = 120.0f;
 		}
 	}
 
 	void PlaceBuilding();
-
-
 	void RemoveBuilding();
 
-
-	Vec2 position = Vec2();
+	PathNode* targetNode;
 	BuildingType type;
 	Vec2 size;
-	std::vector<PathNode*> targetNodes;
-	uint32_t color;
 private:
-	void GetTargetNodes();
-
 };
 
 class BuildManager
@@ -346,11 +355,12 @@ public:
 		}
 	}
 	void Update(float dt);
+	void WorkOnBuilding(float dt, BuildingType building);
 	bool HasBuilding(const BuildingType type) const;
 	Building* GetBuilding(const BuildingType type) const;
 	Building* GetBuildingTemplate(const BuildingType type) const;
 	bool IsInQueue(const BuildingType type) const;
-	void QueueBuilding(BuildingType type, const Vec2& pos);
+	void QueueBuilding(BuildingType type, PathNode* node);
 
 private:
 	AIBrain* owner;
@@ -368,19 +378,21 @@ public:
 
 	Product(ItemType type) : type(type)
 	{
-		if (type == ItemType::Steel)
+		if (type == ItemType::Iron_Bar)
 		{
-			Cost steel;
-			steel.coal = 1;
-			steel.iron = 2;
-			cost = steel;
+			Cost iron_bar;
+			iron_bar.coal = 3;
+			iron_bar.iron = 2;
+			cost = iron_bar;
+			productionTime = 30.0f;
 		}
 		else if (type == ItemType::Sword)
 		{
 			Cost sword;
-			sword.steel = 2;
-			sword.wood = 1;
+			sword.iron_bar = 1;
+			sword.coal = 2;
 			cost = sword;
+			productionTime = 60.0f;
 		}
 	}
 private:
@@ -404,52 +416,59 @@ public:
 private:
 	AIBrain* owner;
 	std::map<ItemType, int> orders;
+	std::map<ItemType, float> orderTime;
 	std::map<ItemType, Product*> productTemplate;
 };
 
-
-
-class Soldier : public Costable
+class PopulationUpgrade : public Costable
 {
 public:
-	Soldier(SoldierType type) : type(type)
+	PopulationUpgrade(PopulationType type) : type(type)
 	{
-		if (type == SoldierType::Infantry)
+		if (type == PopulationType::Soldier)
 		{
 			Cost c;
 			c.sword = 1;
-			c.wood = 2;
 			cost = c;
-
+			productionTime = 60.0f;
+			requiredBuilding = BuildingType::Training_Camp;
+		}
+		else if (type == PopulationType::Scout)
+		{
+			productionTime = 60.0f;
+		}
+		// all different craftsmen
+		else if (type == PopulationType::Coal_Miner || type == PopulationType::Arm_Smith || type == PopulationType::Smelter || type == PopulationType::Builder)
+		{
+			productionTime = 120.0f;
 		}
 	}
-	SoldierType type;
+
+	PopulationType type = PopulationType::Worker;
+	BuildingType requiredBuilding = BuildingType::None;
 };
 
-class MilitaryManager
+class PopulationManager
 {
 public:
-	MilitaryManager(AIBrain* owner);
-	~MilitaryManager()
+	PopulationManager(AIBrain* owner);
+	~PopulationManager()
 	{
-		for (auto s : soldierTemplates)
+		for (auto s : unitTemplates)
 		{
 			delete s.second;
 		}
 	}
 	void Update(float dt);
-	void TrainSoldiers(SoldierType type, int count);
+	void TrainUnit(PopulationType type, GameAI* unit);
 
-	Soldier* GetTemplate(SoldierType type);
-
-	int GetSoldierCount();
-	int GetTrainingQueue();
+	PopulationUpgrade* GetTemplate(PopulationType type);
 
 private:
 	AIBrain* owner;
-	std::map<SoldierType, Soldier*> soldierTemplates;
-	std::map<SoldierType, int> trainingQueue;
-	std::map<SoldierType, int> soldierCounts;
+	std::map<PopulationType, PopulationUpgrade*> unitTemplates;
+	std::vector<std::pair<GameAI*, float>> trainingQueue;
+	std::vector<GameAI*> finishedUnits;
 };
 
 class TaskAllocator
