@@ -90,20 +90,6 @@ bool ResourceManager::Request(ItemType r, float amount)
 	return true;
 }
 
-// TransportManager
-TransportManager::TransportManager(AIBrain* owner) : owner(owner) {}
-void TransportManager::Update(float dt)
-{
-	(void)dt;
-	if (pendingTransports > 0)
-		pendingTransports = std::max(0, pendingTransports - 1);
-}
-void TransportManager::ScheduleTransport(ItemType r, int amount, const Vec2& from, const Vec2& to)
-{
-	(void)r; (void)amount; (void)from; (void)to;
-	pendingTransports++;
-}
-
 // BuildManager
 BuildManager::BuildManager(AIBrain* owner) : owner(owner) 
 {
@@ -131,16 +117,12 @@ void BuildManager::Update(float dt)
 	}
 }
 
-void BuildManager::WorkOnBuilding(float dt, BuildingType building)
+void BuildManager::WorkOnBuilding(float dt, Building* building)
 {
-	for (auto b : queue)
-	{
-		if (b->type == building)
-		{
-			b->productionTime -= dt;
-			break;
-		}
-	}
+	if (building->HasCost())
+		return;
+
+	building->productionTime -= dt;
 }
 
 bool BuildManager::HasBuilding(const BuildingType type) const
@@ -183,10 +165,11 @@ bool BuildManager::IsInQueue(const BuildingType type) const
 	}
 	return found;
 }
-void BuildManager::QueueBuilding(BuildingType type, PathNode* node)
+Building* BuildManager::QueueBuilding(BuildingType type, PathNode* node)
 {
 	Building* building = new Building(type, node);
 	queue.push_back(building);
+	return building;
 }
 
 void Building::PlaceBuilding()

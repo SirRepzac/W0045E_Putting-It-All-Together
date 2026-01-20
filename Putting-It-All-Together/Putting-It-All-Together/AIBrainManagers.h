@@ -14,7 +14,7 @@ struct Agent;
 
 // High-level enums and data structures used by the managers and AIBrain
 enum class ItemType { Wood, Coal, Iron, Iron_Bar, Sword, None };
-enum class TaskType { None, Explore, GatherWood, Build, Transport, MineCoal, ForgeWeapon, Smelt };
+enum class TaskType { None, ExploreNode, GatherWood, Build, Transport, MineCoal, ForgeWeapon, Smelt };
 
 enum class PopulationType
 {
@@ -134,19 +134,6 @@ private:
 	AIBrain* owner;
 };
 
-class TransportManager
-{
-public:
-	TransportManager(AIBrain* owner);
-	void Update(float dt);
-	void ScheduleTransport(ItemType r, int amount, const Vec2& from, const Vec2& to);
-
-private:
-	AIBrain* owner;
-	int pendingTransports = 0;
-};
-
-
 class Costable
 {
 public:
@@ -224,6 +211,23 @@ public:
 
 	float productionTime;
 
+	bool HasCost()
+	{
+		bool costs = false;
+		if (cost.coal > 0)
+			costs = true;
+		if (cost.iron > 0)
+			costs = true;
+		if (cost.iron_bar > 0)
+			costs = true;
+		if (cost.sword > 0)
+			costs = true;
+		if (cost.wood > 0)
+			costs = true;
+
+		return costs;
+	}
+
 protected:
 	Cost cost;
 };
@@ -298,12 +302,12 @@ public:
 		}
 	}
 	void Update(float dt);
-	void WorkOnBuilding(float dt, BuildingType building);
+	void WorkOnBuilding(float dt, Building* building);
 	bool HasBuilding(const BuildingType type) const;
 	Building* GetBuilding(const BuildingType type) const;
 	Building* GetBuildingTemplate(const BuildingType type) const;
 	bool IsInQueue(const BuildingType type) const;
-	void QueueBuilding(BuildingType type, PathNode* node);
+	Building* QueueBuilding(BuildingType type, PathNode* node);
 
 private:
 	AIBrain* owner;
@@ -447,7 +451,7 @@ static std::string ToString(TaskType type)
 	{
 	case (TaskType::None):
 		return "nothing";
-	case (TaskType::Explore):
+	case (TaskType::ExploreNode):
 		return "explore";
 	case (TaskType::GatherWood):
 		return "gather resources";

@@ -29,10 +29,10 @@ AIBrain::AIBrain()
 	Vec2 startingPos = { 965, 491 };
 	PathNode* startNode = grid.GetNodeAt(startingPos);
 	double gameTime = GameLoop::Instance().GetGameTime();
-	Explore(startNode, grid, gameTime);
+	ExploreNode(startNode, grid, gameTime);
 	for (auto n : startNode->neighbors)
 	{
-		Explore(n, grid, gameTime);
+		ExploreNode(n, grid, gameTime);
 	}
 
 	std::vector<GameAI*> workers = GameLoop::Instance().CreateAI(50, startingPos);
@@ -61,8 +61,45 @@ void AIBrain::Think(float deltaTime)
 	population->Update(deltaTime);
 	taskAllocator->Update(deltaTime);
 
+	UpdateWorkers(deltaTime);
+
 	FSM(deltaTime);
 	CheckDeath();
+}
+
+void AIBrain::FSM(float dt)
+{
+	// do set amount at start?
+	if (needs scout)
+	{
+		TrainUnit(PopulationType::Scout);
+	}
+
+	UpdateDiscovered();
+
+	if (needs building b)
+	{
+		PathNode* fittingNode = someFittingLocation;
+		Building* toBuild = build->QueueBuilding(building.buildingType, fittingNode);
+		Task t;
+		t.type = TaskType::Build;
+		t.buildingType = b;
+		t.priority = somepriority;
+		t.building = toBuild;
+		taskAllocator->AddTask(t);
+	}
+
+	if (needs wood for b)
+	{
+		Task t;
+		t.type = TaskType::GatherWood;
+		t.amount = 1;
+		t.buildingType = b.buildingType;
+		t.building = b;
+		t.priority = b.priority;
+		taskAllocator->AddTask(t);
+	}
+
 }
 
 void AIBrain::AddDesire(const std::string& name, TaskType taskType, ItemType primaryResource, int targetCount, float importance)
@@ -95,12 +132,12 @@ void AIBrain::UpdateDiscovered()
 			if (!grid.HasLineOfSight(scout->ai->GetPosition(), node->position, 1) && !node->IsObstacle())
 				continue;
 
-			Explore(node, grid, gameTime);
+			ExploreNode(node, grid, gameTime);
 		}
 	}
 }
 
-void AIBrain::Explore(PathNode* node, Grid& grid, double& gameTime)
+void AIBrain::ExploreNode(PathNode* node, Grid& grid, double& gameTime)
 {
 	if (!node)
 		return;
@@ -163,7 +200,8 @@ void AIBrain::UpdateValues(float deltaTime)
 	}
 }
 
-AIBrain::Agent* AIBrain::GetBestAgent(PopulationType type, PathNode* node)
+// not used
+Agent* AIBrain::GetBestAgent(PopulationType type, PathNode* node)
 {
 	float bestScore = FLT_MAX;
 	Agent* bestAgent = nullptr;
@@ -334,7 +372,7 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 		if (!valid)
 		{
 			Task tt;
-			tt.type = TaskType::Explore;
+			tt.type = TaskType::ExploreNode;
 			tt.priority = t.priority + 1;
 			tt.time = 5.0f;
 			tt.resources = res;
@@ -572,7 +610,7 @@ void AIBrain::FSM(float deltaTime)
 			if (!valid)
 			{
 				Task tt;
-				tt.type = TaskType::Explore;
+				tt.type = TaskType::ExploreNode;
 				tt.priority = t.priority + 1;
 				tt.time = 5.0f;
 				taskAllocator->AddTask(tt);
@@ -619,7 +657,7 @@ void AIBrain::FSM(float deltaTime)
 				if (!valid)
 				{
 					Task tt;
-					tt.type = TaskType::Explore;
+					tt.type = TaskType::ExploreNode;
 					tt.priority = t.priority + 1;
 					tt.time = 5.0f;
 					taskAllocator->AddTask(tt);
@@ -640,7 +678,7 @@ void AIBrain::FSM(float deltaTime)
 
 
 		break;
-	case TaskType::Explore:
+	case TaskType::ExploreNode:
 
 		for (std::vector<std::pair<ItemType, float>>::iterator it = t.resources.begin(); it != t.resources.end();)
 		{

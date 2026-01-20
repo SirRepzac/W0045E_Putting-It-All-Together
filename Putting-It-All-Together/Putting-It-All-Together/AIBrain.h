@@ -122,7 +122,7 @@ public:
 
 	void UpdateDiscovered();
 
-	void Explore(PathNode* node, Grid& grid, double& gameTime);
+	void ExploreNode(PathNode* node, Grid& grid, double& gameTime);
 
 	std::vector<std::vector<KnownNode>> knownNodes;
 	bool IsDiscovered(int index) const;
@@ -158,7 +158,6 @@ private:
 	std::vector<Desire> desires;
 
 	std::unique_ptr<ResourceManager> resources;
-	std::unique_ptr<TransportManager> transport;
 	std::unique_ptr<BuildManager> build;
 	std::unique_ptr<ManufacturingManager> manufacturing;
 	std::unique_ptr<PopulationManager> population;
