@@ -50,44 +50,6 @@ Task* TaskAllocator::GetNext(TaskType type)
 	return returnTask;
 }
 
-Task* TaskAllocator::GetNext(TaskType type, ItemType item)
-{
-	// If there are no tasks, return nullptr
-	if (tasks[type].empty())
-		return nullptr;
-
-	float highestPriority = -1.0f;
-	Task* highestTask = nullptr;
-
-	std::vector<Task>::iterator it;
-
-	for (it = tasks[type].begin(); it != tasks[type].end(); it++)
-	{
-		bool hasItem = false;
-		for (auto a : it->resources)
-		{
-			if (a.first == item)
-			{
-				hasItem = true;
-				break;
-			}
-		}
-		if (hasItem)
-			break;
-
-		it++;
-	}
-
-	if (it == tasks[type].end())
-		return nullptr;
-
-	currentTasks.push_back(*it);
-	Task* returnTask = &currentTasks.back();
-	it = tasks[type].erase(it);
-
-	return returnTask;
-}
-
 // ResourceManager
 ResourceManager::ResourceManager(AIBrain* owner) : owner(owner) {}
 void ResourceManager::Update(float dt)

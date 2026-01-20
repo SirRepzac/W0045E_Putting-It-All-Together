@@ -10,7 +10,7 @@ AIBrain::AIBrain()
 	transport = std::make_unique<TransportManager>(this);
 	build = std::make_unique<BuildManager>(this);
 	manufacturing = std::make_unique<ManufacturingManager>(this);
-	military = std::make_unique<PopulationManager>(this);
+	population = std::make_unique<PopulationManager>(this);
 	taskAllocator = std::make_unique<TaskAllocator>(this);
 
 	// initialize some inventory
@@ -29,10 +29,10 @@ AIBrain::AIBrain()
 	Vec2 startingPos = { 965, 491 };
 	PathNode* startNode = grid.GetNodeAt(startingPos);
 	double gameTime = GameLoop::Instance().GetGameTime();
-	Discover(startNode, grid, gameTime);
+	Explore(startNode, grid, gameTime);
 	for (auto n : startNode->neighbors)
 	{
-		Discover(n, grid, gameTime);
+		Explore(n, grid, gameTime);
 	}
 
 	std::vector<GameAI*> workers = GameLoop::Instance().CreateAI(50, startingPos);
@@ -58,7 +58,7 @@ void AIBrain::Think(float deltaTime)
 	transport->Update(deltaTime);
 	build->Update(deltaTime);
 	manufacturing->Update(deltaTime);
-	military->Update(deltaTime);
+	population->Update(deltaTime);
 	taskAllocator->Update(deltaTime);
 
 	FSM(deltaTime);
@@ -95,12 +95,12 @@ void AIBrain::UpdateDiscovered()
 			if (!grid.HasLineOfSight(scout->ai->GetPosition(), node->position, 1) && !node->IsObstacle())
 				continue;
 
-			Discover(node, grid, gameTime);
+			Explore(node, grid, gameTime);
 		}
 	}
 }
 
-void AIBrain::Discover(PathNode* node, Grid& grid, double& gameTime)
+void AIBrain::Explore(PathNode* node, Grid& grid, double& gameTime)
 {
 	if (!node)
 		return;
@@ -163,7 +163,7 @@ void AIBrain::UpdateValues(float deltaTime)
 	}
 }
 
-Agent* AIBrain::GetBestAgent(PopulationType type, PathNode* node)
+AIBrain::Agent* AIBrain::GetBestAgent(PopulationType type, PathNode* node)
 {
 	float bestScore = FLT_MAX;
 	Agent* bestAgent = nullptr;
@@ -195,11 +195,11 @@ void AIBrain::UpdateWorkers(float dt)
 			agent->Update(dt);
 			continue;
 		}
+
 		Task* t = nullptr;
 		if (agent->holding == ItemType::None)
 			t = taskAllocator->GetNext(TaskType::GatherWood);
-		else
-			t = taskAllocator->GetNext(TaskType::Transport, agent->holding);
+
 		if (t)
 		{
 			agent->currentTask = t;
@@ -208,6 +208,47 @@ void AIBrain::UpdateWorkers(float dt)
 		agent->Update(dt);
 	}
 }
+
+void AIBrain::TrainUnit(PopulationType type)
+{
+	std::vector<Agent*>::iterator it;
+	for (it = populationMap[PopulationType::Worker].begin(); it < populationMap[PopulationType::Worker].end();)
+	{
+		if (!((*it)->busy))
+		{
+			break;
+		}
+		else
+			it++;
+	}
+
+	if (it == populationMap[PopulationType::Worker].end())
+		return;
+
+	auto temp = population->GetTemplate(type);
+
+	std::vector<std::pair<ItemType, float>> lackingResources;
+
+	if (temp->CanAfford(resources->Get(), lackingResources))
+	{
+		temp->RemoveResources(resources);
+		population->TrainUnit(type, *it);
+		it = populationMap[PopulationType::Worker].erase(it);
+	}
+}
+
+void AIBrain::PickupNewTrained()
+{
+
+	for (Agent* agent : population->finishedUnits)
+	{
+		populationMap[agent->type].push_back(agent);
+	}
+
+	population->finishedUnits.clear();
+}
+
+//////////////////////////////////////////
 
 void AIBrain::GatherResources(Task& t, float deltaTime)
 {
@@ -293,7 +334,7 @@ void AIBrain::GatherResources(Task& t, float deltaTime)
 		if (!valid)
 		{
 			Task tt;
-			tt.type = TaskType::Discover;
+			tt.type = TaskType::Explore;
 			tt.priority = t.priority + 1;
 			tt.time = 5.0f;
 			tt.resources = res;
@@ -531,7 +572,7 @@ void AIBrain::FSM(float deltaTime)
 			if (!valid)
 			{
 				Task tt;
-				tt.type = TaskType::Discover;
+				tt.type = TaskType::Explore;
 				tt.priority = t.priority + 1;
 				tt.time = 5.0f;
 				taskAllocator->AddTask(tt);
@@ -539,7 +580,7 @@ void AIBrain::FSM(float deltaTime)
 		}
 		else
 		{
-			PopulationUpgrade* s = military->GetTemplate(PopulationType::Infantry);
+			PopulationUpgrade* s = population->GetTemplate(PopulationType::Infantry);
 			int soldiersPerBatch = 20;
 
 			if (t.amount < soldiersPerBatch)
@@ -548,7 +589,7 @@ void AIBrain::FSM(float deltaTime)
 			if (s->CanAfford(resources->Get(), lackingResources, soldiersPerBatch))
 			{
 				s->RemoveResources(resources, soldiersPerBatch);
-				military->TrainUnit(s->type, soldiersPerBatch);
+				population->TrainUnit(s->type, soldiersPerBatch);
 				t.amount -= soldiersPerBatch;
 			}
 			else
@@ -578,7 +619,7 @@ void AIBrain::FSM(float deltaTime)
 				if (!valid)
 				{
 					Task tt;
-					tt.type = TaskType::Discover;
+					tt.type = TaskType::Explore;
 					tt.priority = t.priority + 1;
 					tt.time = 5.0f;
 					taskAllocator->AddTask(tt);
@@ -599,7 +640,7 @@ void AIBrain::FSM(float deltaTime)
 
 
 		break;
-	case TaskType::Discover:
+	case TaskType::Explore:
 
 		for (std::vector<std::pair<ItemType, float>>::iterator it = t.resources.begin(); it != t.resources.end();)
 		{

@@ -10,11 +10,11 @@
 
 class GameAI;
 class AIBrain; // forward
-class Agent;
+struct Agent;
 
 // High-level enums and data structures used by the managers and AIBrain
 enum class ItemType { Wood, Coal, Iron, Iron_Bar, Sword, None };
-enum class TaskType { None, Discover, GatherWood, Build, TrainUnit, Transport, MineCoal, ForgeWeapon, Smelt };
+enum class TaskType { None, Explore, GatherWood, Build, Transport, MineCoal, ForgeWeapon, Smelt };
 
 enum class PopulationType
 {
@@ -407,11 +407,11 @@ public:
 
 	PopulationUpgrade* GetTemplate(PopulationType type);
 
+	std::vector<Agent*> finishedUnits;
 private:
 	AIBrain* owner;
 	std::map<PopulationType, PopulationUpgrade*> unitTemplates;
 	std::vector<std::pair<Agent*, float>> trainingQueue;
-	std::vector<Agent*> finishedUnits;
 };
 
 
@@ -447,14 +447,12 @@ static std::string ToString(TaskType type)
 	{
 	case (TaskType::None):
 		return "nothing";
-	case (TaskType::Discover):
+	case (TaskType::Explore):
 		return "explore";
 	case (TaskType::GatherWood):
 		return "gather resources";
 	case (TaskType::Build):
 		return "build";
-	case (TaskType::TrainUnit):
-		return "train soldiers";
 	default:
 		return "other";
 	}
