@@ -11,10 +11,14 @@
 TaskAllocator::TaskAllocator(AIBrain* owner) : owner(owner) {}
 int TaskAllocator::AddTask(const Task& t)
 {
-	Task copy = t; 
-	copy.id = nextId++; 
-	tasks[t.type].push_back(copy); 
-	return copy.id;
+	for (int i = 0; i < t.amount; i++)
+	{
+		Task copy = t;
+		copy.id = nextId++;
+		tasks[t.type].push_back(copy);
+	}
+
+	return nextId;
 }
 
 void TaskAllocator::Update(float dt)
@@ -58,31 +62,21 @@ void ResourceManager::Update(float dt)
 }
 float ResourceManager::Get(ItemType r) const
 {
-	auto it = inventory.find(r);
-	if (it == inventory.end())
+	auto it = inventory.resources.find(r);
+	if (it == inventory.resources.end())
 		return 0;
 	return it->second;
 }
-Cost ResourceManager::Get()
-{
-	Cost c;
-	c.coal = Get(ItemType::Coal);
-	c.iron = Get(ItemType::Iron);
-	c.wood = Get(ItemType::Wood);
-	c.iron_bar = Get(ItemType::Iron_Bar);
-	c.sword = Get(ItemType::Sword);
-	return c;
-}
 void ResourceManager::Add(ItemType r, float amount)
 {
-	inventory[r] += amount;
+	inventory.resources[r] += amount;
 }
 bool ResourceManager::Request(ItemType r, float amount)
 {
 	if (amount <= 0)
 		return true;
-	auto it = inventory.find(r);
-	if (it == inventory.end())
+	auto it = inventory.resources.find(r);
+	if (it == inventory.resources.end())
 		return false;
 	if (it->second < amount)
 		return false;
@@ -91,7 +85,7 @@ bool ResourceManager::Request(ItemType r, float amount)
 }
 
 // BuildManager
-BuildManager::BuildManager(AIBrain* owner) : owner(owner) 
+BuildManager::BuildManager(AIBrain* owner) : owner(owner)
 {
 	for (int a = (int)BuildingType::Start + 1; a < (int)BuildingType::End; a++)
 	{
@@ -100,29 +94,48 @@ BuildManager::BuildManager(AIBrain* owner) : owner(owner)
 }
 void BuildManager::Update(float dt)
 {
-	(void)dt;
-	if (queue.empty()) return;
 
 	for (std::vector<Building*>::iterator it = queue.begin(); it != queue.end();)
+	{
+		if ((*it)->RemoveResources((*it)->inventory, 1))
+		{
+			underConstruction.push_back(*it);
+			Logger::Instance().Log(std::string("All resources added for: ") + ToString((*it)->type) + "\n");
+			it = queue.erase(it);
+		}
+		else
+			++it;
+	}
+
+	for (std::vector<Building*>::iterator it = underConstruction.begin(); it != underConstruction.end();)
 	{
 		if ((*it)->productionTime <= 0)
 		{
 			builtBuildings[(*it)->type] = *it;
 			(*it)->PlaceBuilding();
 			Logger::Instance().Log(std::string("Built: ") + ToString((*it)->type) + "\n");
-			queue.erase(it);
+			(*it)->built = true;
+
+			Task t;
+			t.buildingType = (*it)->type;
+			t.building = *it;
+			t.type = BuildingToType((*it)->type);
+			t.priority = 1.0f;
+			owner->GetAllocator()->AddTask(t);
+
+			it = underConstruction.erase(it);
 		}
 		else
 			++it;
 	}
 }
 
-void BuildManager::WorkOnBuilding(float dt, Building* building)
+void Building::WorkOnBuilding(float dt)
 {
-	if (building->HasCost())
+	if (HasCost())
 		return;
 
-	building->productionTime -= dt;
+	productionTime -= dt;
 }
 
 bool BuildManager::HasBuilding(const BuildingType type) const
@@ -154,16 +167,21 @@ Building* BuildManager::GetBuildingTemplate(const BuildingType type) const
 
 bool BuildManager::IsInQueue(const BuildingType type) const
 {
-	bool found = false;
+	for (auto b : underConstruction)
+	{
+		if (b->type == type)
+		{
+			return true;
+		}
+	}
 	for (auto b : queue)
 	{
 		if (b->type == type)
 		{
-			found = true;
-			break;
+			return true;
 		}
 	}
-	return found;
+	return false;
 }
 Building* BuildManager::QueueBuilding(BuildingType type, PathNode* node)
 {
@@ -192,15 +210,12 @@ void Building::RemoveBuilding()
 
 bool Building::AddResource(ItemType resource)
 {
-	if (cost.NeedsResource(resource))
-	{
-		return true;
-	}
-	else return false;
+	inventory.resources[resource]++;
+	return true;
 }
 
 // ManufacturingManager
-ManufacturingManager::ManufacturingManager(AIBrain* owner) : owner(owner) 
+ManufacturingManager::ManufacturingManager(AIBrain* owner) : owner(owner)
 {
 	productTemplate[ItemType::Iron_Bar] = new Product(ItemType::Iron_Bar);
 	productTemplate[ItemType::Sword] = new Product(ItemType::Sword);
@@ -242,7 +257,7 @@ Product* ManufacturingManager::GetProductTemplate(ItemType type)
 }
 
 // MilitaryManager
-PopulationManager::PopulationManager(AIBrain* owner) : owner(owner) 
+PopulationManager::PopulationManager(AIBrain* owner) : owner(owner)
 {
 	for (int a = 0; a < (int)PopulationType::End; a++)
 	{
@@ -251,23 +266,25 @@ PopulationManager::PopulationManager(AIBrain* owner) : owner(owner)
 }
 void PopulationManager::Update(float dt)
 {
-		for (auto it = trainingQueue.begin(); it != trainingQueue.end(); )
+	for (auto it = trainingQueue.begin(); it != trainingQueue.end(); )
+	{
+		if (it->second <= 0)
 		{
-			if (it->second <= 0)
-			{
-				finishedUnits.push_back(it->first);
-				trainingQueue.erase(it++);
-				Logger::Instance().Log(std::string("Trained Unit") + "\n");
-			}
-			else
-			{
-				it->second -= dt;
-				++it;
-			}
+			finishedUnits.push_back(it->first);
+			Logger::Instance().Log("Trained unit: " + ToString(it->first->type) + "\n");
+			it = trainingQueue.erase(it);
 		}
+		else
+		{
+			it->second -= dt;
+			++it;
+		}
+	}
 }
+
 void PopulationManager::TrainUnit(PopulationType type, Agent* unit)
 {
+	unit->type = type;
 	trainingQueue.push_back(std::pair<Agent*, float>(unit, unitTemplates[type]->productionTime));
 }
 
@@ -280,4 +297,51 @@ PopulationUpgrade* PopulationManager::GetTemplate(PopulationType type)
 	Logger::Instance().Log("Failed to get soldier template \n");
 	std::cout << "failed to get soldier template" << std::endl;
 	return nullptr;
+}
+
+bool Costable::CanAfford(Cost availableResources, std::vector<std::pair<ItemType, float>>& lackingResources, int amountToAfford)
+{
+	bool canAfford = true;
+	for (auto& res : cost.resources)
+	{
+		if (!availableResources.resources[res.first] >= res.second * amountToAfford)
+		{
+			lackingResources.push_back(std::pair<ItemType, float>(res.first, res.second * amountToAfford));
+			canAfford = false;
+		}
+	}
+
+	return canAfford;
+}
+
+bool Costable::RemoveResources(Cost availableResources, int amount)
+{
+	std::vector<std::pair<ItemType, float>> lacking;
+	if (!CanAfford(availableResources, lacking, amount))
+	{
+		std::string s;
+		for (auto& res : lacking)
+		{
+			s += ToString(res.first) + ", ";
+		}
+		std::cout << "Failed to remove resources: " << s << std::endl;
+		return false;
+	}
+
+	for (auto res : cost.resources)
+	{
+		availableResources.resources[res.first] -= res.second * amount;
+	}
+
+	return true;
+}
+
+bool Costable::HasCost()
+{
+	for (auto& res : cost.resources)
+	{
+		if (res.second > 0)
+			return true;
+	}
+	return false;
 }

@@ -93,7 +93,7 @@ Behaviour::Info Behaviour::Arrive(float deltaTime, Vec2 t)
 		}
 	}
 
-	const float arrivalRadius = 50.0f;
+	const float arrivalRadius = 20.0f;
 
 	// --- Hard stop when close enough ---
 	if (dist < ai->GetRadius() * 0.5f)
@@ -275,7 +275,7 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 	}
 
 	// Advance path index if we reached current node
-	if (DistanceBetween(ai->GetPosition(), path[pathIndex]->position) < ai->GetRadius())
+	if (DistanceBetween(ai->GetPosition(), path[pathIndex]->position) < 10)
 	{
 		pathIndex--;
 		if (pathIndex < 0)

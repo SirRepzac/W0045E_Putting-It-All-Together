@@ -85,7 +85,7 @@ bool GameAI::CanUseNode(const PathNode* node) const
 	KnownNode* k = &connectedBrain->knownNodes[r][c];
 
 	// Option A: unknown = blocked
-	if (k->discovered)
+	if (!k->discovered)
 		return false;
 
 	return k->walkable;

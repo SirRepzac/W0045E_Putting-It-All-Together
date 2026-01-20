@@ -15,94 +15,23 @@ struct KnownNode
 	float lastSeenTime = 0;
 };
 
-struct Agent
+class AIBrain;
+
+class Agent
 {
+public:
 	Agent(GameAI* ai) : ai(ai), busy(false), type(PopulationType::Worker) {}
 	GameAI* ai;
 	PopulationType type;
 	bool busy;
-	ItemType holding = ItemType::None;
 	Task* currentTask = nullptr;
 	float workTimer = 0.0f;
+	ItemType holding = ItemType::None;
+	AIBrain* brain = nullptr;
 
-	void Update(float dt)
-	{
-		if (currentTask == nullptr)
-			return;
-
-		if (type == PopulationType::Worker)
-		{
-			if (currentTask->type == TaskType::GatherWood)
-			{
-				Grid& grid = GameLoop::Instance().GetGrid();
-				std::vector<PathNode*> nodes;
-				grid.QueryNodes(ai->GetPosition(), ai->GetRadius() * 2, nodes, PathNode::ResourceType::Wood);
-
-				for (std::vector<PathNode*>::iterator it = nodes.begin(); it != nodes.end();)
-				{
-					if ((*it)->resourceAmount <= 0)
-						it = nodes.erase(it);
-					else
-						it++;
-				}
-
-				// is close to resource
-				if (!nodes.empty())
-				{
-					if (workTimer >= 30.0f)
-					{
-						PathNode* node = nodes[0];
-						holding = ItemType::Wood;
-
-						node->resourceAmount--;
-						if (node->resourceAmount <= 0)
-						{
-							node->resource = PathNode::ResourceType::None;
-							int r;
-							int c;
-							grid.WorldToGrid(node->position, r, c);
-							GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
-
-						}
-						bool valid = true;
-						ai->GoTo(currentTask->building->targetNode, valid);
-						currentTask->type = TaskType::Transport;
-						//busy = false;
-					}
-					else
-					{
-						workTimer += dt;
-					}
-				}
-				else
-				{
-					bool valid = true;
-					// is not close, go to closest
-					ai->GoToClosest(PathNode::ResourceType::Wood, valid);
-				}
-			}
-			else if (currentTask->type == TaskType::Transport)
-			{
-				if (DistanceBetween(ai->GetPosition(), currentTask->building->targetNode->position) < ai->GetRadius() * 2)
-				{
-					if (currentTask->building->AddResource(holding))
-					{
-						holding = ItemType::None;
-					}
-
-					currentTask->completed = true;
-					busy = false;
-					currentTask = nullptr;
-				}
-				else
-				{
-					bool valid = true;
-					ai->GoTo(currentTask->building->targetNode, valid);
-				}
-			}
-		}
-	}
+	void Update(float dt);
 };
+
 
 class AIBrain
 {
@@ -127,29 +56,23 @@ public:
 	std::vector<std::vector<KnownNode>> knownNodes;
 	bool IsDiscovered(int index) const;
 	bool IsDiscovered(int row, int col) const;
+	bool IsDiscovered(PathNode* node) const;
 
+	PathNode* FindClosestFrontier(Agent* agent);
+
+	bool discoveredAll = false;
 private:
-	void UpdateValues(float deltaTime);
 	Agent* GetBestAgent(PopulationType type, PathNode* node);
-	void UpdateWorkers(float dt);
+	void UpdatePopulationTasks(float dt);
 	void TrainUnit(PopulationType type);
 	void PickupNewTrained();
-	void GatherResources(Task& t, float deltaTime);
-	void ManufactureProducts(Task& t, float deltaTime);
-	void AddAcquisitionTask(std::vector<std::pair<ItemType, float>> lackingResources, float priority);
-	void LogCurrentTaskList();
 	void FSM(float deltaTime);
 	void CheckDeath();
 
 	bool IsFrontierNode(const PathNode* node);
 
-	PathNode* FindClosestFrontier();
-
-	PathNode* FindClosestOpenArea(Vec2 areaSize);
-
-	std::vector<Agent> agents;
-
 	std::map<PopulationType, std::vector<Agent*>> populationMap;
+	std::vector<Agent*> agents;
 
 	float materialPriority = 1.0f;
 	float laborPriority = 1.0f;

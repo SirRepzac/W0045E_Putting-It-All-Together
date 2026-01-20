@@ -26,6 +26,8 @@ struct OpenEntryCompare
 
 PathNode* ResolveGoalNode(PathNode* desired, float agentRadius)
 {
+	if (!desired)
+		return nullptr;
 	// If the goal itself is valid, use it
 	if (desired->clearance > agentRadius)
 		return desired;
@@ -106,7 +108,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 			if (closed.find(neighbor) != closed.end())
 				continue;
 
-			if (!canTraverse(neighbor))
+			if (!canTraverse(neighbor) && neighbor != goalNode)
 				continue;
 
 			if (neighbor->clearance < agentRadius)

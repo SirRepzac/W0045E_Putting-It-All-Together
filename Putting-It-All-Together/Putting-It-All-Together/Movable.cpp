@@ -59,35 +59,39 @@ void Movable::Move(Vec2 dir, float acc, float deltaTime)
 
 	// ---- COLLISIONS ----
 	// Agent collisions
-	std::vector<Movable*> movables;
-	grid.QueryEnt(position, grid.cellSize, movables);
-
-	for (Movable* m : movables)
+	bool collision = false;
+	if (collision)
 	{
-		if (m == this) continue;
+		std::vector<Movable*> movables;
+		grid.QueryEnt(position, grid.cellSize, movables);
 
-		float dist = DistanceBetween(position, m->position);
-		float minDist = radius + m->radius;
-
-		if (dist < minDist)
+		for (Movable* m : movables)
 		{
-			Vec2 normal = (position - m->position).Normalized();
-			float penetration = minDist - dist;
+			if (m == this) continue;
 
-			position += normal * penetration;
+			float dist = DistanceBetween(position, m->position);
+			float minDist = radius + m->radius;
 
-			float vn = velocity.Dot(normal);
-			if (vn < 0.0f)
-				velocity -= normal * vn;
+			if (dist < minDist)
+			{
+				Vec2 normal = (position - m->position).Normalized();
+				float penetration = minDist - dist;
 
-			Vec2 tangent = Vec2(-normal.y, normal.x);
-			velocity = tangent * velocity.Dot(tangent);
+				position += normal * penetration;
 
-			float weightDiff = weight - (m->weight / 2);
-			if (weightDiff < 0)
-				weightDiff = 0;
+				float vn = velocity.Dot(normal);
+				if (vn < 0.0f)
+					velocity -= normal * vn;
 
-			m->Push(-normal, -vn * weightDiff);
+				Vec2 tangent = Vec2(-normal.y, normal.x);
+				velocity = tangent * velocity.Dot(tangent);
+
+				float weightDiff = weight - (m->weight / 2);
+				if (weightDiff < 0)
+					weightDiff = 0;
+
+				m->Push(-normal, -vn * weightDiff);
+			}
 		}
 	}
 

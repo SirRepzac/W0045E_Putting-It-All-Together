@@ -277,9 +277,9 @@ void GameLoop::UpdateRenderer()
 		Vec2 p = ai->GetPosition();
 		Renderer::Entity e = Renderer::Entity::MakeCircle(p.x, p.y, ai->GetRadius(), ai->GetColor(), true);
 
-		Vec2 dir = ai->GetDirection();
-		e.dirX = dir.x;
-		e.dirY = dir.y;
+		//Vec2 dir = ai->GetDirection();
+		//e.dirX = dir.x;
+		//e.dirY = dir.y;
 
 		ents.push_back(e);
 	}
@@ -304,7 +304,6 @@ void GameLoop::UpdateRenderer()
 			std::string str3 = "Coal: " + std::to_string(brain->GetResources()->Get(ItemType::Coal));
 			std::string str4 = "Iron_Bar: " + std::to_string(brain->GetResources()->Get(ItemType::Iron_Bar));
 			std::string str5 = "Swords: " + std::to_string(brain->GetResources()->Get(ItemType::Sword));
-			std::string str6 = "Soldiers: " + std::to_string(brain->GetMilitary()->GetSoldierCount());
 			std::string str7 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
 
 			std::vector<std::string> overlay = {
@@ -313,7 +312,6 @@ void GameLoop::UpdateRenderer()
 				str3,
 				str4,
 				str5,
-				str6,
 				str7
 			};
 
