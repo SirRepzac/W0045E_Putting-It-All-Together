@@ -442,7 +442,7 @@ void Grid::QueryNodes(const Vec2& pos, float radius, std::vector<PathNode*>& out
 			if (loc == nullptr) 
 				continue;
 
-			if ((loc->type != type) && type != PathNode::ResourceType::None)
+			if ((loc->resource != type) && type != PathNode::ResourceType::None)
 				continue;
 
 			out.push_back(loc);

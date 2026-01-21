@@ -147,7 +147,7 @@ void GameAI::GoTo(PathNode* destination, bool &isPathValid, bool ignoreFog)
 
 void GameAI::GoToClosest(PathNode::ResourceType destinationType, bool& isPathValid)
 {
-	GoToClosest(std::vector<PathNode::ResourceType>(destinationType), isPathValid);
+	GoToClosest(std::vector<PathNode::ResourceType>{destinationType}, isPathValid);
 }
 void GameAI::GoToClosest(std::vector<PathNode::ResourceType> destinationTypes, bool& isPathValid)
 {

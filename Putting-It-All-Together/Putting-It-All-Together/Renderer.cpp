@@ -77,6 +77,7 @@ void Renderer::ThreadMain()
 	if (!SDL_CreateWindowAndRenderer("Putting it all together", width_, height_, flags, &window, &renderer))
 	{
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create window and renderer: %s", SDL_GetError());
+		running_ = false;
 		return;
 	}
 
@@ -233,33 +234,38 @@ void Renderer::RenderFrame()
 
 		RenderRect(node.xPos, node.yPos, node.width, node.height, true, scale);
 
-		if (node.resource != PathNode::ResourceType::None)
+		if (node.resource == PathNode::ResourceType::None)
+			continue;
+
+		if (node.resource == PathNode::ResourceType::Wood)
 		{
-			if (node.resource == PathNode::ResourceType::Wood)
+			RNG rng(SeedFromNode(n));
+
+			const int treeCount = node.resourceAmount;
+			const float radius = std::min(node.width, node.height) * 0.1f;
+
+			SDL_Color ct = ToSDLColor(ResourceColor(node.resource));
+			SDL_SetRenderDrawColor(renderer_, ct.r, ct.g, ct.b, ct.a);
+
+			for (int i = 0; i < treeCount; ++i)
 			{
-				RNG rng(SeedFromNode(n));
+				float u = rng.NextFloat01();
+				float v = rng.NextFloat01();
 
-				const int treeCount = node.resourceAmount;
-				const float radius = std::min(node.width, node.height) * 0.1f;
+				float margin = radius * 1.2f;
 
-				SDL_Color ct = ToSDLColor(ResourceColor(node.resource));
-				SDL_SetRenderDrawColor(renderer_, ct.r, ct.g, ct.b, ct.a);
+				float posX = node.xPos + margin + u * (node.width - margin * 2.0f);
+				float posY = node.yPos + margin + v * (node.height - margin * 2.0f);
 
-				for (int i = 0; i < treeCount; ++i)
-				{
-					float u = rng.NextFloat01();
-					float v = rng.NextFloat01();
-
-					float margin = radius * 1.2f;
-
-					float posX = node.xPos + margin + u * (node.width - margin * 2.0f);
-					float posY = node.yPos + margin + v * (node.height - margin * 2.0f);
-
-					float sizeJitter = 0.90f + rng.NextFloat01() * 0.3f;
-					RenderCircle(posX, posY, radius * sizeJitter, scale);
-				}
+				float sizeJitter = 0.90f + rng.NextFloat01() * 0.3f;
+				RenderCircle(posX, posY, radius * sizeJitter, scale);
 			}
 		}
+		else if (node.resource == PathNode::ResourceType::Wood)
+		{
+
+		}
+
 	}
 
 	std::vector<Entity> ents;

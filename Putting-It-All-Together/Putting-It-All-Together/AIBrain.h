@@ -67,9 +67,9 @@ private:
 	void TrainUnit(PopulationType type);
 	void PickupNewTrained();
 	void FSM(float deltaTime);
+	void BuildBuilding(BuildingType b);
+	void GatherWood(int amount, float priority, Building* building);
 	void CheckDeath();
-
-	bool IsFrontierNode(const PathNode* node);
 
 	std::map<PopulationType, std::vector<Agent*>> populationMap;
 	std::vector<Agent*> agents;

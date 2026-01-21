@@ -186,7 +186,7 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 		auto isDesiredType = [&](PathNode* n)
 			{
 				for (auto t : endTypes)
-					if (n->type == t)
+					if (n->resource == t)
 						return true;
 				return false;
 			};
@@ -199,16 +199,16 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 			return ReconstructPath(records, current);
 		}
 
-		// Case 2: current is a reachable proxy next to a goal
-		for (PathNode* n : current->neighbors)
-		{
-			if (!isDesiredType(n) || n->resourceAmount <= 0)
-				continue;
+		//// Case 2: current is a reachable proxy next to a goal
+		//for (PathNode* n : current->neighbors)
+		//{
+		//	if (!isDesiredType(n) || n->resourceAmount <= 0)
+		//		continue;
 
-			// We intentionally DO NOT check clearance on the goal node
-			outDist = records.at(current).gCost;
-			return ReconstructPath(records, current);
-		}
+		//	// We intentionally DO NOT check clearance on the goal node
+		//	outDist = records.at(current).gCost;
+		//	return ReconstructPath(records, current);
+		//}
 
 
 		closed.insert(current);

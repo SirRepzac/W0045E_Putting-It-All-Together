@@ -72,22 +72,8 @@ AIBrain::AIBrain()
 	TrainUnit(PopulationType::Builder);
 
 	BuildingType b = BuildingType::Smelter;
-	PathNode* fittingNode = GetBuildingLocation(b);
-	Building* toBuild = build->QueueBuilding(b, fittingNode);
-	Task t;
-	t.type = TaskType::Build;
-	t.buildingType = b;
-	t.priority = 1.0f;
-	t.building = toBuild;
-	taskAllocator->AddTask(t);
+	BuildBuilding(b);
 
-	Task t2;
-	t2.type = TaskType::GatherWood;
-	t2.amount = 10;
-	t2.buildingType = b;
-	t2.building = toBuild;
-	t2.priority = 1.0f;
-	taskAllocator->AddTask(t2);
 }
 
 AIBrain::~AIBrain()
@@ -152,6 +138,32 @@ void AIBrain::FSM(float dt)
 	//	t.priority = b.priority;
 	//	taskAllocator->AddTask(t);
 	//}
+}
+
+void AIBrain::BuildBuilding(BuildingType b)
+{
+	PathNode* fittingNode = GetBuildingLocation(b);
+	Building* toBuild = build->QueueBuilding(b, fittingNode);
+	Task t;
+	t.type = TaskType::Build;
+	t.buildingType = b;
+	t.priority = 1.0f;
+	t.building = toBuild;
+	taskAllocator->AddTask(t);
+
+	Building* te = build->GetBuildingTemplate(b);
+
+	GatherWood(te->cost.resources[ItemType::Wood], 1.0f, toBuild);
+}
+
+void AIBrain::GatherWood(int amount, float priority, Building* building)
+{
+	Task t;
+	t.type = TaskType::GatherWood;
+	t.amount = amount;
+	t.building = building;
+	t.priority = priority;
+	taskAllocator->AddTask(t);
 }
 
 void AIBrain::AddDesire(const std::string& name, TaskType taskType, ItemType primaryResource, int targetCount, float importance)
@@ -504,15 +516,15 @@ void Agent::Update(float dt)
 			std::vector<PathNode*> nodes;
 			grid.QueryNodes(ai->GetPosition(), ai->GetRadius() * 2, nodes, PathNode::ResourceType::Wood);
 
-			for (std::vector<PathNode*>::iterator it = nodes.begin(); it != nodes.end();)
-			{
-				if ((*it)->resourceAmount <= 0)
-					it = nodes.erase(it);
-				else
-					it++;
-			}
+				// is close to resource
+				for (std::vector<PathNode*>::iterator it = nodes.begin(); it != nodes.end();)
+				{
+					if ((*it)->resourceAmount <= 0)
+						it = nodes.erase(it);
+					else
+						it++;
+				}
 
-			// is close to resource
 			if (!nodes.empty())
 			{
 				if (workTimer >= 30.0f)

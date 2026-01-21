@@ -13,8 +13,8 @@ int TaskAllocator::AddTask(const Task& t)
 {
 	for (int i = 0; i < t.amount; i++)
 	{
-		Task copy = t;
-		copy.id = nextId++;
+		Task* copy = new Task(t);
+		copy->id = nextId++;
 		tasks[t.type].push_back(copy);
 	}
 
@@ -23,10 +23,14 @@ int TaskAllocator::AddTask(const Task& t)
 
 void TaskAllocator::Update(float dt)
 {
-	for (std::vector<Task>::iterator it = currentTasks.begin(); it != currentTasks.end();)
+	for (std::vector<Task*>::iterator it = currentTasks.begin(); it != currentTasks.end();)
 	{
-		if (it->completed)
+		if ((*it)->completed)
+		{
+			Task* finishedTask = *it;
 			it = currentTasks.erase(it);
+			delete finishedTask;
+		}
 		else
 			it++;
 	}
@@ -39,19 +43,26 @@ Task* TaskAllocator::GetNext(TaskType type)
 		return nullptr;
 
 	// Find iterator to the highest-priority task
-	auto it = std::max_element(tasks[type].begin(), tasks[type].end(), [](const Task& a, const Task& b)
+	float highestPriority = -1.0f;
+	std::vector<Task*>::iterator bestIt = tasks[type].end();
+	for (std::vector<Task*>::iterator it = tasks[type].begin(); it != tasks[type].end(); it++)
+	{
+		if ((*it)->priority > highestPriority)
 		{
-			return a.priority < b.priority;
-		});
+			highestPriority = (*it)->priority;
+			bestIt = it;
+		}
+	}
 
-	if (it == tasks[type].end())
+	if (bestIt == tasks[type].end())
 		return nullptr;
 
-	currentTasks.push_back(*it);
-	Task* returnTask = &currentTasks.back();
-	it = tasks[type].erase(it);
+	Task* bestTask = *bestIt;
 
-	return returnTask;
+	currentTasks.push_back(bestTask);
+	tasks[type].erase(bestIt);
+
+	return bestTask;
 }
 
 // ResourceManager

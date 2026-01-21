@@ -84,13 +84,14 @@ class TaskAllocator
 {
 public:
 	TaskAllocator(AIBrain* owner);
+	~TaskAllocator() { for (Task* t : currentTasks) delete t; for (auto& pt : tasks) for (Task* ptt : pt.second) delete ptt; }
 	int AddTask(const Task& t);
 	void Update(float dt);
 	Task* GetNext(TaskType type);
 	void Clear() { tasks.clear(); }
 
-	std::map<TaskType, std::vector<Task>> tasks;
-	std::vector<Task> currentTasks = std::vector<Task>();
+	std::map<TaskType, std::vector<Task*>> tasks;
+	std::vector<Task*> currentTasks;
 private:
 	AIBrain* owner;
 	int nextId = 1;
@@ -117,13 +118,12 @@ public:
 
 	bool RemoveResources(Cost availableResources, int amount = 1);
 
-
 	float productionTime;
 
 	bool HasCost();
 
-protected:
 	Cost cost;
+protected:
 };
 
 class Building : public Costable

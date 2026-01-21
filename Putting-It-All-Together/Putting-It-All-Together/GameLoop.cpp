@@ -258,13 +258,13 @@ void GameLoop::UpdateRenderer()
 	if (DEBUG_MODE)
 	{
 		std::vector<Renderer::Entity> debugEnts = GetDebugEntities();
-		for (Renderer::Entity e : debugEnts)
+		for (Renderer::Entity& e : debugEnts)
 		{
 			ents.push_back(e);
 		}
 	}
 
-	for (Renderer::Entity e : persistentEnts)
+	for (Renderer::Entity& e : persistentEnts)
 	{
 		ents.push_back(e);
 	}
@@ -298,19 +298,19 @@ void GameLoop::UpdateRenderer()
 	if (brain)
 	{
 
-			std::string str1 = "Wood: " + std::to_string(brain->GetResources()->Get(ItemType::Wood));
-			std::string str2 = "Iron: " + std::to_string(brain->GetResources()->Get(ItemType::Iron));
-			std::string str3 = "Coal: " + std::to_string(brain->GetResources()->Get(ItemType::Coal));
-			std::string str4 = "Iron_Bar: " + std::to_string(brain->GetResources()->Get(ItemType::Iron_Bar));
-			std::string str5 = "Swords: " + std::to_string(brain->GetResources()->Get(ItemType::Sword));
+			//std::string str1 = "Wood: " + std::to_string(brain->GetResources()->Get(ItemType::Wood));
+			//std::string str2 = "Iron: " + std::to_string(brain->GetResources()->Get(ItemType::Iron));
+			//std::string str3 = "Coal: " + std::to_string(brain->GetResources()->Get(ItemType::Coal));
+			//std::string str4 = "Iron_Bar: " + std::to_string(brain->GetResources()->Get(ItemType::Iron_Bar));
+			//std::string str5 = "Swords: " + std::to_string(brain->GetResources()->Get(ItemType::Sword));
 			std::string str7 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
 
 			std::vector<std::string> overlay = {
-				str1,
-				str2,
-				str3,
-				str4,
-				str5,
+				//str1,
+				//str2,
+				//str3,
+				//str4,
+				//str5,
 				str7
 			};
 
@@ -491,7 +491,7 @@ void GameLoop::LMBMouseClickAction(Vec2 clickPos)
 	if (currentPlacingType == node->type)
 		placingType = PathNode::Nothing;
 
-	float resourceAmount = 100.0f;
+	float resourceAmount = 5.0f;
 	if (currentPlacingResourceType == node->resource)
 	{
 		resourceAmount = 0;
