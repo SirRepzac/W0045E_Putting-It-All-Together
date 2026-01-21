@@ -69,6 +69,15 @@ struct Cost
 
 		return false;
 	}
+
+	Cost& operator-=(const Cost& other)
+	{
+		for (auto res : other.resources)
+		{
+			resources[res.first] -= res.second;
+		}
+		return *this;
+	}
 };
 
 struct Desire
@@ -239,6 +248,7 @@ public:
 			productionTime = 60.0f;
 		}
 	}
+
 private:
 	ItemType type;
 };

@@ -275,19 +275,20 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 	}
 
 	// Advance path index if we reached current node
-	if (DistanceBetween(ai->GetPosition(), path[pathIndex]->position) < ai->GetRadius())
+	if (DistanceBetween(ai->GetPosition(), path[pathIndex]->position) < 10)
 	{
-		pathIndex--;
-		if (pathIndex < 0)
+		if (pathIndex > 0)
+			pathIndex--;
+		/*if (pathIndex < 0)
 		{
 			ai->SetState(GameAI::State::STATE_IDLE, "arrived");
 			return { Vec2(0, 0), 0.0f };
-		}
+		}*/
 	}
 
 	// ---- LOS SMOOTHING ----
-	if (grid.HasLineOfSight(ai->GetPosition(), path[0]->position, ai->GetRadius()))
-		return Arrive(deltaTime, path[0]->position);
+	//if (grid.HasLineOfSight(ai->GetPosition(), path[0]->position, ai->GetRadius()))
+	//	return Arrive(deltaTime, path[0]->position);
 
 	// ---- MOVEMENT ----
 	Vec2 target = path[pathIndex]->position;

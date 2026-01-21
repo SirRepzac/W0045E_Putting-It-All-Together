@@ -67,7 +67,7 @@ private:
 	void TrainUnit(PopulationType type);
 	void PickupNewTrained();
 	void FSM(float deltaTime);
-	void BuildBuilding(BuildingType b);
+	void BuildBuilding(BuildingType b, PathNode* node);
 	void GatherWood(int amount, float priority, Building* building);
 	void CheckDeath();
 

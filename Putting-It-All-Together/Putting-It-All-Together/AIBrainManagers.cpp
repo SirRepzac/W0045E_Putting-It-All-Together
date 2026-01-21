@@ -112,6 +112,8 @@ void BuildManager::Update(float dt)
 		{
 			underConstruction.push_back(*it);
 			Logger::Instance().Log(std::string("All resources added for: ") + ToString((*it)->type) + "\n");
+			(*it)->cost -= buildingTemplates[(*it)->type]->cost;
+
 			it = queue.erase(it);
 		}
 		else
@@ -126,13 +128,6 @@ void BuildManager::Update(float dt)
 			(*it)->PlaceBuilding();
 			Logger::Instance().Log(std::string("Built: ") + ToString((*it)->type) + "\n");
 			(*it)->built = true;
-
-			Task t;
-			t.buildingType = (*it)->type;
-			t.building = *it;
-			t.type = BuildingToType((*it)->type);
-			t.priority = 1.0f;
-			owner->GetAllocator()->AddTask(t);
 
 			it = underConstruction.erase(it);
 		}
@@ -315,7 +310,7 @@ bool Costable::CanAfford(Cost availableResources, std::vector<std::pair<ItemType
 	bool canAfford = true;
 	for (auto& res : cost.resources)
 	{
-		if (!availableResources.resources[res.first] >= res.second * amountToAfford)
+		if (availableResources.resources[res.first] < res.second * amountToAfford)
 		{
 			lackingResources.push_back(std::pair<ItemType, float>(res.first, res.second * amountToAfford));
 			canAfford = false;
@@ -330,12 +325,6 @@ bool Costable::RemoveResources(Cost availableResources, int amount)
 	std::vector<std::pair<ItemType, float>> lacking;
 	if (!CanAfford(availableResources, lacking, amount))
 	{
-		std::string s;
-		for (auto& res : lacking)
-		{
-			s += ToString(res.first) + ", ";
-		}
-		std::cout << "Failed to remove resources: " << s << std::endl;
 		return false;
 	}
 

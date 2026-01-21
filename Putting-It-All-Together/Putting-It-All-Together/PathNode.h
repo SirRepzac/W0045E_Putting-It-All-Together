@@ -121,6 +121,8 @@ static uint32_t ResourceColor(PathNode::ResourceType type)
 		return 0x5E3500; // brown
 	else if (type == PathNode::Iron)
 		return 0xC0C0C0; // silver
+	else if (type == PathNode::Building)
+		return 0x5E3500; // silver
 	else
 		return 0xFFFFFF; // white
 }

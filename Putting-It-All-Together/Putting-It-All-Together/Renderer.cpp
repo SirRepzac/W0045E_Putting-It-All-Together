@@ -261,9 +261,25 @@ void Renderer::RenderFrame()
 				RenderCircle(posX, posY, radius * sizeJitter, scale);
 			}
 		}
-		else if (node.resource == PathNode::ResourceType::Wood)
+		else if (node.resource == PathNode::ResourceType::Building)
 		{
+			RNG rng(SeedFromNode(n));
 
+			SDL_Color ct = ToSDLColor(ResourceColor(node.resource));
+			SDL_SetRenderDrawColor(renderer_, ct.r, ct.g, ct.b, ct.a);
+
+			float u = rng.NextFloat01();
+			float v = rng.NextFloat01();
+
+			float margin = 1.2f;
+
+			float posX = node.xPos + margin + u * (node.width - margin * 2.0f);
+			float posY = node.yPos + margin + v * (node.height - margin * 2.0f);
+
+			float width = GameLoop::Instance().GetGrid().cellSize;
+			float height = GameLoop::Instance().GetGrid().cellSize * 0.8f;
+
+			RenderRect(posX, posY, width, height, true, scale);
 		}
 
 	}

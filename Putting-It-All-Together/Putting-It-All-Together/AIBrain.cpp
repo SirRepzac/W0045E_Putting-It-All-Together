@@ -72,7 +72,8 @@ AIBrain::AIBrain()
 	TrainUnit(PopulationType::Builder);
 
 	BuildingType b = BuildingType::Smelter;
-	BuildBuilding(b);
+	PathNode* node = GetBuildingLocation(b);
+	BuildBuilding(b, node);
 
 }
 
@@ -105,9 +106,10 @@ void AIBrain::FSM(float dt)
 
 	int updated = 0;
 	std::string s;
-	for (int j = 0; j < 4; j++)
+	int agentsPerFrame = 10;
+	for (int j = 0; j < agentsPerFrame; j++)
 	{
-		int idx = (i + j * agents.size() / 4) % agents.size();
+		int idx = (i + j * agents.size() / agentsPerFrame) % agents.size();
 		s += std::to_string(idx) + " ,";
 		agents[idx]->Update(dt);
 		updated++;
@@ -140,10 +142,9 @@ void AIBrain::FSM(float dt)
 	//}
 }
 
-void AIBrain::BuildBuilding(BuildingType b)
+void AIBrain::BuildBuilding(BuildingType b, PathNode* node)
 {
-	PathNode* fittingNode = GetBuildingLocation(b);
-	Building* toBuild = build->QueueBuilding(b, fittingNode);
+	Building* toBuild = build->QueueBuilding(b, node);
 	Task t;
 	t.type = TaskType::Build;
 	t.buildingType = b;
@@ -495,8 +496,9 @@ PathNode* AIBrain::GetBuildingLocation(BuildingType type)
 		return buildingLoc.at(type);
 
 	Building* b = build->GetBuildingTemplate(type);
-	Vec2 startingPos = { 965, 491 };
-	PathNode* startNode = GameLoop::Instance().GetGrid().GetNodeAt(startingPos);
+	Vec2 pos = { 922, 459 };
+	//float cellSize = GameLoop::Instance().GetGrid().cellSize;
+	PathNode* startNode = GameLoop::Instance().GetGrid().GetNodeAt(pos);
 	PathNode* location = startNode;
 	buildingLoc[type] = location;
 	return location;
@@ -516,14 +518,14 @@ void Agent::Update(float dt)
 			std::vector<PathNode*> nodes;
 			grid.QueryNodes(ai->GetPosition(), ai->GetRadius() * 2, nodes, PathNode::ResourceType::Wood);
 
-				// is close to resource
-				for (std::vector<PathNode*>::iterator it = nodes.begin(); it != nodes.end();)
-				{
-					if ((*it)->resourceAmount <= 0)
-						it = nodes.erase(it);
-					else
-						it++;
-				}
+			// is close to resource
+			for (std::vector<PathNode*>::iterator it = nodes.begin(); it != nodes.end();)
+			{
+				if ((*it)->resourceAmount <= 0)
+					it = nodes.erase(it);
+				else
+					it++;
+			}
 
 			if (!nodes.empty())
 			{
@@ -563,6 +565,8 @@ void Agent::Update(float dt)
 		{
 			if (DistanceBetween(ai->GetPosition(), currentTask->building->targetNode->position) < ai->GetRadius() * 2)
 			{
+				Logger::Instance().Log("delivered " + ToString(holding) + "\n");
+
 				if (currentTask->building->AddResource(holding))
 				{
 					holding = ItemType::None;
@@ -632,11 +636,22 @@ void Agent::Update(float dt)
 		if (DistanceBetween(ai->GetPosition(), currentTask->building->targetNode->position) < ai->GetRadius() * 2)
 		{
 			currentTask->building->WorkOnBuilding(dt);
+			if (currentTask->building->productionTime <= 0)
+			{
+				currentTask->completed = true;
+				currentTask = nullptr;
+				busy = false;
+				return;
+			}
 		}
 		else
 		{
+			if (currentTask->building->HasCost())
+				return;
+
 			bool valid = true;
 			ai->GoTo(currentTask->building->targetNode, valid);
+
 		}
 	}
 }
