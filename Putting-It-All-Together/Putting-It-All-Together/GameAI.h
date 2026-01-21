@@ -32,7 +32,7 @@ public:
 	GameAI(Vec2 pos);
 	~GameAI();
 
-	void SetState(State state);
+	void SetState(State state, std::string meta);
 
 	const std::string& GetName() { return name; };
 
@@ -75,8 +75,6 @@ private:
 	float SEPARATION_WEIGHT = 0; // recommended value: 2.0
 	float AGENTAVOIDANCE_WEIGHT = 0.0f; // recommended value: 2.0
 	float WALLAVOIDANCE_WEIGHT = 0.0f; // recommended value: 1.0
-
-	PathNode* desiredDestination = nullptr;
 };
 
 static inline const std::string ToString(GameAI::State s)

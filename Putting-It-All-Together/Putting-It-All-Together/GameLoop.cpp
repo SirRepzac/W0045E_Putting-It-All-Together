@@ -154,10 +154,9 @@ std::vector<GameAI*> GameLoop::CreateAI(int count, Vec2 startingPosition)
 		GameAI* ai = new GameAI(startingPosition);
 		aiList.push_back(ai);
 		newAIs.push_back(ai);
-
-		Logger::Instance().Log("Created: " + ai->GetName() + "\n");
 	}
 
+	Logger::Instance().Log("Created: " + std::to_string(newAIs.size()) + "AIs\n");
 	return newAIs;
 }
 

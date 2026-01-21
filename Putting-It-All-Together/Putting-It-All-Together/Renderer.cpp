@@ -239,7 +239,7 @@ void Renderer::RenderFrame()
 			{
 				RNG rng(SeedFromNode(n));
 
-				const int treeCount = 5;
+				const int treeCount = node.resourceAmount;
 				const float radius = std::min(node.width, node.height) * 0.1f;
 
 				SDL_Color ct = ToSDLColor(ResourceColor(node.resource));

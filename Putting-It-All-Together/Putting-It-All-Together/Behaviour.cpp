@@ -237,9 +237,9 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 {
 	GameAI* ai = dynamic_cast<GameAI*>(this->ai);
 
-	if (path.empty() || pathIndex <= 0)
+	if (path.empty())
 	{
-		ai->SetState(GameAI::State::STATE_IDLE);
+		ai->SetState(GameAI::State::STATE_IDLE, "path empty");
 		return Info{ Vec2(0,0), 0.0f };
 	}
 
@@ -275,11 +275,14 @@ Behaviour::Info Behaviour::FollowPath(float deltaTime)
 	}
 
 	// Advance path index if we reached current node
-	if (DistanceBetween(ai->GetPosition(), path[pathIndex]->position) < 10)
+	if (DistanceBetween(ai->GetPosition(), path[pathIndex]->position) < ai->GetRadius())
 	{
 		pathIndex--;
 		if (pathIndex < 0)
+		{
+			ai->SetState(GameAI::State::STATE_IDLE, "arrived");
 			return { Vec2(0, 0), 0.0f };
+		}
 	}
 
 	// ---- LOS SMOOTHING ----

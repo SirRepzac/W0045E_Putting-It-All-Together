@@ -111,7 +111,22 @@ void AIBrain::Think(float deltaTime)
 
 void AIBrain::FSM(float dt)
 {
+	frames++;
+
 	UpdatePopulationTasks(dt);
+
+	int i = frames % agents.size();
+
+	int updated = 0;
+	std::string s;
+	for (int j = 0; j < 4; j++)
+	{
+		int idx = (i + j * agents.size() / 4) % agents.size();
+		s += std::to_string(idx) + " ,";
+		agents[idx]->Update(dt);
+		updated++;
+	}
+
 	UpdateDiscovered();
 	PickupNewTrained();
 
@@ -151,6 +166,8 @@ void AIBrain::AddDesire(const std::string& name, TaskType taskType, ItemType pri
 
 void AIBrain::UpdateDiscovered()
 {
+	if (discoveredAll)
+		return;
 
 	Grid& grid = GameLoop::Instance().GetGrid();
 	double gameTime = GameLoop::Instance().GetGameTime();
@@ -254,7 +271,6 @@ void AIBrain::UpdatePopulationTasks(float dt)
 	{
 		if (agent->busy)
 		{
-			agent->Update(dt);
 			continue;
 		}
 
@@ -267,13 +283,11 @@ void AIBrain::UpdatePopulationTasks(float dt)
 			agent->currentTask = t;
 			agent->busy = true;
 		}
-		agent->Update(dt);
 	}
 	for (Agent* agent : populationMap[PopulationType::ArmSmith])
 	{
 		if (agent->busy)
 		{
-			agent->Update(dt);
 			continue;
 		}
 
@@ -285,13 +299,11 @@ void AIBrain::UpdatePopulationTasks(float dt)
 			agent->busy = true;
 		}
 
-		agent->Update(dt);
 	}
 	for (Agent* agent : populationMap[PopulationType::Builder])
 	{
 		if (agent->busy)
 		{
-			agent->Update(dt);
 			continue;
 		}
 
@@ -303,13 +315,11 @@ void AIBrain::UpdatePopulationTasks(float dt)
 			agent->busy = true;
 		}
 
-		agent->Update(dt);
 	}
 	for (Agent* agent : populationMap[PopulationType::Coal_Miner])
 	{
 		if (agent->busy)
 		{
-			agent->Update(dt);
 			continue;
 		}
 
@@ -321,13 +331,11 @@ void AIBrain::UpdatePopulationTasks(float dt)
 			agent->busy = true;
 		}
 
-		agent->Update(dt);
 	}
 	for (Agent* agent : populationMap[PopulationType::Smelter])
 	{
 		if (agent->busy)
 		{
-			agent->Update(dt);
 			continue;
 		}
 
@@ -339,13 +347,11 @@ void AIBrain::UpdatePopulationTasks(float dt)
 			agent->busy = true;
 		}
 
-		agent->Update(dt);
 	}
 	for (Agent* agent : populationMap[PopulationType::Scout])
 	{
 		if (agent->busy)
 		{
-			agent->Update(dt);
 			continue;
 		}
 
@@ -361,7 +367,6 @@ void AIBrain::UpdatePopulationTasks(float dt)
 			agent->currentTask = tptr;
 			agent->busy = true;
 		}
-		agent->Update(dt);
 	}
 }
 
@@ -415,35 +420,9 @@ void AIBrain::CheckDeath()
 	if (someCondition)
 	{
 		Logger::Instance().Log(ownerAI->GetName() + " has died.\n");
-		ownerAI->SetState(GameAI::State::STATE_IDLE);
+		ownerAI->SetState(GameAI::State::STATE_IDLE, "death");
 		GameLoop::Instance().ScheduleDeath(ownerAI);
 	}
-}
-
-bool AIBrain::IsFrontierNode(const PathNode* node)
-{
-	Grid& grid = GameLoop::Instance().GetGrid();
-
-	int r = -1;
-	int c = -1;
-	grid.WorldToGrid(node->position, r, c);
-
-	const KnownNode& k = knownNodes[r][c];
-
-	if (!k.discovered)
-		return false;
-
-	for (PathNode* n : node->neighbors)
-	{
-		int nr = -1;
-		int nc = -1;
-		grid.WorldToGrid(n->position, nr, nc);
-		const KnownNode& kn = knownNodes[nr][nc];
-
-		if (!kn.discovered)
-			return true;
-	}
-	return false;
 }
 
 // most often return top left frontier node
@@ -476,17 +455,18 @@ PathNode* AIBrain::FindClosestFrontier(Agent* agent)
 		PathNode* current = q.front();
 		q.pop();
 
-		if (IsFrontierNode(current))
+		if (!IsDiscovered(current) && !current->IsObstacle())
 		{
 			return current;
 		}
+
 		for (PathNode* n : current->neighbors)
 		{
 			int r = -1;
 			int c = -1;
 			grid.WorldToGrid(n->position, r, c);
 
-			if (visited.find(n) == visited.end() && knownNodes[r][c].discovered && knownNodes[r][c].walkable)
+			if (visited.find(n) == visited.end())
 			{
 				visited.insert(n);
 				q.push(n);
@@ -599,11 +579,11 @@ void Agent::Update(float dt)
 			if (!node)
 			{
 				brain->discoveredAll = true;
-				ai->SetState(GameAI::State::STATE_IDLE);
+				ai->SetState(GameAI::State::STATE_IDLE, "found all nodes");
 				return;
 			}
 			bool valid = true;
-			ai->GoTo(node, valid);
+			ai->GoTo(node, valid, true);
 		}
 	}
 
