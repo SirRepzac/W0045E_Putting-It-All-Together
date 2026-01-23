@@ -26,7 +26,7 @@ AIBrain::AIBrain()
 	int cols = grid.GetCols();
 	knownNodes.assign(rows, std::vector<KnownNode>(cols));
 
-	Vec2 startingPos = { 965, 491 };
+	Vec2 startingPos = startPos;
 	PathNode* startNode = grid.GetNodeAt(startingPos);
 	double gameTime = GameLoop::Instance().GetGameTime();
 	ExploreNode(startNode, grid, gameTime);
@@ -240,7 +240,7 @@ bool AIBrain::IsDiscovered(int row, int col) const
 	return knownNodes[row][col].discovered;
 }
 
-bool AIBrain::IsDiscovered(PathNode* node) const
+bool AIBrain::IsDiscovered(const PathNode* node) const
 {
 	if (!node)
 		return false;
@@ -438,14 +438,12 @@ void AIBrain::CheckDeath()
 	}
 }
 
-// most often return top left frontier node
-PathNode* AIBrain::FindClosestFrontier(Agent* agent)
+static PathNode* BFS(PathNode* startNode, std::vector<std::vector<KnownNode>>& knownNodes, std::function<bool(const PathNode*)> filter)
 {
-
 	GameLoop& game = GameLoop::Instance();
 	Grid& grid = game.GetGrid();
 
-	PathNode* start = grid.GetNodeAt(agent->ai->GetPosition());
+	PathNode* start = startNode;
 
 	int sr, sc;
 	grid.WorldToGrid(start->position, sr, sc);
@@ -468,7 +466,7 @@ PathNode* AIBrain::FindClosestFrontier(Agent* agent)
 		PathNode* current = q.front();
 		q.pop();
 
-		if (!IsDiscovered(current) && !current->IsObstacle())
+		if (filter(current))
 		{
 			return current;
 		}
@@ -486,8 +484,19 @@ PathNode* AIBrain::FindClosestFrontier(Agent* agent)
 			}
 		}
 	}
+}
 
-	return nullptr;
+// most often return top left frontier node
+PathNode* AIBrain::FindClosestFrontier(Agent* agent)
+{
+	auto filter = [this](const PathNode* node) { return !IsDiscovered(node) && !node->IsObstacle(); };
+
+	GameLoop& game = GameLoop::Instance();
+	Grid& grid = game.GetGrid();
+
+	PathNode* start = grid.GetNodeAt(agent->ai->GetPosition());
+
+	return BFS(start, knownNodes, filter);
 }
 
 PathNode* AIBrain::GetBuildingLocation(BuildingType type)
@@ -496,12 +505,19 @@ PathNode* AIBrain::GetBuildingLocation(BuildingType type)
 		return buildingLoc.at(type);
 
 	Building* b = build->GetBuildingTemplate(type);
-	Vec2 pos = { 922, 459 };
-	//float cellSize = GameLoop::Instance().GetGrid().cellSize;
-	PathNode* startNode = GameLoop::Instance().GetGrid().GetNodeAt(pos);
-	PathNode* location = startNode;
-	buildingLoc[type] = location;
-	return location;
+
+	auto filter = [this](const PathNode* node) { return node->resource == PathNode::ResourceType::None; };
+
+	GameLoop& game = GameLoop::Instance();
+	Grid& grid = game.GetGrid();
+
+	PathNode* buildNode = BFS(grid.GetNodeAt(startPos), knownNodes, filter);
+
+	if (buildNode == nullptr)
+		Logger::Instance().Log("Buildnode set to null for " + ToString(type) + "\n");
+
+	buildingLoc[type] = buildNode;
+	return buildNode;
 }
 
 void Agent::Update(float dt)

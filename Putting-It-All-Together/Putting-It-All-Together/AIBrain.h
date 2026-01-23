@@ -56,7 +56,7 @@ public:
 	std::vector<std::vector<KnownNode>> knownNodes;
 	bool IsDiscovered(int index) const;
 	bool IsDiscovered(int row, int col) const;
-	bool IsDiscovered(PathNode* node) const;
+	bool IsDiscovered(const PathNode* node) const;
 
 	PathNode* FindClosestFrontier(Agent* agent);
 
@@ -95,4 +95,6 @@ private:
 	std::map<BuildingType, PathNode*> buildingLoc;
 
 	int frames = 0;
+
+	Vec2 startPos = { 965, 491 };
 };
