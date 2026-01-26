@@ -33,7 +33,7 @@ public:
 	PathNode* approaching = nullptr;
 
 	void Update(float dt);
-	void OperateBuilding(Building* building, ItemType toProduce, float timeToProduce, float dt);
+	void OperateBuilding(BuildingType buildingType, ItemType toProduce, float timeToProduce, float dt);
 };
 
 
@@ -79,7 +79,7 @@ private:
 	void PickupNewTrained();
 	void FSM(float deltaTime);
 	void BuildBuilding(BuildingType b, PathNode* node = nullptr);
-	void Gather(ItemType resource, int amount, float priority, Building* building);
+	void Gather(ItemType resource, int amount, float priority);
 	void CheckDeath();
 
 	std::map<PopulationType, std::vector<Agent*>> populationMap;

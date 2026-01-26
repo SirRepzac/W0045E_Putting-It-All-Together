@@ -17,7 +17,19 @@ int TaskAllocator::AddTask(const Task& t)
 		copy->id = nextId++;
 		tasks[t.type].push_back(copy);
 	}
-
+	
+	//std::cout << "Added task: " << ToString(t.type);
+	//if (t.resource != ItemType::None)
+	//	std::cout << " of type " << ToString(t.resource) << " x" << t.amount;
+	//if (t.building)
+	//	std::cout << " to building " << ToString(t.building->type);
+	//else if (t.resourceTo != BuildingType::None)
+	//	std::cout << " to building " << ToString(t.resourceTo);
+	//if (t.resourceFrom != BuildingType::None)
+	//	std::cout << " from " << ToString(t.resourceFrom) << "\n";
+	//else
+	//	std::cout << " from gathering \n";
+	
 	return nextId;
 }
 
@@ -102,6 +114,9 @@ BuildManager::BuildManager(AIBrain* owner) : owner(owner)
 	{
 		buildingTemplates[BuildingType(a)] = new Building(BuildingType(a), nullptr);
 	}
+
+	builtBuildings[BuildingType::Storage] = new Building(BuildingType::Storage, owner->homeNode);
+	builtBuildings[BuildingType::Storage]->built = true;
 }
 void BuildManager::Update(float dt)
 {
@@ -116,9 +131,8 @@ void BuildManager::Update(float dt)
 
 			Task t;
 			t.type = TaskType::Build;
-			t.buildingType = (*it)->type;
+			t.resourceTo = (*it)->type;
 			t.priority = 1.0f;
-			t.building = *it;
 			owner->GetAllocator()->AddTask(t);
 
 			it = queue.erase(it);
@@ -197,6 +211,16 @@ bool BuildManager::IsInQueue(const BuildingType type) const
 		}
 	}
 	return false;
+}
+Building* BuildManager::FromUnderConstruction(const BuildingType type)
+{
+	for (auto building : underConstruction)
+	{
+		if (building->type == type)
+			return building;
+	}
+
+	return nullptr;
 }
 Building* BuildManager::QueueBuilding(BuildingType type, PathNode* node)
 {

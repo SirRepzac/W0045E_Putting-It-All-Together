@@ -36,6 +36,7 @@ enum class BuildingType
 	Forge,
 	Smelter,
 	Training_Camp,
+	Storage,
 	End
 };
 
@@ -48,11 +49,11 @@ struct Task
 	ItemType resource;
 	float time = 0;
 	float priority = 0.0f;
-	BuildingType buildingType;
 	std::string meta;
 	float amount = 1;
 	bool completed = false;
-	Building* building;
+
+	BuildingType resourceTo;
 	BuildingType resourceFrom;
 };
 
@@ -149,7 +150,7 @@ public:
 			productionTime = 60.0f;
 
 			Task t;
-			t.building = this;
+			t.resourceTo = type;
 			t.type = TaskType::MineCoal;
 			activationTask = t;
 		}
@@ -162,7 +163,7 @@ public:
 			productionTime = 180.0f;
 
 			Task t;
-			t.building = this;
+			t.resourceTo = type;
 			t.type = TaskType::ForgeWeapon;
 			activationTask = t;
 		}
@@ -174,7 +175,7 @@ public:
 			productionTime = 120.0f;
 
 			Task t;
-			t.building = this;
+			t.resourceTo = type;
 			t.type = TaskType::Smelt;
 			activationTask = t;
 		}
@@ -235,6 +236,7 @@ public:
 	Building* GetBuilding(const BuildingType type) const;
 	Building* GetBuildingTemplate(const BuildingType type) const;
 	bool IsInQueue(const BuildingType type) const;
+	Building* FromUnderConstruction(const BuildingType type);
 	Building* QueueBuilding(BuildingType type, PathNode* node);
 
 private:

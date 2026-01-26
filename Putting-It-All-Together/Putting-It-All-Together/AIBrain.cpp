@@ -7,6 +7,12 @@
 
 AIBrain::AIBrain()
 {
+	Grid& grid = GameLoop::Instance().GetGrid();
+
+	Vec2 startingPos = startPos;
+	PathNode* startNode = grid.GetNodeAt(startingPos);
+	homeNode = startNode;
+
 	resources = std::make_unique<ResourceManager>(this);
 	build = std::make_unique<BuildManager>(this);
 	manufacturing = std::make_unique<ManufacturingManager>(this);
@@ -21,14 +27,10 @@ AIBrain::AIBrain()
 	// Desire: 20 soldiers
 	//AddDesire("HaveSoldiers", TaskType::TrainUnit, ItemType::None, 20, 1.0f);
 
-	Grid& grid = GameLoop::Instance().GetGrid();
 	int rows = grid.GetRows();
 	int cols = grid.GetCols();
 	knownNodes.assign(rows, std::vector<KnownNode>(cols));
 
-	Vec2 startingPos = startPos;
-	PathNode* startNode = grid.GetNodeAt(startingPos);
-	homeNode = startNode;
 	KnownNode& kNode = NodeToKnown(homeNode);
 	kNode.resource = PathNode::ResourceType::Building;
 
@@ -123,29 +125,6 @@ void AIBrain::FSM(float dt)
 
 	UpdateDiscovered();
 	PickupNewTrained();
-
-	//if (needs building b)
-	//{
-	//	PathNode* fittingNode = GetBuildingLocation(b);
-	//	Building* toBuild = build->QueueBuilding(building.buildingType, fittingNode);
-	//	Task t;
-	//	t.type = TaskType::Build;
-	//	t.buildingType = b;
-	//	t.priority = somepriority;
-	//	t.building = toBuild;
-	//	taskAllocator->AddTask(t);
-	//}
-
-	//if (needs wood for b)
-	//{
-	//	Task t;
-	//	t.type = TaskType::Gather;
-	//	t.amount = 1;
-	//	t.buildingType = b.buildingType;
-	//	t.building = b;
-	//	t.priority = b.priority;
-	//	taskAllocator->AddTask(t);
-	//}
 }
 
 void AIBrain::BuildBuilding(BuildingType b, PathNode* node)
@@ -166,18 +145,29 @@ void AIBrain::BuildBuilding(BuildingType b, PathNode* node)
 
 	for (auto e : te->cost.resources)
 	{
-		Gather(e.first, e.second, 1.0f, toBuild);
+		Gather(e.first, e.second, 1.0f);
 	}
 }
 
-void AIBrain::Gather(ItemType resource, int amount, float priority, Building* building)
+void AIBrain::Gather(ItemType resource, int amount, float priority)
 {
+	// break down costs
+	Product* p = manufacturing->GetProductTemplate(resource);
+
+	if (p)
+	{
+		for (auto c : p->cost.resources)
+		{
+			// Currently some more "advanced" things are added to gather (iron_bar and coal), this is not intended.
+			Gather(c.first, c.second, priority + 1);
+		}
+	}
+
 	Task t;
 	t.type = TaskType::Gather;
 	t.resource = resource;
 	t.amount = amount;
-	t.building = building;
-	t.resourceFrom = manufacturing->GetBuildingForType(resource);
+	t.resourceTo = BuildingType::Storage;
 	t.priority = priority;
 	taskAllocator->AddTask(t);
 }
@@ -244,7 +234,7 @@ void AIBrain::ExploreNode(PathNode* node, Grid& grid, double& gameTime)
 	GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
 }
 
-bool AIBrain::IsDiscovered(int index) const 
+bool AIBrain::IsDiscovered(int index) const
 {
 	Grid& grid = GameLoop::Instance().GetGrid();
 	auto indexPair = grid.TwoDIndex(index);
@@ -252,7 +242,7 @@ bool AIBrain::IsDiscovered(int index) const
 	return knownNodes[indexPair.first][indexPair.second].discovered;
 }
 
-bool AIBrain::IsDiscovered(int row, int col) const 
+bool AIBrain::IsDiscovered(int row, int col) const
 {
 	return knownNodes[row][col].discovered;
 }
@@ -300,8 +290,9 @@ void AIBrain::UpdatePopulationTasks(float dt)
 		}
 
 		Task* t = nullptr;
-		if (agent->holding == ItemType::None)
-			t = taskAllocator->GetNext(TaskType::Gather);
+		t = taskAllocator->GetNext(TaskType::Gather);
+		if (!t)
+			t = taskAllocator->GetNext(TaskType::Transport);
 
 		if (t)
 		{
@@ -518,8 +509,8 @@ PathNode* AIBrain::GetBuildingLocation(BuildingType type)
 
 	Building* b = build->GetBuildingTemplate(type);
 
-	auto filter = [this](const PathNode* node) 
-		{ 
+	auto filter = [this](const PathNode* node)
+		{
 			return NodeToKnown(node).resource == PathNode::ResourceType::None;
 		};
 
@@ -590,8 +581,8 @@ void Agent::Update(float dt)
 						GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
 					}
 					bool valid = true;
-					ai->GoTo(currentTask->building->targetNode, valid);
 					approaching = nullptr;
+					workTimer = 0;
 					currentTask->type = TaskType::Transport;
 				}
 				else
@@ -643,7 +634,7 @@ void Agent::Update(float dt)
 
 				if (DistanceBetween(ai->GetPosition(), resourceFromBuilding->targetNode->position) < ai->GetRadius() * 2)
 				{
-					if (currentTask->building->TakeResource(currentTask->resource))
+					if (resourceFromBuilding->TakeResource(currentTask->resource))
 					{
 						Logger::Instance().Log("Took " + ToString(currentTask->resource) + " from " + ToString(resourceFromBuilding->type) + "\n");
 						holding = currentTask->resource;
@@ -657,13 +648,19 @@ void Agent::Update(float dt)
 				{
 					bool valid = true;
 					ai->GoTo(resourceFromBuilding->targetNode, valid);
+					return;
 				}
 			}
-			if (DistanceBetween(ai->GetPosition(), currentTask->building->targetNode->position) < ai->GetRadius() * 2)
+
+			Building* resourceToBuilding = brain->GetBuild()->GetBuilding(currentTask->resourceTo);
+			if (resourceToBuilding == nullptr)
+				return;
+
+			if (DistanceBetween(ai->GetPosition(), resourceToBuilding->targetNode->position) < ai->GetRadius() * 2)
 			{
 				Logger::Instance().Log("delivered " + ToString(holding) + "\n");
 
-				if (currentTask->building->AddResource(holding))
+				if (resourceToBuilding->AddResource(holding))
 				{
 					holding = ItemType::None;
 				}
@@ -679,7 +676,7 @@ void Agent::Update(float dt)
 			else
 			{
 				bool valid = true;
-				ai->GoTo(currentTask->building->targetNode, valid);
+				ai->GoTo(resourceToBuilding->targetNode, valid);
 			}
 		}
 	}
@@ -692,7 +689,7 @@ void Agent::Update(float dt)
 		if (!ai->GetPathDestination() || brain->IsDiscovered(ai->GetPathDestination()))
 		{
 			PathNode* node = brain->FindClosestFrontier(this);
-			if (!node)
+			if (node == nullptr || node == NULL)
 			{
 				brain->discoveredAll = true;
 				ai->SetState(GameAI::State::STATE_IDLE, "found all nodes");
@@ -712,7 +709,7 @@ void Agent::Update(float dt)
 	{
 		if (currentTask->type == TaskType::ForgeWeapon)
 		{
-			OperateBuilding(currentTask->building, ItemType::Sword, 60, dt);
+			OperateBuilding(currentTask->resourceTo, ItemType::Sword, 60, dt);
 		}
 	}
 
@@ -720,7 +717,7 @@ void Agent::Update(float dt)
 	{
 		if (currentTask->type == TaskType::MineCoal)
 		{
-			OperateBuilding(currentTask->building, ItemType::Coal, 30, dt);
+			OperateBuilding(currentTask->resourceTo, ItemType::Coal, 30, dt);
 		}
 	}
 
@@ -728,24 +725,25 @@ void Agent::Update(float dt)
 	{
 		if (currentTask->type == TaskType::Smelt)
 		{
-			OperateBuilding(currentTask->building, ItemType::Iron_Bar, 30, dt);
+			OperateBuilding(currentTask->resourceTo, ItemType::Iron_Bar, 30, dt);
 		}
 	}
 
 	if (type == PopulationType::Builder)
 	{
-		if (currentTask->building == nullptr)
+		Building* building = brain->GetBuild()->FromUnderConstruction(currentTask->resourceTo);
+		if (building == nullptr)
 			return;
-		if (currentTask->building->built)
+		if (building->built)
 		{
 			currentTask->completed = true;
 			busy = false;
 			return;
 		}
-		if (DistanceBetween(ai->GetPosition(), currentTask->building->targetNode->position) < ai->GetRadius() * 2)
+		if (DistanceBetween(ai->GetPosition(), building->targetNode->position) < ai->GetRadius() * 2)
 		{
-			currentTask->building->WorkOnBuilding(dt);
-			if (currentTask->building->productionTime <= 0)
+			building->WorkOnBuilding(dt);
+			if (building->productionTime <= 0)
 			{
 				currentTask->completed = true;
 				currentTask = nullptr;
@@ -755,17 +753,21 @@ void Agent::Update(float dt)
 		}
 		else
 		{
-			if (currentTask->building->HasCost())
+			if (building->HasCost())
 				return;
 
 			bool valid = true;
-			ai->GoTo(currentTask->building->targetNode, valid);
+			ai->GoTo(building->targetNode, valid);
 		}
 	}
 }
 
-void Agent::OperateBuilding(Building* building, ItemType toProduce, float timeToProduce, float dt)
+void Agent::OperateBuilding(BuildingType buildingType, ItemType toProduce, float timeToProduce, float dt)
 {
+	Building* building = brain->GetBuild()->GetBuilding(buildingType);
+	if (!building)
+		return;
+
 	if (DistanceBetween(ai->GetPosition(), building->targetNode->position) < ai->GetRadius() * 2)
 	{
 		std::vector<std::pair<ItemType, float>> lackingResources;
@@ -821,7 +823,7 @@ bool AIBrain::CanUseNode(const PathNode* node)
 	return k.walkable;
 }
 
-KnownNode& AIBrain::NodeToKnown(const PathNode* node) 
+KnownNode& AIBrain::NodeToKnown(const PathNode* node)
 {
 	Grid& grid = GameLoop::Instance().GetGrid();
 

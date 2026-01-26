@@ -57,7 +57,6 @@ PathNode* ResolveGoalNode(PathNode* desired, float agentRadius)
 #include "GameLoop.h"
 std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
-
 	PathNode* goalNode = ResolveGoalNode(endNode, agentRadius);
 	if (goalNode == nullptr)
 	{
