@@ -77,7 +77,7 @@ private:
 	void PickupNewTrained();
 	void FSM(float deltaTime);
 	void BuildBuilding(BuildingType b, PathNode* node = nullptr);
-	void GatherWood(int amount, float priority, Building* building);
+	void Gather(ItemType resource, int amount, float priority, Building* building);
 	void CheckDeath();
 
 	std::map<PopulationType, std::vector<Agent*>> populationMap;

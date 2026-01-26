@@ -139,7 +139,7 @@ void AIBrain::FSM(float dt)
 	//if (needs wood for b)
 	//{
 	//	Task t;
-	//	t.type = TaskType::GatherWood;
+	//	t.type = TaskType::Gather;
 	//	t.amount = 1;
 	//	t.buildingType = b.buildingType;
 	//	t.building = b;
@@ -164,13 +164,17 @@ void AIBrain::BuildBuilding(BuildingType b, PathNode* node)
 
 	Building* te = build->GetBuildingTemplate(b);
 
-	GatherWood(te->cost.resources[ItemType::Wood], 1.0f, toBuild);
+	for (auto e : te->cost.resources)
+	{
+		Gather(e.first, e.second, 1.0f, toBuild);
+	}
 }
 
-void AIBrain::GatherWood(int amount, float priority, Building* building)
+void AIBrain::Gather(ItemType resource, int amount, float priority, Building* building)
 {
 	Task t;
-	t.type = TaskType::GatherWood;
+	t.type = TaskType::Gather;
+	t.resource = ItemToResource(resource);
 	t.amount = amount;
 	t.building = building;
 	t.priority = priority;
@@ -296,7 +300,7 @@ void AIBrain::UpdatePopulationTasks(float dt)
 
 		Task* t = nullptr;
 		if (agent->holding == ItemType::None)
-			t = taskAllocator->GetNext(TaskType::GatherWood);
+			t = taskAllocator->GetNext(TaskType::Gather);
 
 		if (t)
 		{
@@ -538,17 +542,17 @@ void Agent::Update(float dt)
 
 	if (type == PopulationType::Worker)
 	{
-		if (currentTask->type == TaskType::GatherWood)
+		if (currentTask->type == TaskType::Gather)
 		{
-			if (brain->knownResources[PathNode::ResourceType::Wood].size() == 0)
+			PathNode::ResourceType resource = currentTask->resource;
+			if (brain->knownResources[resource].size() == 0)
 				return;
 
 			GameLoop& game = GameLoop::Instance();
 			Grid& grid = game.GetGrid();
 			std::vector<PathNode*> nodes;
-			grid.QueryNodes(ai->GetPosition(), ai->GetRadius() * 2, nodes, PathNode::ResourceType::Wood);
+			grid.QueryNodes(ai->GetPosition(), ai->GetRadius() * 2, nodes, resource);
 
-			// is close to resource
 			for (std::vector<PathNode*>::iterator it = nodes.begin(); it != nodes.end();)
 			{
 				if ((*it)->resourceAmount <= 0)
@@ -557,12 +561,13 @@ void Agent::Update(float dt)
 					it++;
 			}
 
+			// is close to resource
 			if (!nodes.empty())
 			{
 				if (workTimer >= 30.0f)
 				{
 					PathNode* node = nodes[0];
-					holding = ItemType::Wood;
+					holding = ResourceToItem(resource);
 
 					node->resourceAmount--;
 					if (node->resourceAmount <= 0)
@@ -570,13 +575,23 @@ void Agent::Update(float dt)
 						node->resource = PathNode::ResourceType::None;
 						int r, c;
 						grid.WorldToGrid(node->position, r, c);
+						brain->knownNodes[r][c].resource = PathNode::ResourceType::None;
+						for (std::vector<PathNode*>::iterator it = brain->knownResources[resource].begin(); it != brain->knownResources[resource].end();)
+						{
+							if (*it == node)
+							{
+								it = brain->knownResources[resource].erase(it);
+								continue;
+							}
+							else
+								it++;
+						}
 						GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
-
 					}
 					bool valid = true;
 					ai->GoTo(currentTask->building->targetNode, valid);
+					approaching = nullptr;
 					currentTask->type = TaskType::Transport;
-					//busy = false;
 				}
 				else
 				{
@@ -600,7 +615,7 @@ void Agent::Update(float dt)
 
 				auto filter = [this](const PathNode* node) { return brain->CanUseNode(node); };
 
-				std::vector<PathNode*> path = p->RequestClosestPath(currentNode, brain->KnownNodesOfType(PathNode::ResourceType::Wood), outDist, ai->GetRadius(), filter);
+				std::vector<PathNode*> path = p->RequestClosestPath(currentNode, brain->KnownNodesOfType(resource), outDist, ai->GetRadius(), filter);
 				if (path.empty())
 				{
 					return;

@@ -14,7 +14,7 @@ struct Agent;
 
 // High-level enums and data structures used by the managers and AIBrain
 enum class ItemType { Wood, Coal, Iron, Iron_Bar, Sword, None };
-enum class TaskType { None, Explore, GatherWood, Build, Transport, MineCoal, ForgeWeapon, Smelt };
+enum class TaskType { None, Explore, Gather, Build, Transport, MineCoal, ForgeWeapon, Smelt };
 
 enum class PopulationType
 {
@@ -45,7 +45,7 @@ struct Task
 {
 	int id = -1;
 	TaskType type = TaskType::None;
-	std::vector<std::pair<ItemType, float>> resources;
+	PathNode::ResourceType resource;
 	float time = 0;
 	float priority = 0.0f;
 	BuildingType buildingType;
@@ -375,7 +375,7 @@ static std::string ToString(TaskType type)
 		return "nothing";
 	case (TaskType::Explore):
 		return "explore";
-	case (TaskType::GatherWood):
+	case (TaskType::Gather):
 		return "gather resources";
 	case (TaskType::Build):
 		return "build";
