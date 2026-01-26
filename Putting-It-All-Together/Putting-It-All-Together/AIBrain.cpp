@@ -28,6 +28,10 @@ AIBrain::AIBrain()
 
 	Vec2 startingPos = startPos;
 	PathNode* startNode = grid.GetNodeAt(startingPos);
+	homeNode = startNode;
+	KnownNode& kNode = NodeToKnown(homeNode);
+	kNode.resource = PathNode::ResourceType::Building;
+
 	double gameTime = GameLoop::Instance().GetGameTime();
 	ExploreNode(startNode, grid, gameTime);
 	for (auto n : startNode->neighbors)
@@ -152,14 +156,11 @@ void AIBrain::BuildBuilding(BuildingType b, PathNode* node)
 	}
 
 	Building* toBuild = build->QueueBuilding(b, node);
-	Task t;
-	t.type = TaskType::Build;
-	t.buildingType = b;
-	t.priority = 1.0f;
-	t.building = toBuild;
-	taskAllocator->AddTask(t);
 
-	node->resource = PathNode::ResourceType::Building;
+
+	KnownNode& kNode = NodeToKnown(node);
+
+	kNode.resource = PathNode::ResourceType::Building;
 
 	Building* te = build->GetBuildingTemplate(b);
 
@@ -238,7 +239,7 @@ void AIBrain::ExploreNode(PathNode* node, Grid& grid, double& gameTime)
 	GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
 }
 
-bool AIBrain::IsDiscovered(int index) const
+bool AIBrain::IsDiscovered(int index) const 
 {
 	Grid& grid = GameLoop::Instance().GetGrid();
 	auto indexPair = grid.TwoDIndex(index);
@@ -246,22 +247,17 @@ bool AIBrain::IsDiscovered(int index) const
 	return knownNodes[indexPair.first][indexPair.second].discovered;
 }
 
-bool AIBrain::IsDiscovered(int row, int col) const
+bool AIBrain::IsDiscovered(int row, int col) const 
 {
 	return knownNodes[row][col].discovered;
 }
 
-bool AIBrain::IsDiscovered(const PathNode* node) const
+bool AIBrain::IsDiscovered(const PathNode* node)
 {
 	if (!node)
 		return false;
 
-	Grid& grid = GameLoop::Instance().GetGrid();
-
-	int r, c;
-	grid.WorldToGrid(node->position, r, c);
-
-	KnownNode kNode = knownNodes[r][c];
+	KnownNode& kNode = NodeToKnown(node);
 
 	return kNode.discovered;
 }
@@ -517,12 +513,15 @@ PathNode* AIBrain::GetBuildingLocation(BuildingType type)
 
 	Building* b = build->GetBuildingTemplate(type);
 
-	auto filter = [this](const PathNode* node) { return node->resource == PathNode::ResourceType::None; };
+	auto filter = [this](const PathNode* node) 
+		{ 
+			return NodeToKnown(node).resource == PathNode::ResourceType::None;
+		};
 
 	GameLoop& game = GameLoop::Instance();
 	Grid& grid = game.GetGrid();
 
-	PathNode* buildNode = BFS(grid.GetNodeAt(startPos), knownNodes, filter);
+	PathNode* buildNode = BFS(homeNode, knownNodes, filter);
 
 	if (buildNode == nullptr)
 		Logger::Instance().Log("Buildnode set to null for " + ToString(type) + "\n");
@@ -569,8 +568,7 @@ void Agent::Update(float dt)
 					if (node->resourceAmount <= 0)
 					{
 						node->resource = PathNode::ResourceType::None;
-						int r;
-						int c;
+						int r, c;
 						grid.WorldToGrid(node->position, r, c);
 						GameLoop::Instance().renderer->MarkNodeDirty(grid.Index(c, r));
 
@@ -610,11 +608,9 @@ void Agent::Update(float dt)
 
 				PathNode* closest = path.front();
 
-				int r;
-				int c;
-				grid.WorldToGrid(closest->position, r, c);
+				KnownNode& kNode = brain->NodeToKnown(closest);
 
-				brain->knownNodes[r][c].resourceAmount--;
+				kNode.resourceAmount--;
 				approaching = closest;
 
 				bool valid = true;
@@ -635,6 +631,10 @@ void Agent::Update(float dt)
 				currentTask->completed = true;
 				busy = false;
 				currentTask = nullptr;
+
+				bool valid = true;
+
+				ai->GoTo(brain->homeNode, valid);
 			}
 			else
 			{
@@ -747,4 +747,14 @@ bool AIBrain::CanUseNode(const PathNode* node)
 		return false;
 
 	return k.walkable;
+}
+
+KnownNode& AIBrain::NodeToKnown(const PathNode* node) 
+{
+	Grid& grid = GameLoop::Instance().GetGrid();
+
+	int r, c;
+	grid.WorldToGrid(node->position, r, c);
+
+	return knownNodes[r][c];
 }

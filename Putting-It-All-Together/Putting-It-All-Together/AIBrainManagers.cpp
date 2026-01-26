@@ -114,6 +114,13 @@ void BuildManager::Update(float dt)
 			Logger::Instance().Log(std::string("All resources added for: ") + ToString((*it)->type) + "\n");
 			(*it)->cost -= buildingTemplates[(*it)->type]->cost;
 
+			Task t;
+			t.type = TaskType::Build;
+			t.buildingType = (*it)->type;
+			t.priority = 1.0f;
+			t.building = *it;
+			owner->GetAllocator()->AddTask(t);
+
 			it = queue.erase(it);
 		}
 		else

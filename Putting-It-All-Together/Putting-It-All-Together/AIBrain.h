@@ -59,13 +59,16 @@ public:
 	std::vector<std::vector<KnownNode>> knownNodes;
 	bool IsDiscovered(int index) const;
 	bool IsDiscovered(int row, int col) const;
-	bool IsDiscovered(const PathNode* node) const;
+	bool IsDiscovered(const PathNode* node);
 
 	PathNode* FindClosestFrontier(Agent* agent);
+
+	PathNode* homeNode;
 
 	bool discoveredAll = false;
 	std::vector<PathNode*> KnownNodesOfType(PathNode::ResourceType type);
 	bool CanUseNode(const PathNode* node);
+	KnownNode& NodeToKnown(const PathNode* node);
 	std::map<PathNode::ResourceType, std::vector<PathNode*>> knownResources;
 private:
 	Agent* GetBestAgent(PopulationType type, PathNode* node);
