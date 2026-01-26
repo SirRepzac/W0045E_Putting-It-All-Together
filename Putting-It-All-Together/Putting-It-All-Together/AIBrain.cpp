@@ -174,9 +174,10 @@ void AIBrain::Gather(ItemType resource, int amount, float priority, Building* bu
 {
 	Task t;
 	t.type = TaskType::Gather;
-	t.resource = ItemToResource(resource);
+	t.resource = resource;
 	t.amount = amount;
 	t.building = building;
+	t.resourceFrom = manufacturing->GetBuildingForType(resource);
 	t.priority = priority;
 	taskAllocator->AddTask(t);
 }
@@ -544,7 +545,7 @@ void Agent::Update(float dt)
 	{
 		if (currentTask->type == TaskType::Gather)
 		{
-			PathNode::ResourceType resource = currentTask->resource;
+			PathNode::ResourceType resource = ItemToResource(currentTask->resource);
 			if (brain->knownResources[resource].size() == 0)
 				return;
 
@@ -634,6 +635,30 @@ void Agent::Update(float dt)
 		}
 		else if (currentTask->type == TaskType::Transport)
 		{
+			if (holding == ItemType::None)
+			{
+				Building* resourceFromBuilding = brain->GetBuild()->GetBuilding(currentTask->resourceFrom);
+				if (resourceFromBuilding == nullptr)
+					return;
+
+				if (DistanceBetween(ai->GetPosition(), resourceFromBuilding->targetNode->position) < ai->GetRadius() * 2)
+				{
+					if (currentTask->building->TakeResource(currentTask->resource))
+					{
+						Logger::Instance().Log("Took " + ToString(currentTask->resource) + " from " + ToString(resourceFromBuilding->type) + "\n");
+						holding = currentTask->resource;
+					}
+					else
+					{
+						return;
+					}
+				}
+				else
+				{
+					bool valid = true;
+					ai->GoTo(resourceFromBuilding->targetNode, valid);
+				}
+			}
 			if (DistanceBetween(ai->GetPosition(), currentTask->building->targetNode->position) < ai->GetRadius() * 2)
 			{
 				Logger::Instance().Log("delivered " + ToString(holding) + "\n");

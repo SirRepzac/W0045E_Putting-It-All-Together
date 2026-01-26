@@ -45,7 +45,7 @@ struct Task
 {
 	int id = -1;
 	TaskType type = TaskType::None;
-	PathNode::ResourceType resource;
+	ItemType resource;
 	float time = 0;
 	float priority = 0.0f;
 	BuildingType buildingType;
@@ -53,6 +53,7 @@ struct Task
 	float amount = 1;
 	bool completed = false;
 	Building* building;
+	BuildingType resourceFrom;
 };
 
 struct Cost
@@ -176,6 +177,8 @@ public:
 	void PlaceBuilding();
 	void RemoveBuilding();
 	bool AddResource(ItemType resource);
+
+	bool TakeResource(ItemType resource);
 
 	PathNode* targetNode;
 	BuildingType type;
@@ -442,24 +445,5 @@ static std::string ToString(PopulationType type)
 		return "builder";
 	default:
 		return "nothing";
-	}
-}
-
-static void ResourceProductionType(const std::vector<std::pair<ItemType, float>>& lackingResources,
-	std::vector<std::pair<ItemType, float>>& gatherResources,
-	std::vector<std::pair<ItemType, float>>& manufactureItems)
-{
-	for (std::pair<ItemType, float> resource : lackingResources)
-	{
-		if (resource.first == ItemType::Wood)
-			gatherResources.push_back(resource);
-		else if (resource.first == ItemType::Iron)
-			gatherResources.push_back(resource);
-		else if (resource.first == ItemType::Coal)
-			gatherResources.push_back(resource);
-		else if (resource.first == ItemType::Iron_Bar)
-			manufactureItems.push_back(resource);
-		else if (resource.first == ItemType::Sword)
-			manufactureItems.push_back(resource);
 	}
 }

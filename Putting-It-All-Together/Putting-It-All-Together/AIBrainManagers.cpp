@@ -227,6 +227,16 @@ bool Building::AddResource(ItemType resource)
 	return true;
 }
 
+bool Building::TakeResource(ItemType resource)
+{
+	if (inventory.resources[resource] > 0)
+	{
+		inventory.resources[resource]--;
+		return true;
+	}
+	return false;
+}
+
 // ManufacturingManager
 ManufacturingManager::ManufacturingManager(AIBrain* owner) : owner(owner)
 {
