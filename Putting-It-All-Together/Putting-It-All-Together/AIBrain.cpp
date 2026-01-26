@@ -44,7 +44,7 @@ AIBrain::AIBrain()
 	{
 		GameAI* ai = workers[i];
 
-		RNG rng(SeedFromNode(i));
+		RNG rng(Seed(i));
 
 		// Random in [-1, 1]
 		float u = rng.NextFloat01() * 2.0f - 1.0f;

@@ -239,7 +239,7 @@ void Renderer::RenderFrame()
 
 		if (node.resource == PathNode::ResourceType::Wood)
 		{
-			RNG rng(SeedFromNode(n));
+			RNG rng(Seed(n));
 
 			const int treeCount = node.resourceAmount;
 			const float radius = std::min(node.width, node.height) * 0.1f;
@@ -252,18 +252,18 @@ void Renderer::RenderFrame()
 				float u = rng.NextFloat01();
 				float v = rng.NextFloat01();
 
-				float margin = radius * 1.2f;
+				float margin = radius;
 
-				float posX = node.xPos + margin + u * (node.width - margin * 2.0f);
-				float posY = node.yPos + margin + v * (node.height - margin * 2.0f);
+				float posX = node.xPos + u * (node.width - margin);
+				float posY = node.yPos + v * (node.height - margin);
 
-				float sizeJitter = 0.90f + rng.NextFloat01() * 0.3f;
-				RenderCircle(posX, posY, radius * sizeJitter, scale);
+				RenderCircle(posX, posY, radius, scale);
 			}
 		}
-		else if (node.resource == PathNode::ResourceType::Building)
+		if (node.resource == PathNode::ResourceType::Iron)
 		{
-			RNG rng(SeedFromNode(n));
+			Grid& grid = GameLoop::Instance().GetGrid();
+			RNG rng(Seed(n));
 
 			SDL_Color ct = ToSDLColor(ResourceColor(node.resource));
 			SDL_SetRenderDrawColor(renderer_, ct.r, ct.g, ct.b, ct.a);
@@ -271,15 +271,38 @@ void Renderer::RenderFrame()
 			float u = rng.NextFloat01();
 			float v = rng.NextFloat01();
 
-			float margin = 1.2f;
+			float w = (rng.NextFloat01() * 0.25f + 0.5f) * node.width;
+			float h = (rng.NextFloat01() * 0.1f + 0.9f) * w;
 
-			float posX = node.xPos + margin + u * (node.width - margin * 2.0f);
-			float posY = node.yPos + margin + v * (node.height - margin * 2.0f);
+			float marginX = w;
+			float marginY = h;
 
-			float width = GameLoop::Instance().GetGrid().cellSize;
-			float height = GameLoop::Instance().GetGrid().cellSize * 0.8f;
+			float posX = node.xPos + u * (node.width - marginX);
+			float posY = node.yPos + v * (node.height - marginY);
 
-			RenderRect(posX, posY, width, height, true, scale);
+			RenderRect(posX, posY, w, h, true, scale);
+		}
+		else if (node.resource == PathNode::ResourceType::Building)
+		{
+			Grid& grid = GameLoop::Instance().GetGrid();
+			RNG rng(Seed(n));
+
+			SDL_Color ct = ToSDLColor(ResourceColor(node.resource));
+			SDL_SetRenderDrawColor(renderer_, ct.r, ct.g, ct.b, ct.a);
+
+			float u = rng.NextFloat01();
+			float v = rng.NextFloat01();
+
+			float w = (rng.NextFloat01() * 0.25f + 0.5f) * node.width;
+			float h = (rng.NextFloat01() * 0.2f + 0.8f) * w;
+
+			float marginX = w;
+			float marginY = h;
+
+			float posX = node.xPos + u * (node.width - marginX);
+			float posY = node.yPos + v * (node.height - marginY);
+
+			RenderRect(posX, posY, w, h, true, scale);
 		}
 
 	}

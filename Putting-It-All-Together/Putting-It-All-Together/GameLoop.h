@@ -11,6 +11,7 @@
 #include "Grid.h"
 #include "Pathfinder.h"
 #include "AIBrain.h"
+#include "random.h"
 
 #include <SDL3/SDL.h>
 
@@ -58,6 +59,8 @@ public:
 	void RefreshScreen();
 
 	AIBrain* brain = nullptr;
+
+	RNG random;
 
 private:
 	GameLoop();

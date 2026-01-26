@@ -15,9 +15,9 @@
 
 class AIBrain;
 
-static uint32_t SeedFromNode(int nodeId)
+static uint32_t Seed(int i)
 {
-    uint32_t x = (uint32_t)nodeId;
+    uint32_t x = (uint32_t)i;
     x ^= 0x9E3779B9;
     x *= 0x85EBCA6B;
     x ^= x >> 13;

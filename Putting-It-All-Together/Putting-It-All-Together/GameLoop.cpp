@@ -48,7 +48,7 @@ void GameLoop::RefreshScreen()
 	}
 }
 
-GameLoop::GameLoop() : grid(WORLD_WIDTH, WORLD_HEIGHT, 100, LoadMap())
+GameLoop::GameLoop() : grid(WORLD_WIDTH, WORLD_HEIGHT, 100, LoadMap()), random(Seed(1))
 {
 	Movable::baseRadius = grid.cellSize / 5;
 
@@ -137,7 +137,27 @@ void GameLoop::InitializeGame()
 	renderer->AddOverlay(&debugOverlay);
 
 	CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
+
 	brain = new AIBrain();
+
+	int amountOfIron = 60;
+	for (int i = 0; i < amountOfIron; i++)
+	{
+		bool setIron = false;
+		while (!setIron)
+		{
+			int c = random.NextFloat01() * grid.GetCols();
+			int r = random.NextFloat01() * grid.GetRows();
+
+			PathNode& node = grid.GetNodes()[r][c];
+			if (node.resource == PathNode::ResourceType::None && !node.IsObstacle() && !brain->NodeToKnown(&node).discovered)
+			{
+				node.resource = PathNode::ResourceType::Iron;
+				node.resourceAmount = 1;
+				setIron = true;
+			}
+		}
+	}
 }
 
 std::vector<GameAI*> GameLoop::CreateAI(int count, Vec2 startingPosition)
