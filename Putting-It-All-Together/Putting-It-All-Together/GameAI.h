@@ -38,15 +38,13 @@ public:
 
 	void Update(float deltaTime) override;
 
-	bool CanUseNode(const PathNode* node) const;
-
 	bool CanGoTo(PathNode* destination, float& dist);
 
 	void GoTo(PathNode* destination, bool& isPathValid, bool ignoreFog = false);
 
-	void GoToClosest(PathNode::ResourceType destinationType, bool& isPathValid);
+	//void GoToClosest(PathNode::ResourceType destinationType, bool& isPathValid);
 
-	void GoToClosest(std::vector<PathNode::ResourceType> destinationTypes, bool& isPathValid);
+	//void GoToClosest(std::vector<PathNode::ResourceType> destinationTypes, bool& isPathValid);
 
 	void SetTarget(Vec2 target) { targetPos = target; }
 	void SetTarget(Movable* target) { targetMovable = target; }

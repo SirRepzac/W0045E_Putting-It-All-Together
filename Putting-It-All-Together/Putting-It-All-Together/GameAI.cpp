@@ -72,28 +72,11 @@ void GameAI::Update(float deltaTime)
 	Movable::Update(deltaTime);
 }
 
-bool GameAI::CanUseNode(const PathNode* node) const
-{
-	if (!connectedBrain)
-		return !node->IsObstacle();
-
-	Grid& grid = GameLoop::Instance().GetGrid();
-
-	int r, c;
-	grid.WorldToGrid(node->position, r, c);
-
-	KnownNode* k = &connectedBrain->knownNodes[r][c];
-
-	// Option A: unknown = blocked
-	if (!k->discovered)
-		return false;
-
-	return k->walkable;
-}
-
 bool GameAI::CanGoTo(PathNode* destination, float& dist)
 {
 	if (!destination)
+		return false;
+	if (!connectedBrain)
 		return false;
 
 	GameLoop& game = GameLoop::Instance();
@@ -102,7 +85,7 @@ bool GameAI::CanGoTo(PathNode* destination, float& dist)
 	float pathDist = 0;
 	std::vector<PathNode*> path;
 
-	auto filter = [this](const PathNode* node) { return CanUseNode(node); };
+	auto filter = [this](const PathNode* node) { return connectedBrain->CanUseNode(node); };
 
 	path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter);
 	dist = pathDist;
@@ -126,13 +109,16 @@ void GameAI::GoTo(PathNode* destination, bool &isPathValid, bool ignoreFog)
 	float pathDist = 0;
 	std::vector<PathNode*> path;
 
-	auto filter = [this](const PathNode* node) { return CanUseNode(node); };
-	auto filter2 = [this](const PathNode* node) { return !node->IsObstacle(); };
-
-	if (!ignoreFog)
+	if (!ignoreFog && connectedBrain)
+	{
+		auto filter = [this](const PathNode* node) { return connectedBrain->CanUseNode(node); };
 		path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter);
+	}
 	else
-		path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter2);
+	{
+		auto filter = [this](const PathNode* node) { return !node->IsObstacle(); };
+		path = pathfinder->RequestPath(currNode, destination, pathDist, radius, filter);
+	}
 
 	if (path.empty())
 	{
@@ -145,33 +131,58 @@ void GameAI::GoTo(PathNode* destination, bool &isPathValid, bool ignoreFog)
 	isPathValid = true;
 }
 
-void GameAI::GoToClosest(PathNode::ResourceType destinationType, bool& isPathValid)
-{
-	GoToClosest(std::vector<PathNode::ResourceType>{destinationType}, isPathValid);
-}
-void GameAI::GoToClosest(std::vector<PathNode::ResourceType> destinationTypes, bool& isPathValid)
-{
-	if (destinationTypes.empty())
-		return;
-
-	GameLoop& game = GameLoop::Instance();
-	Pathfinder* pathfinder = game.pathfinder;
-	PathNode* currNode = game.GetGrid().GetNodeAt(position);
-	std::vector<PathNode*> path;
-	float dist = 0;
-
-	path = pathfinder->RequestClosestPath(currNode, destinationTypes, dist, radius, [this](const PathNode* node) { return CanUseNode(node); });
-
-	if (path.empty())
-	{
-		isPathValid = false;
-		return;
-	}
-
-	SetState(State::STATE_FOLLOW_PATH, "goto closest");
-	behaviour->SetPath(path);
-	isPathValid = true;
-}
+//void GameAI::GoToClosest(PathNode::ResourceType destinationType, bool& isPathValid)
+//{
+//	GoToClosest(std::vector<PathNode::ResourceType>{destinationType}, isPathValid);
+//}
+//void GameAI::GoToClosest(std::vector<PathNode::ResourceType> destinationTypes, bool& isPathValid)
+//{
+//	if (destinationTypes.empty())
+//		return;
+//
+//	GameLoop& game = GameLoop::Instance();
+//	Pathfinder* pathfinder = game.pathfinder;
+//	PathNode* currNode = game.GetGrid().GetNodeAt(position);
+//	std::vector<PathNode*> path;
+//	float dist = 0;
+//
+//	auto destinationFilter = [this, destinationTypes](const PathNode* node) 
+//		{ 
+//			auto isDesiredType = [&](const PathNode* n)
+//				{
+//					for (auto t : destinationTypes)
+//						if (n->resource == t)
+//							return true;
+//					return false;
+//				};
+//
+//			if (!connectedBrain)
+//				return isDesiredType(node);
+//
+//			if (!isDesiredType(node))
+//				return false;
+//
+//			Grid& grid = GameLoop::Instance().GetGrid();
+//
+//			int r, c;
+//			grid.WorldToGrid(node->position, r, c);
+//			KnownNode* k = &connectedBrain->knownNodes[r][c];
+//
+//			return k->resourceAmount > 0;
+//		};
+//
+//	path = pathfinder->RequestClosestPath(currNode, destinationFilter, dist, radius, [this](const PathNode* node) { return CanUseNode(node); });
+//
+//	if (path.empty())
+//	{
+//		isPathValid = false;
+//		return;
+//	}
+//
+//	SetState(State::STATE_FOLLOW_PATH, "goto closest");
+//	behaviour->SetPath(path);
+//	isPathValid = true;
+//}
 
 PathNode* GameAI::GetPathDestination()
 {

@@ -320,10 +320,14 @@ void GameLoop::UpdateRenderer()
 	{
 		std::string str1 = "Placing surface: " + ToString(currentPlacingType);
 		std::string str2 = "Placing resource: " + ToString(currentPlacingResourceType);
+		std::string str3 = "Game Speed: " + std::to_string(gameSpeed);
+		std::string str4 = "Time Passed: " + std::to_string(gameTime);
 
 		std::vector<std::string> overlay = {
 			str1,
-			str2
+			str2,
+			str3,
+			str4
 		};
 
 		renderer->SetOverlayLines(debugOverlay, overlay);

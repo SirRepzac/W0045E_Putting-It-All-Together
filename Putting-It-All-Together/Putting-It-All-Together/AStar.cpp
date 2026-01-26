@@ -72,6 +72,7 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 	std::priority_queue<OpenEntry, std::vector<OpenEntry>, OpenEntryCompare> openQueue;
 	std::unordered_set<PathNode*> closed;
 
+
 	// Initialize start node costs
 	NodeRecord& startRec = records[startNode];
 	startRec.gCost = 0.0f;
@@ -151,11 +152,12 @@ std::vector<PathNode*> AStar::FindPath(PathNode* startNode, PathNode* endNode, f
 	}
 
 	GameLoop::Instance().AddDebugEntity(goalNode->position, Renderer::Lime, 10);
+
 	outDist = -1;
 	return std::vector<PathNode*>();
 }
 
-std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<PathNode::ResourceType> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
+std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, const std::vector<PathNode*>& possibleEndNodes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
 	std::unordered_map<PathNode*, NodeRecord> records;
 
@@ -165,7 +167,7 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 	// Initialize start node costs
 	NodeRecord& startRec = records[startNode];
 	startRec.gCost = 0.0f;
-	startRec.hCost = 1;
+	startRec.hCost = BestHeuristic(startNode, possibleEndNodes);
 	startRec.fCost = startRec.gCost + startRec.hCost;
 	startRec.parent = nullptr;
 
@@ -178,38 +180,24 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 
 		PathNode* current = entry.node;
 
-
 		// Ignore stale queue entries
 		if (records[current].fCost != entry.f)
 			continue;
 
-		auto isDesiredType = [&](PathNode* n)
+		auto isDestination = [&](const PathNode* n)
 			{
-				for (auto t : endTypes)
-					if (n->resource == t)
+				for (PathNode* t : possibleEndNodes)
+					if (n == t)
 						return true;
 				return false;
 			};
 
-		// Found goal OR acceptable neighbor of goal
-		// Case 1: current node itself is the goal and reachable
-		if (isDesiredType(current) && current->resourceAmount > 0)
+		// Found goal
+		if (isDestination(current))
 		{
 			outDist = records.at(current).gCost;
 			return ReconstructPath(records, current);
 		}
-
-		//// Case 2: current is a reachable proxy next to a goal
-		//for (PathNode* n : current->neighbors)
-		//{
-		//	if (!isDesiredType(n) || n->resourceAmount <= 0)
-		//		continue;
-
-		//	// We intentionally DO NOT check clearance on the goal node
-		//	outDist = records.at(current).gCost;
-		//	return ReconstructPath(records, current);
-		//}
-
 
 		closed.insert(current);
 
@@ -254,7 +242,7 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 
 			rec.parent = current;
 			rec.gCost = tentativeG;
-			rec.hCost = 1;
+			rec.hCost = BestHeuristic(neighbor, possibleEndNodes);
 			rec.fCost = rec.gCost + rec.hCost;
 
 			openQueue.push({ neighbor, rec.fCost });
@@ -263,6 +251,18 @@ std::vector<PathNode*> AStar::FindClosestPath(PathNode* startNode, std::vector<P
 
 	outDist = -1;
 	return std::vector<PathNode*>();
+}
+
+float AStar::BestHeuristic(PathNode* a, std::vector<PathNode*> possibleb)
+{
+	float smallest = std::numeric_limits<float>::max();
+	for (PathNode* b : possibleb)
+	{
+		float h = Heuristic(a, b);
+		if (h < smallest)
+			smallest = h;
+	}
+	return smallest;
 }
 
 float AStar::Heuristic(PathNode* a, PathNode* b)
@@ -284,7 +284,7 @@ std::vector<PathNode*> AStar::RequestPath(PathNode* startNode, PathNode* endNode
 	return FindPath(startNode, endNode, outDist, agentRadius, canTraverse);
 }
 
-std::vector<PathNode*> AStar::RequestClosestPath(PathNode* startNode, std::vector<PathNode::ResourceType> endTypes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
+std::vector<PathNode*> AStar::RequestClosestPath(PathNode* startNode, const std::vector<PathNode*>& possibleEndNodes, float& outDist, float agentRadius, const NodeFilter& canTraverse)
 {
-	return FindClosestPath(startNode, endTypes, outDist, agentRadius, canTraverse);
+	return FindClosestPath(startNode, possibleEndNodes, outDist, agentRadius, canTraverse);
 }

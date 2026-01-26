@@ -13,6 +13,8 @@ struct KnownNode
 	bool discovered = false;
 	bool walkable = false;   // belief
 	float lastSeenTime = 0;
+	float resourceAmount = 0;
+	PathNode::ResourceType resource = PathNode::ResourceType::None;
 };
 
 class AIBrain;
@@ -28,6 +30,7 @@ public:
 	float workTimer = 0.0f;
 	ItemType holding = ItemType::None;
 	AIBrain* brain = nullptr;
+	PathNode* approaching = nullptr;
 
 	void Update(float dt);
 };
@@ -61,13 +64,16 @@ public:
 	PathNode* FindClosestFrontier(Agent* agent);
 
 	bool discoveredAll = false;
+	std::vector<PathNode*> KnownNodesOfType(PathNode::ResourceType type);
+	bool CanUseNode(const PathNode* node);
+	std::map<PathNode::ResourceType, std::vector<PathNode*>> knownResources;
 private:
 	Agent* GetBestAgent(PopulationType type, PathNode* node);
 	void UpdatePopulationTasks(float dt);
 	void TrainUnit(PopulationType type);
 	void PickupNewTrained();
 	void FSM(float deltaTime);
-	void BuildBuilding(BuildingType b, PathNode* node);
+	void BuildBuilding(BuildingType b, PathNode* node = nullptr);
 	void GatherWood(int amount, float priority, Building* building);
 	void CheckDeath();
 
@@ -86,11 +92,11 @@ private:
 	std::unique_ptr<PopulationManager> population;
 	std::unique_ptr<TaskAllocator> taskAllocator;
 
-	std::map<ItemType, std::vector<PathNode*>> knownResources;
 
 	int prevTaskId = -1;
 
 	PathNode* GetBuildingLocation(BuildingType type);
+
 
 	std::map<BuildingType, PathNode*> buildingLoc;
 

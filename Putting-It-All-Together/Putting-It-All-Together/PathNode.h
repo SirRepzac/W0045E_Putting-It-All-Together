@@ -7,7 +7,7 @@ class PathNode
 {
 public:
 	// Types of special nodes
-	enum Type
+	static enum Type
 	{
 		Nothing = -1,
 		TypeStart = 0,
@@ -18,7 +18,7 @@ public:
 		TypeEnd,
 	};
 
-	enum ResourceType
+	static enum ResourceType
 	{
 		None = -1,
 		ResourceStart = 0,
@@ -33,20 +33,17 @@ public:
 	PathNode() : position(Vec2()) {}
 
 	int id = -1; // Id of the node
-	Vec2 position; // Position of the node
-
-	std::vector<PathNode*> neighbors; // Adjecent nodes
 
 	float size = 0; // radius of this node
+	float clearance = 0;
+	float resourceAmount = 0;
 
 	Type type = Type::Nothing;
 
 	ResourceType resource = ResourceType::None;
-	float resourceAmount = 0;
 
-	char displayLetter = ' ';
-
-	float clearance = 0;
+	std::vector<PathNode*> neighbors; // Adjecent nodes
+	Vec2 position; // Position of the node
 
 	bool IsObstacle() const
 	{
