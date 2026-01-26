@@ -136,6 +136,8 @@ void BuildManager::Update(float dt)
 			Logger::Instance().Log(std::string("Built: ") + ToString((*it)->type) + "\n");
 			(*it)->built = true;
 
+			owner->GetAllocator()->AddTask((*it)->activationTask);
+
 			it = underConstruction.erase(it);
 		}
 		else
@@ -242,6 +244,7 @@ ManufacturingManager::ManufacturingManager(AIBrain* owner) : owner(owner)
 {
 	productTemplate[ItemType::Iron_Bar] = new Product(ItemType::Iron_Bar);
 	productTemplate[ItemType::Sword] = new Product(ItemType::Sword);
+	productTemplate[ItemType::Coal] = new Product(ItemType::Coal);
 }
 
 void ManufacturingManager::Update(float dt)

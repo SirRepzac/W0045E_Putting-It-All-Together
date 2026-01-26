@@ -147,6 +147,11 @@ public:
 			c.resources[ItemType::Wood] = 10;
 			cost = c;
 			productionTime = 60.0f;
+
+			Task t;
+			t.building = this;
+			t.type = TaskType::MineCoal;
+			activationTask = t;
 		}
 		else if (build == BuildingType::Forge)
 		{
@@ -155,6 +160,11 @@ public:
 			c.resources[ItemType::Wood] = 10;
 			cost = c;
 			productionTime = 180.0f;
+
+			Task t;
+			t.building = this;
+			t.type = TaskType::ForgeWeapon;
+			activationTask = t;
 		}
 		else if (build == BuildingType::Smelter)
 		{
@@ -162,6 +172,11 @@ public:
 			c.resources[ItemType::Wood] = 10;
 			cost = c;
 			productionTime = 120.0f;
+
+			Task t;
+			t.building = this;
+			t.type = TaskType::Smelt;
+			activationTask = t;
 		}
 		else if (build == BuildingType::Training_Camp)
 		{
@@ -169,6 +184,10 @@ public:
 			c.resources[ItemType::Wood] = 10;
 			cost = c;
 			productionTime = 120.0f;
+
+			Task t;
+			t.type = TaskType::None;
+			activationTask = t;
 		}
 	}
 
@@ -184,6 +203,7 @@ public:
 	BuildingType type;
 	bool built = false;
 	Cost inventory;
+	Task activationTask;
 private:
 };
 

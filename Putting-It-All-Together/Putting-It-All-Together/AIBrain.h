@@ -33,6 +33,7 @@ public:
 	PathNode* approaching = nullptr;
 
 	void Update(float dt);
+	void OperateBuilding(Building* building, ItemType toProduce, float timeToProduce, float dt);
 };
 
 
@@ -51,6 +52,7 @@ public:
 	BuildManager* GetBuild() { return build.get(); }
 	PopulationManager* GetMilitary() { return population.get(); }
 	TaskAllocator* GetAllocator() { return taskAllocator.get(); }
+	ManufacturingManager* GetManafacturing() { return manufacturing.get(); }
 
 	void UpdateDiscovered();
 

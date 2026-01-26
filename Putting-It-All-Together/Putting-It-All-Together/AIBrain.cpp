@@ -710,17 +710,26 @@ void Agent::Update(float dt)
 
 	if (type == PopulationType::ArmSmith)
 	{
-
+		if (currentTask->type == TaskType::ForgeWeapon)
+		{
+			OperateBuilding(currentTask->building, ItemType::Sword, 60, dt);
+		}
 	}
 
 	if (type == PopulationType::Coal_Miner)
 	{
-
+		if (currentTask->type == TaskType::MineCoal)
+		{
+			OperateBuilding(currentTask->building, ItemType::Coal, 30, dt);
+		}
 	}
 
 	if (type == PopulationType::Smelter)
 	{
-
+		if (currentTask->type == TaskType::Smelt)
+		{
+			OperateBuilding(currentTask->building, ItemType::Iron_Bar, 30, dt);
+		}
 	}
 
 	if (type == PopulationType::Builder)
@@ -751,8 +760,31 @@ void Agent::Update(float dt)
 
 			bool valid = true;
 			ai->GoTo(currentTask->building->targetNode, valid);
-
 		}
+	}
+}
+
+void Agent::OperateBuilding(Building* building, ItemType toProduce, float timeToProduce, float dt)
+{
+	if (DistanceBetween(ai->GetPosition(), building->targetNode->position) < ai->GetRadius() * 2)
+	{
+		std::vector<std::pair<ItemType, float>> lackingResources;
+		Product* manafacturingTemplate = brain->GetManafacturing()->GetProductTemplate(toProduce);
+		if (manafacturingTemplate->CanAfford(building->inventory, lackingResources, 1))
+		{
+			workTimer += dt;
+		}
+		if (workTimer >= timeToProduce)
+		{
+			workTimer = 0;
+			manafacturingTemplate->RemoveResources(building->inventory, 1);
+			building->AddResource(toProduce);
+		}
+	}
+	else
+	{
+		bool valid = true;
+		ai->GoTo(building->targetNode, valid);
 	}
 }
 
