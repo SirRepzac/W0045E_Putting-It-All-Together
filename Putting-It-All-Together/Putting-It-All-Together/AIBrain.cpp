@@ -90,8 +90,14 @@ AIBrain::~AIBrain()
 
 void AIBrain::Think(float deltaTime)
 {
-	if (populationMap[PopulationType::Soldier].size() >= 20)
+	if (finishedGoal)
 		return;
+
+	if (populationMap[PopulationType::Soldier].size() >= 20)
+	{
+		finishedGoal = true;
+		return;
+	}
 
 	lifeTime += deltaTime;
 

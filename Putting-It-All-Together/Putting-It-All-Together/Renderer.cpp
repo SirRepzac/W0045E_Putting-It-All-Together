@@ -336,22 +336,22 @@ void Renderer::RenderFrame()
 		{
 			RenderCircle(e.x, e.y, e.radius, scale);
 
-			{
-				SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0);
+			//{
+			//	SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0);
 
-				int x1 = e.x;
-				int y1 = e.y;
-				int x2 = x1 + sinf(e.dirX) * e.radius * 1.5f * scale;
-				int y2 = y1 + sinf(e.dirY) * e.radius * 1.5f * scale;
+			//	int x1 = e.x;
+			//	int y1 = e.y;
+			//	int x2 = x1 + sinf(e.dirX) * e.radius * 1.5f * scale;
+			//	int y2 = y1 + sinf(e.dirY) * e.radius * 1.5f * scale;
 
-				SDL_RenderLine(
-					renderer_,
-					x1 * scale,
-					y1 * scale,
-					x2 * scale,
-					y2 * scale
-				);
-			}
+			//	SDL_RenderLine(
+			//		renderer_,
+			//		x1 * scale,
+			//		y1 * scale,
+			//		x2 * scale,
+			//		y2 * scale
+			//	);
+			//}
 		}
 		for (Overlay* overlayPtr : overlays)
 		{

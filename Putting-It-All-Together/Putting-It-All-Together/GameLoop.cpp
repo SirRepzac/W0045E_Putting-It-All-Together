@@ -136,7 +136,7 @@ void GameLoop::InitializeGame()
 	debugOverlay.position = (Vec2(0, 0));
 	renderer->AddOverlay(&debugOverlay);
 
-	CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
+	//CreatePlayer(Vec2(WORLD_WIDTH / 2, WORLD_HEIGHT / 2));
 
 	brain = new AIBrain();
 
@@ -296,10 +296,6 @@ void GameLoop::UpdateRenderer()
 		Vec2 p = ai->GetPosition();
 		Renderer::Entity e = Renderer::Entity::MakeCircle(p.x, p.y, ai->GetRadius(), ai->GetColor(), true);
 
-		//Vec2 dir = ai->GetDirection();
-		//e.dirX = dir.x;
-		//e.dirY = dir.y;
-
 		ents.push_back(e);
 	}
 
@@ -327,20 +323,27 @@ void GameLoop::UpdateRenderer()
 	}
 
 	{
-		std::string str1 = "Placing surface: " + ToString(currentPlacingType);
-		std::string str2 = "Placing resource: " + ToString(currentPlacingResourceType);
+		//std::string str1 = "Placing surface: " + ToString(currentPlacingType);
+		//std::string str2 = "Placing resource: " + ToString(currentPlacingResourceType);
 		std::string str3 = "Game Speed: " + std::to_string(gameSpeed);
 		std::string str4 = "Time Passed: ";
+		std::string str5;
+
+
 		if (brain)
+		{
 			str4 += std::to_string(brain->lifeTime);
+			str5 = "Training 20 Soldiers: " + std::string(brain->finishedGoal ? "COMPLETE" : "INCOMPLETE");
+		}
 		else
 			str4 += std::to_string(gameTime);
 
 		std::vector<std::string> overlay = {
-			str1,
-			str2,
+			//str1,
+			//str2,
 			str3,
-			str4
+			str4,
+			str5
 		};
 
 		renderer->SetOverlayLines(debugOverlay, overlay);
@@ -399,13 +402,6 @@ void GameLoop::KeyPressed()
 	if (keyPressCooldown > 0)
 		return;
 
-	if (renderer->IsKeyDown(SDL_SCANCODE_G))
-	{
-		DEBUG_MODE = !DEBUG_MODE;
-		keyPressCooldown = 0.2f;
-		Logger::Instance().Log(std::string("Debug mode: ") + (DEBUG_MODE ? "ON\n" : "OFF\n"));
-	}
-
 	if (renderer->IsKeyDown(SDL_SCANCODE_H))
 	{
 		USE_FOG_OF_WAR = !USE_FOG_OF_WAR;
@@ -419,14 +415,7 @@ void GameLoop::KeyPressed()
 	{
 		gameSpeed = (gameSpeed == 0.0f ? 1.0f : 0.0f);
 		keyPressCooldown = 0.2f;
-		Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
-	}
-
-	if (renderer->IsKeyDown(SDL_SCANCODE_TAB))
-	{
-		placingResource = !placingResource;
-		keyPressCooldown = 0.2f;
-		Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(placingResource) + "\n");
+		Logger::Instance().Log("Paused \n");
 	}
 
 	if (renderer->IsKeyDown(SDL_SCANCODE_UP))
@@ -456,6 +445,23 @@ void GameLoop::KeyPressed()
 			keyPressCooldown = 0.2f;
 			Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
 		}
+	}
+
+	if (!DEBUG_MODE)
+		return;
+
+	if (renderer->IsKeyDown(SDL_SCANCODE_G))
+	{
+		DEBUG_MODE = !DEBUG_MODE;
+		keyPressCooldown = 0.2f;
+		Logger::Instance().Log(std::string("Debug mode: ") + (DEBUG_MODE ? "ON\n" : "OFF\n"));
+	}
+
+	if (renderer->IsKeyDown(SDL_SCANCODE_TAB))
+	{
+		placingResource = !placingResource;
+		keyPressCooldown = 0.2f;
+		Logger::Instance().Log(std::string("Placing Resources: ") + (placingResource ? "ON\n" : "OFF\n"));
 	}
 
 	if (renderer->IsKeyDown(SDL_SCANCODE_1))
@@ -504,6 +510,9 @@ void GameLoop::KeyPressed()
 
 void GameLoop::LMBMouseClickAction(Vec2 clickPos)
 {
+	if (!DEBUG_MODE)
+		return;
+
 	PathNode* node = grid.GetNodeAt(clickPos);
 
 	if (node == nullptr)
@@ -530,6 +539,8 @@ void GameLoop::LMBMouseClickAction(Vec2 clickPos)
 
 void GameLoop::RMBMouseClickAction(Vec2 clickPos)
 {
+	if (!DEBUG_MODE)
+		return;
 	PathNode* node = grid.GetNodeAt(clickPos);
 
 	for (auto ai : aiList)

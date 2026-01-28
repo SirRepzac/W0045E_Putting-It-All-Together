@@ -66,6 +66,8 @@ public:
 
 	double lifeTime = 0;
 
+	bool finishedGoal = false;
+
 	int discoveredAllTicks = 0;
 	bool discoveredAll = false;
 	std::vector<PathNode*> KnownNodesOfType(PathNode::ResourceType type);
