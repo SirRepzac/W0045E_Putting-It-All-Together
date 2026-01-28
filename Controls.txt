@@ -1,0 +1,4 @@
+Up_Arrow -> Speed up
+Down_Arrow -> Speed down
+Space -> Set game speed to 0
+H -> Hide fog of war
