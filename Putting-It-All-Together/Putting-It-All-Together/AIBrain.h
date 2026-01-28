@@ -45,9 +45,6 @@ public:
 
 	void Think(float deltaTime);
 
-	// Desires
-	void AddDesire(const std::string& name, TaskType taskType, ItemType primaryResource, int targetCount, float importance = 1.0f);
-
 	ResourceManager* GetResources() { return resources.get(); }
 	BuildManager* GetBuild() { return build.get(); }
 	PopulationManager* GetPopulation() { return population.get(); }
@@ -89,12 +86,6 @@ private:
 	std::map<PopulationType, std::vector<Agent*>> populationMap;
 	std::vector<Agent*> agents;
 
-	float materialPriority = 1.0f;
-	float laborPriority = 1.0f;
-	float constructionPriority = 1.0f;
-
-	std::vector<Desire> desires;
-
 	std::unique_ptr<ResourceManager> resources;
 	std::unique_ptr<BuildManager> build;
 	std::unique_ptr<ManufacturingManager> manufacturing;
@@ -103,12 +94,7 @@ private:
 
 	std::map<PopulationType, float> tryTraining;
 
-	int prevTaskId = -1;
-
 	PathNode* GetBuildingLocation(BuildingType type);
-
-
-	std::map<BuildingType, PathNode*> buildingLoc;
 
 	int frames = 0;
 

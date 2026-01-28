@@ -24,9 +24,6 @@ AIBrain::AIBrain()
 	resources->Add(ItemType::Coal, 0);
 	resources->Add(ItemType::Iron, 0);
 
-	// Desire: 20 soldiers
-	//AddDesire("HaveSoldiers", TaskType::TrainUnit, ItemType::None, 20, 1.0f);
-
 	int rows = grid.GetRows();
 	int cols = grid.GetCols();
 	knownNodes.assign(rows, std::vector<KnownNode>(cols));
@@ -240,16 +237,6 @@ void AIBrain::Gather(ItemType resource, int amount, float priority)
 	t.resourceTo = BuildingType::Storage;
 	t.priority = priority;
 	taskAllocator->AddTask(t);
-}
-
-void AIBrain::AddDesire(const std::string& name, TaskType taskType, ItemType primaryResource, int targetCount, float importance)
-{
-	Desire d;
-	d.name = name;
-	d.fulfillTaskType = taskType;
-	d.targetCount = targetCount;
-	d.importance = importance;
-	desires.push_back(d);
 }
 
 void AIBrain::UpdateDiscovered()
@@ -616,8 +603,9 @@ PathNode* AIBrain::FindClosestFrontier(Agent* agent)
 
 PathNode* AIBrain::GetBuildingLocation(BuildingType type)
 {
-	if (buildingLoc.find(type) != buildingLoc.end())
-		return buildingLoc.at(type);
+	if (build->GetBuilding(type))
+		if (build->GetBuilding(type)->targetNode)
+			return build->GetBuilding(type)->targetNode;
 
 	Building* b = build->GetBuildingTemplate(type);
 
@@ -634,7 +622,6 @@ PathNode* AIBrain::GetBuildingLocation(BuildingType type)
 	if (buildNode == nullptr)
 		Logger::Instance().Log("Buildnode set to null for " + ToString(type) + "\n");
 
-	buildingLoc[type] = buildNode;
 	return buildNode;
 }
 

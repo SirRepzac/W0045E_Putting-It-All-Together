@@ -18,18 +18,6 @@ int TaskAllocator::AddTask(const Task& t)
 		tasks[t.type].push_back(copy);
 	}
 	
-	//std::cout << "Added task: " << ToString(t.type);
-	//if (t.resource != ItemType::None)
-	//	std::cout << " of type " << ToString(t.resource) << " x" << t.amount;
-	//if (t.building)
-	//	std::cout << " to building " << ToString(t.building->type);
-	//else if (t.resourceTo != BuildingType::None)
-	//	std::cout << " to building " << ToString(t.resourceTo);
-	//if (t.resourceFrom != BuildingType::None)
-	//	std::cout << " from " << ToString(t.resourceFrom) << "\n";
-	//else
-	//	std::cout << " from gathering \n";
-	
 	return nextId;
 }
 
@@ -202,9 +190,6 @@ Building* BuildManager::GetBuilding(const BuildingType type) const
 		if (b->type == type)
 			return b;
 
-	// building not found
-	Logger::Instance().Log("Failed to get building \n");
-	std::cout << "failed to get building" << std::endl;
 	return nullptr;
 }
 
@@ -212,9 +197,7 @@ Building* BuildManager::GetBuildingTemplate(const BuildingType type) const
 {
 	if (buildingTemplates.count(type) > 0)
 		return buildingTemplates.at(type);
-	// building not found
-	Logger::Instance().Log("Failed to get building template \n");
-	std::cout << "failed to get building template" << std::endl;
+
 	return nullptr;
 }
 
@@ -375,9 +358,7 @@ PopulationUpgrade* PopulationManager::GetTemplate(PopulationType type)
 {
 	if (unitTemplates.count(type) > 0)
 		return unitTemplates.at(type);
-	// building not found
-	Logger::Instance().Log("Failed to get soldier template \n");
-	std::cout << "failed to get soldier template" << std::endl;
+
 	return nullptr;
 }
 
