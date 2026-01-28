@@ -492,9 +492,9 @@ bool AIBrain::TrainUnit(PopulationType type)
 	if (!camp)
 		return false;
 
-	if (templat->CanAfford(camp->inventory, lackingResources))
+	if (templat->CanAfford(camp->inventory, lackingResources, 1))
 	{
-		templat->RemoveResources(camp->inventory);
+		templat->RemoveResources(camp->inventory, 1);
 		population->TrainUnit(type, agent);
 		populationMap[PopulationType::Worker].erase(it);
 		return true;

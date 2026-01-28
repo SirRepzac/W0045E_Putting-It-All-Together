@@ -101,7 +101,7 @@ public:
 	int AddTask(const Task& t);
 	void Update(float dt);
 	Task* GetNext(TaskType type);
-	void Clear() { tasks.clear(); }
+	void Clear();
 
 	std::map<TaskType, std::vector<Task*>> tasks;
 	std::vector<Task*> currentTasks;
@@ -127,9 +127,9 @@ private:
 class Costable
 {
 public:
-	bool CanAfford(Cost availableResources, std::vector<std::pair<ItemType, float>>& lackingResources, int amountToAfford = 1);
+	bool CanAfford(const Cost& availableResources, std::vector<std::pair<ItemType, float>>& lackingResources, int amountToAfford);
 
-	bool RemoveResources(Cost availableResources, int amount = 1);
+	bool RemoveResources(Cost& availableResources, int amount);
 
 	float productionTime;
 

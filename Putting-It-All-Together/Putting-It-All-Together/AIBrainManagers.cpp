@@ -77,6 +77,23 @@ Task* TaskAllocator::GetNext(TaskType type)
 	return bestTask;
 }
 
+void TaskAllocator::Clear()
+{
+	// delete current tasks
+	for (Task* t : currentTasks)
+		delete t;
+	currentTasks.clear();
+
+	// delete queued tasks
+	for (auto& kv : tasks)
+	{
+		for (Task* t : kv.second)
+			delete t;
+		kv.second.clear();
+	}
+	tasks.clear();
+}
+
 // ResourceManager
 ResourceManager::ResourceManager(AIBrain* owner) : owner(owner) {}
 void ResourceManager::Update(float dt)
@@ -364,34 +381,35 @@ PopulationUpgrade* PopulationManager::GetTemplate(PopulationType type)
 	return nullptr;
 }
 
-bool Costable::CanAfford(Cost availableResources, std::vector<std::pair<ItemType, float>>& lackingResources, int amountToAfford)
+bool Costable::CanAfford(const Cost& availableResources,
+	std::vector<std::pair<ItemType, float>>& lackingResources,
+	int amountToAfford)
 {
 	bool canAfford = true;
 	for (auto& res : cost.resources)
 	{
-		if (availableResources.resources[res.first] < res.second * amountToAfford)
+		float required = res.second * amountToAfford;
+		auto it = availableResources.resources.find(res.first);
+		float have = (it != availableResources.resources.end()) ? it->second : 0.0f;
+		if (have < required)
 		{
-			lackingResources.push_back(std::pair<ItemType, float>(res.first, res.second * amountToAfford));
+			lackingResources.emplace_back(res.first, required - have);
 			canAfford = false;
 		}
 	}
-
 	return canAfford;
 }
 
-bool Costable::RemoveResources(Cost availableResources, int amount)
+bool Costable::RemoveResources(Cost& availableResources, int amount)
 {
 	std::vector<std::pair<ItemType, float>> lacking;
 	if (!CanAfford(availableResources, lacking, amount))
-	{
 		return false;
-	}
 
-	for (auto res : cost.resources)
+	for (auto& res : cost.resources)
 	{
 		availableResources.resources[res.first] -= res.second * amount;
 	}
-
 	return true;
 }
 
