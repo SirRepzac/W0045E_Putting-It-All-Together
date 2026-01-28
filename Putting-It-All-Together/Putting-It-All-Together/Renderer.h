@@ -140,16 +140,16 @@ public:
             static_cast<uint32_t>(b);
     }
 
-    static inline uint32_t Black = 0x000000;
-    static inline uint32_t White = 0xFFFFFF;
-    static inline uint32_t Red = 0xFF0000;
-    static inline uint32_t Lime = 0x00FF00;
-    static inline uint32_t Blue = 0x0000FF;
-    static inline uint32_t Olive = 0x808000;
-    static inline uint32_t Purple = 0x800080;
-    static inline uint32_t Maroon = 0x800000;
-    static inline uint32_t Yellow = 0xFFFF00;
-    static inline uint32_t DarkGray = 0x575757;
+    static const uint32_t Black = 0x000000;
+    static const uint32_t White = 0xFFFFFF;
+    static const uint32_t Red = 0xFF0000;
+    static const uint32_t Lime = 0x00FF00;
+    static const uint32_t Blue = 0x0000FF;
+    static const uint32_t Olive = 0x808000;
+    static const uint32_t Purple = 0x800080;
+    static const uint32_t Maroon = 0x800000;
+    static const uint32_t Yellow = 0xFFFF00;
+    static const uint32_t DarkGray = 0x575757;
 
     Renderer(int width, int height);
     ~Renderer();

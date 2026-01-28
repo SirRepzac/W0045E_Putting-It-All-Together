@@ -6,6 +6,9 @@
 #include "AIBrain.h"
 #include "random.h"
 
+#include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
+
 static SDL_Color ToSDLColor(uint32_t c)
 {
 	return {

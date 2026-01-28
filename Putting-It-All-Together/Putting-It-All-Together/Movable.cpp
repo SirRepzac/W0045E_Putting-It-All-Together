@@ -2,6 +2,12 @@
 #include "GameLoop.h"
 #include <cmath>
 
+Movable::Movable()
+{
+	radius = baseRadius;
+	weight = radius * radius * PI;
+}
+
 void Movable::Update(float deltaTime)
 {
 	GameLoop::Instance().GetGrid().UpdateMovable(this);

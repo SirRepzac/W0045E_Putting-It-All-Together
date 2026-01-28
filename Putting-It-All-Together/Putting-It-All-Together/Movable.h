@@ -7,6 +7,7 @@
 class Movable
 {
 public:
+	Movable();
 	virtual void Update(float deltaTime);
 	Vec2 GetPosition() { return position; };
 	Vec2 GetVelocity() { return velocity; };
@@ -37,8 +38,8 @@ protected:
 	Vec2 velocity;
 	Vec2 position;
 	Vec2 direction;
-	float radius = Movable::baseRadius;
-	float weight = radius * radius * PI;
+	float radius;
+	float weight;
 	std::string name;
 
 	Vec2 pushforce;

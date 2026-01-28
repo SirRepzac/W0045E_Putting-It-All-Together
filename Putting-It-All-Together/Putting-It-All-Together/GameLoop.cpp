@@ -8,6 +8,8 @@
 #include <sstream>
 #include <filesystem>
 #include "AIBrainManagers.h"
+#include "Movable.h"
+
 
 static std::string LoadDataFile(const std::string& filename)
 {
