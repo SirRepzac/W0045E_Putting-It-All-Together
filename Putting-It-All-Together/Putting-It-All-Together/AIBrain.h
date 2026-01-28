@@ -50,7 +50,7 @@ public:
 
 	ResourceManager* GetResources() { return resources.get(); }
 	BuildManager* GetBuild() { return build.get(); }
-	PopulationManager* GetMilitary() { return population.get(); }
+	PopulationManager* GetPopulation() { return population.get(); }
 	TaskAllocator* GetAllocator() { return taskAllocator.get(); }
 	ManufacturingManager* GetManafacturing() { return manufacturing.get(); }
 
@@ -67,6 +67,9 @@ public:
 
 	PathNode* homeNode;
 
+	double lifeTime = 0;
+
+	int discoveredAllTicks = 0;
 	bool discoveredAll = false;
 	std::vector<PathNode*> KnownNodesOfType(PathNode::ResourceType type);
 	bool CanUseNode(const PathNode* node);
@@ -75,9 +78,10 @@ public:
 private:
 	Agent* GetBestAgent(PopulationType type, PathNode* node);
 	void UpdatePopulationTasks(float dt);
-	void TrainUnit(PopulationType type);
+	bool TrainUnit(PopulationType type);
 	void PickupNewTrained();
 	void FSM(float deltaTime);
+	void UpdateSystemTasks(float dt);
 	void BuildBuilding(BuildingType b, PathNode* node = nullptr);
 	void Gather(ItemType resource, int amount, float priority);
 	void CheckDeath();
@@ -97,6 +101,7 @@ private:
 	std::unique_ptr<PopulationManager> population;
 	std::unique_ptr<TaskAllocator> taskAllocator;
 
+	std::map<PopulationType, float> tryTraining;
 
 	int prevTaskId = -1;
 

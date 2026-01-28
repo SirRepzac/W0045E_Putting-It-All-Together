@@ -178,6 +178,13 @@ Building* BuildManager::GetBuilding(const BuildingType type) const
 {
 	if (builtBuildings.count(type) > 0)
 		return builtBuildings.at(type);
+	for (auto b : underConstruction)
+		if (b->type == type)
+			return b;
+	for (auto b : queue)
+		if (b->type == type)
+			return b;
+
 	// building not found
 	Logger::Instance().Log("Failed to get building \n");
 	std::cout << "failed to get building" << std::endl;
@@ -303,6 +310,8 @@ BuildingType ManufacturingManager::GetBuildingForType(ItemType type)
 
 Product* ManufacturingManager::GetProductTemplate(ItemType type)
 {
+	if (productTemplate.find(type) == productTemplate.end())
+		return nullptr;
 	return productTemplate[type];
 }
 
@@ -321,7 +330,13 @@ void PopulationManager::Update(float dt)
 		if (it->second <= 0)
 		{
 			finishedUnits.push_back(it->first);
-			Logger::Instance().Log("Trained unit: " + ToString(it->first->type) + "\n");
+
+			Agent* a = it->first;
+
+			if (a->type == PopulationType::Soldier)
+				a->ai->SetColor(Renderer::Red);
+
+			Logger::Instance().Log("Trained unit: " + ToString(a->type) + "\n");
 			it = trainingQueue.erase(it);
 		}
 		else

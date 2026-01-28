@@ -14,7 +14,7 @@ struct Agent;
 
 // High-level enums and data structures used by the managers and AIBrain
 enum class ItemType { Wood, Coal, Iron, Iron_Bar, Sword, None };
-enum class TaskType { None, Explore, Gather, Build, Transport, MineCoal, ForgeWeapon, Smelt };
+enum class TaskType { None, Explore, Gather, Build, Transport, MineCoal, ForgeWeapon, Smelt, Train };
 
 enum class PopulationType
 {
@@ -55,6 +55,8 @@ struct Task
 
 	BuildingType resourceTo;
 	BuildingType resourceFrom;
+
+	PopulationType unit;
 };
 
 struct Cost
@@ -187,7 +189,10 @@ public:
 			productionTime = 120.0f;
 
 			Task t;
-			t.type = TaskType::None;
+			t.type = TaskType::Train;
+			t.amount = 20;
+			t.priority = 100;
+			t.unit = PopulationType::Soldier;
 			activationTask = t;
 		}
 	}
@@ -271,6 +276,13 @@ public:
 			c.resources[ItemType::Coal] = 2;
 			cost = c;
 			productionTime = 60.0f;
+		}
+		else if (type == ItemType::Coal)
+		{
+			Cost c;
+			c.resources[ItemType::Wood] = 2;
+			cost = c;
+			productionTime = 30.0f;
 		}
 	}
 

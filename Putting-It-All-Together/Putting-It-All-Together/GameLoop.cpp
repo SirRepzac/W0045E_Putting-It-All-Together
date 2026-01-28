@@ -317,21 +317,10 @@ void GameLoop::UpdateRenderer()
 
 	if (brain)
 	{
-
-			//std::string str1 = "Wood: " + std::to_string(brain->GetResources()->Get(ItemType::Wood));
-			//std::string str2 = "Iron: " + std::to_string(brain->GetResources()->Get(ItemType::Iron));
-			//std::string str3 = "Coal: " + std::to_string(brain->GetResources()->Get(ItemType::Coal));
-			//std::string str4 = "Iron_Bar: " + std::to_string(brain->GetResources()->Get(ItemType::Iron_Bar));
-			//std::string str5 = "Swords: " + std::to_string(brain->GetResources()->Get(ItemType::Sword));
-			std::string str7 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
+			std::string str1 = "FPS: " + std::to_string(static_cast<int>(currentFPS));
 
 			std::vector<std::string> overlay = {
-				//str1,
-				//str2,
-				//str3,
-				//str4,
-				//str5,
-				str7
+				str1
 			};
 
 			renderer->SetOverlayLines(resourceOverlay, overlay);
@@ -341,7 +330,11 @@ void GameLoop::UpdateRenderer()
 		std::string str1 = "Placing surface: " + ToString(currentPlacingType);
 		std::string str2 = "Placing resource: " + ToString(currentPlacingResourceType);
 		std::string str3 = "Game Speed: " + std::to_string(gameSpeed);
-		std::string str4 = "Time Passed: " + std::to_string(gameTime);
+		std::string str4 = "Time Passed: ";
+		if (brain)
+			str4 += std::to_string(brain->lifeTime);
+		else
+			str4 += std::to_string(gameTime);
 
 		std::vector<std::string> overlay = {
 			str1,
@@ -440,7 +433,10 @@ void GameLoop::KeyPressed()
 	{
 		if (gameSpeed < 75) // max 75x speed or game starts breaking
 		{
-			gameSpeed += 5;
+			if (gameSpeed == 1)
+				gameSpeed = 5;
+			else
+				gameSpeed += 5;
 			keyPressCooldown = 0.2f;
 			Logger::Instance().Log(std::string("Game speed set to: ") + std::to_string(gameSpeed) + "\n");
 		}
@@ -449,7 +445,11 @@ void GameLoop::KeyPressed()
 	{
 		if (gameSpeed > 0)
 		{
-			gameSpeed -= 5;
+			if (gameSpeed == 5)
+				gameSpeed = 1;
+			else
+				gameSpeed -= 5;
+
 			if (gameSpeed < 0)
 				gameSpeed = 0;
 

@@ -23,6 +23,8 @@ public:
 
 	uint32_t GetColor() { return color; }
 
+	void SetColor(uint32_t color) { this->color = color; }
+
 	int cellX = -1;
 	int cellY = -1;
 

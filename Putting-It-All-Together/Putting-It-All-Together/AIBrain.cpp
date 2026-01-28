@@ -93,6 +93,11 @@ AIBrain::~AIBrain()
 
 void AIBrain::Think(float deltaTime)
 {
+	if (populationMap[PopulationType::Soldier].size() >= 20)
+		return;
+
+	lifeTime += deltaTime;
+
 	// update managers
 	resources->Update(deltaTime);
 	build->Update(deltaTime);
@@ -109,6 +114,7 @@ void AIBrain::FSM(float dt)
 	frames++;
 
 	UpdatePopulationTasks(dt);
+	UpdateSystemTasks(dt);
 
 	int i = frames % agents.size();
 
@@ -125,6 +131,42 @@ void AIBrain::FSM(float dt)
 
 	UpdateDiscovered();
 	PickupNewTrained();
+}
+
+void AIBrain::UpdateSystemTasks(float dt)
+{
+	Task* t = taskAllocator->GetNext(TaskType::Train);
+
+	if (t)
+	{
+		PopulationUpgrade* unit = GetPopulation()->GetTemplate(t->unit);
+		for (auto u : unit->cost.resources)
+		{
+			Gather(u.first, u.second, t->priority);
+
+			Task tr;
+			tr.type = TaskType::Transport;
+			tr.resource = u.first;
+			tr.amount = u.second;
+			tr.resourceFrom = BuildingType::Storage;
+			tr.resourceTo = BuildingType::Training_Camp;
+			tr.priority = tr.priority;
+			taskAllocator->AddTask(tr);
+
+			tryTraining[unit->type]++;
+		}
+	}
+
+	for (auto i : tryTraining)
+	{
+		for (int j = 0; j < i.second; j++)
+		{
+			if (TrainUnit(i.first))
+			{
+				tryTraining[i.first]--;
+			}
+		}
+	}
 }
 
 void AIBrain::BuildBuilding(BuildingType b, PathNode* node)
@@ -146,6 +188,15 @@ void AIBrain::BuildBuilding(BuildingType b, PathNode* node)
 	for (auto e : te->cost.resources)
 	{
 		Gather(e.first, e.second, 1.0f);
+
+		Task t;
+		t.type = TaskType::Transport;
+		t.resource = e.first;
+		t.amount = e.second;
+		t.resourceFrom = BuildingType::Storage;
+		t.resourceTo = b;
+		t.priority = 1.0f;
+		taskAllocator->AddTask(t);
 	}
 }
 
@@ -158,9 +209,28 @@ void AIBrain::Gather(ItemType resource, int amount, float priority)
 	{
 		for (auto c : p->cost.resources)
 		{
-			// Currently some more "advanced" things are added to gather (iron_bar and coal), this is not intended.
-			Gather(c.first, c.second, priority + 1);
+			Gather(c.first, c.second * amount, priority + 1);
+
+			Task t;
+			t.type = TaskType::Transport;
+			t.resource = c.first;
+			t.amount = c.second * amount;
+			t.resourceFrom = BuildingType::Storage;
+			t.resourceTo = manufacturing->GetBuildingForType(resource);
+			t.priority = priority + 1;
+			taskAllocator->AddTask(t);
 		}
+
+		Task t;
+		t.type = TaskType::Transport;
+		t.resource = resource;
+		t.amount = amount;
+		t.resourceFrom = manufacturing->GetBuildingForType(resource);
+		t.resourceTo = BuildingType::Storage;
+		t.priority = priority + 2;
+		taskAllocator->AddTask(t);
+
+		return;
 	}
 
 	Task t;
@@ -198,6 +268,8 @@ void AIBrain::UpdateDiscovered()
 		if (currentNode->IsObstacle())
 			continue;
 		visible = currentNode->neighbors;
+
+		ExploreNode(currentNode, grid, gameTime);
 
 		for (PathNode* node : visible)
 		{
@@ -386,7 +458,7 @@ void AIBrain::UpdatePopulationTasks(float dt)
 	}
 }
 
-void AIBrain::TrainUnit(PopulationType type)
+bool AIBrain::TrainUnit(PopulationType type)
 {
 	Agent* agent = nullptr;
 	std::vector<Agent*>::iterator it;
@@ -402,18 +474,33 @@ void AIBrain::TrainUnit(PopulationType type)
 	}
 
 	if (it == populationMap[PopulationType::Worker].end())
-		return;
+		return false;
 
 	auto templat = population->GetTemplate(type);
 
-	std::vector<std::pair<ItemType, float>> lackingResources;
-
-	if (templat->CanAfford(resources->inventory, lackingResources))
+	if (!templat->HasCost())
 	{
-		templat->RemoveResources(resources->inventory);
 		population->TrainUnit(type, agent);
 		populationMap[PopulationType::Worker].erase(it);
+		return true;
 	}
+
+	std::vector<std::pair<ItemType, float>> lackingResources;
+
+	Building* camp = build->GetBuilding(BuildingType::Training_Camp);
+
+	if (!camp)
+		return false;
+
+	if (templat->CanAfford(camp->inventory, lackingResources))
+	{
+		templat->RemoveResources(camp->inventory);
+		population->TrainUnit(type, agent);
+		populationMap[PopulationType::Worker].erase(it);
+		return true;
+	}
+
+	return false;
 }
 
 void AIBrain::PickupNewTrained()
@@ -441,7 +528,7 @@ void AIBrain::CheckDeath()
 	}
 }
 
-static PathNode* BFS(PathNode* startNode, std::vector<std::vector<KnownNode>>& knownNodes, std::function<bool(const PathNode*)> filter)
+static PathNode* BFS(PathNode* startNode, std::vector<std::vector<KnownNode>>& knownNodes, std::function<bool(const PathNode*)> filter, std::function<float(const PathNode*)> bias = {})
 {
 	GameLoop& game = GameLoop::Instance();
 	Grid& grid = game.GetGrid();
@@ -451,18 +538,14 @@ static PathNode* BFS(PathNode* startNode, std::vector<std::vector<KnownNode>>& k
 	int sr, sc;
 	grid.WorldToGrid(start->position, sr, sc);
 
-	if (!knownNodes[sr][sc].discovered)
-	{
-		// ensure at least current node is known
-		knownNodes[sr][sc].discovered = true;
-		knownNodes[sr][sc].walkable = !start->IsObstacle();
-	}
-
 	std::queue<PathNode*> q;
 	std::unordered_set<PathNode*> visited;
 
 	q.push(start);
 	visited.insert(start);
+
+	std::vector<PathNode*> possibleEnd;
+	bool ended = false;
 
 	while (!q.empty())
 	{
@@ -471,8 +554,14 @@ static PathNode* BFS(PathNode* startNode, std::vector<std::vector<KnownNode>>& k
 
 		if (filter(current))
 		{
-			return current;
+			if (bias == NULL)
+				return current;
+
+			possibleEnd.push_back(current);
+			ended = true;
 		}
+		if (ended)
+			continue;
 
 		for (PathNode* n : current->neighbors)
 		{
@@ -487,6 +576,27 @@ static PathNode* BFS(PathNode* startNode, std::vector<std::vector<KnownNode>>& k
 			}
 		}
 	}
+
+
+	if (possibleEnd.size() == 0)
+		return nullptr;
+	if (possibleEnd.size() == 1)
+		return possibleEnd.at(0);
+
+	float bestScore = 0;
+	PathNode* best = nullptr;
+
+	for (auto n : possibleEnd)
+	{
+		float score = bias(n);
+		if (score > bestScore)
+		{
+			bestScore = score;
+			best = n;
+		}
+	}
+
+	return best;
 }
 
 // most often return top left frontier node
@@ -494,12 +604,14 @@ PathNode* AIBrain::FindClosestFrontier(Agent* agent)
 {
 	auto filter = [this](const PathNode* node) { return !IsDiscovered(node) && !node->IsObstacle(); };
 
+	auto bias = [this](const PathNode* node) { return 100000 - DistanceBetween(homeNode->position, node->position); };
+
 	GameLoop& game = GameLoop::Instance();
 	Grid& grid = game.GetGrid();
 
 	PathNode* start = grid.GetNodeAt(agent->ai->GetPosition());
 
-	return BFS(start, knownNodes, filter);
+	return BFS(start, knownNodes, filter, bias);
 }
 
 PathNode* AIBrain::GetBuildingLocation(BuildingType type)
@@ -689,10 +801,14 @@ void Agent::Update(float dt)
 		if (!ai->GetPathDestination() || brain->IsDiscovered(ai->GetPathDestination()))
 		{
 			PathNode* node = brain->FindClosestFrontier(this);
-			if (node == nullptr || node == NULL)
+			if (node == nullptr)
 			{
-				brain->discoveredAll = true;
-				ai->SetState(GameAI::State::STATE_IDLE, "found all nodes");
+				brain->discoveredAllTicks++;
+				if (brain->discoveredAllTicks > 20)
+				{
+					brain->discoveredAll = true;
+					Logger::Instance().Log("discovered all nodes \n");
+				}
 				return;
 			}
 			bool valid = true;
